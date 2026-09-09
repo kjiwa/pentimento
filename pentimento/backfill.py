@@ -2,38 +2,76 @@
 
 from __future__ import annotations
 
-import datetime
-from pathlib import Path
-
 from pentimento import lineage, status
 from pentimento import plan as plan_module
 
 
-def _created_date(path: Path) -> str:
-    stat = path.stat()
-    ts = getattr(stat, "st_birthtime", stat.st_mtime)
-    return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).date().isoformat()
+def _created_date(target) -> str:
+    return target.started[:10]
 
 
-def derive_fields(target, candidates) -> dict[str, str]:
-    """Fields to backfill for `target`, never overwriting existing ones."""
+def _derive_project(target, sessions) -> str | None:
+    session = sessions.get(target.id)
+    if session and session.project:
+        return session.project
+    return target.fields.get("project")
+
+
+def _resolves_to_cycle(plan_id: str, parent_id: str, fields_by_id: dict[str, dict]) -> bool:
+    seen = {plan_id}
+    current = parent_id
+    while current is not None:
+        if current in seen:
+            return True
+        seen.add(current)
+        current = fields_by_id.get(current, {}).get("parent")
+    return False
+
+
+def derive_fields(target, candidates, sessions, *, rederive: bool = False) -> dict[str, str]:
+    """Fields to backfill for `target`.
+
+    When `rederive` is false, only fills fields absent from `target.fields`.
+    When true, `status`, `parent`, and `project` are recomputed and
+    overwritten; `intent` and `created` are never touched.
+    """
     fields = dict(target.fields)
     fields.setdefault("status", status.derive_status(target.body))
     fields.setdefault("intent", "unset")
-    fields.setdefault("created", _created_date(target.path))
+    fields.setdefault("created", _created_date(target))
 
-    if "parent" not in fields:
-        parent_id, conflict = lineage.derive_parent(target, candidates)
-        if parent_id and not conflict:
+    if rederive:
+        fields["status"] = status.derive_status(target.body)
+        project = _derive_project(target, sessions)
+        if project:
+            fields["project"] = project
+        parent_id = lineage.derive_parent(target, candidates, sessions)
+        if parent_id:
             fields["parent"] = parent_id
+        else:
+            fields.pop("parent", None)
+    elif "parent" not in fields:
+        parent_id = lineage.derive_parent(target, candidates, sessions)
+        if parent_id:
+            fields["parent"] = parent_id
+
     return fields
 
 
-def run(plans, *, dry_run: bool = False) -> list[str]:
+def run(plans, sessions=None, *, dry_run: bool = False, rederive: bool = False) -> list[str]:
     """Backfill frontmatter across `plans`. Returns ids that were changed."""
+    sessions = sessions or {}
+    new_fields_by_id = {target.id: derive_fields(target, plans, sessions, rederive=rederive) for target in plans}
+
+    for target in plans:
+        new_fields = new_fields_by_id[target.id]
+        parent_id = new_fields.get("parent")
+        if parent_id and _resolves_to_cycle(target.id, parent_id, new_fields_by_id):
+            new_fields.pop("parent", None)
+
     changed = []
     for target in plans:
-        new_fields = derive_fields(target, plans)
+        new_fields = new_fields_by_id[target.id]
         if new_fields == target.fields:
             continue
         changed.append(target.id)

@@ -13,7 +13,8 @@ def render(plans: list[plan_module.Plan]) -> str:
     for p in plans:
         by_status.setdefault(p.status, []).append(p)
 
-    for status in STATUS_ORDER:
+    remaining = sorted(status for status in by_status if status not in STATUS_ORDER)
+    for status in (*STATUS_ORDER, *remaining):
         group = sorted(by_status.get(status, []), key=lambda p: p.id)
         if not group:
             continue

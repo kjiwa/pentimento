@@ -6,9 +6,11 @@ import argparse
 import sys
 
 from pentimento import backfill as backfill_module
+from pentimento import check as check_module
 from pentimento import corpus
 from pentimento import index as index_module
 from pentimento import plan as plan_module
+from pentimento import sessions as sessions_module
 from pentimento import tree as tree_module
 
 STARRED_INTENTS = ("active", "queued")
@@ -56,8 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
     p_backfill.add_argument("--dry-run", action="store_true")
     p_backfill.add_argument("--quiet", action="store_true")
+    p_backfill.add_argument("--rederive", action="store_true")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
+
+    sub.add_parser("check", help="validate lineage and vocabulary; exits 1 on any finding")
 
     return parser
 
@@ -129,8 +134,9 @@ def cmd_set(args) -> int:
 
 
 def cmd_backfill(args) -> int:
-    plans = corpus.load_all()
-    changed = backfill_module.run(plans, dry_run=args.dry_run)
+    sessions = sessions_module.load()
+    plans = corpus.load_all(sessions=sessions)
+    changed = backfill_module.run(plans, sessions, dry_run=args.dry_run, rederive=args.rederive)
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)
@@ -143,6 +149,14 @@ def cmd_index(_args) -> int:
     return 0
 
 
+def cmd_check(_args) -> int:
+    plans = corpus.load_all()
+    findings = check_module.run(plans)
+    for finding in findings:
+        print(finding)
+    return 1 if findings else 0
+
+
 COMMANDS = {
     "list": cmd_list,
     "tree": cmd_tree,
@@ -150,6 +164,7 @@ COMMANDS = {
     "set": cmd_set,
     "backfill": cmd_backfill,
     "index": cmd_index,
+    "check": cmd_check,
 }
 
 

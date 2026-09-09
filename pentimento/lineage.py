@@ -1,78 +1,55 @@
-"""Derive a plan's parent from body references and filename-slug containment.
+"""Derive a plan's parent from explicit references, never guessed.
 
-Auto-generated plan filenames are `<slugified-prompt>-<adjective>-<noun>`.
-When a plan resumes an earlier one, the prompt (and therefore the slug)
-embeds a truncated prefix of the parent's own slug body -- see the design
-plan's example: `resume-planning-ses` inside a child's filename is a prefix
-of the parent's `resume-planning-session-users-kjiwa-clau`.
+Two signals, tried in order:
+1. Session prompt -- plan ids referenced as `<id>.md` in the originating
+   session's first user prompt.
+2. Plan preamble -- the same reference scan over the body above the first
+   `##` heading, so a parent's `## Progress` notes about executed children
+   can no longer make those children its parents.
 
-Two signals, never guessed when they disagree:
-1. Body reference to another plan's `<id>.md`; nearest preceding by mtime
-   wins among several matches.
-2. Filename slug containment: the longest prefix of another candidate's
-   slug body that appears verbatim inside this plan's id.
+Both are filtered by the same guards -- not the plan itself, same project,
+strictly earlier `started` -- and the newest surviving candidate wins.
 """
 
 from __future__ import annotations
 
 import re
 
-MIN_SLUG_PREFIX = 12
+
+def _preamble(body: str) -> str:
+    lines = body.split("\n")
+    for index, line in enumerate(lines):
+        if line.startswith("## "):
+            return "\n".join(lines[:index])
+    return body
 
 
-def slug_body(plan_id: str) -> str:
-    """Plan id with its trailing <adjective>-<noun> suffix stripped."""
-    tokens = plan_id.split("-")
-    if len(tokens) > 2:
-        return "-".join(tokens[:-2])
-    return plan_id
+def _referenced_ids(text: str, candidates) -> set[str]:
+    return {candidate.id for candidate in candidates if re.search(re.escape(candidate.id) + r"\.md", text)}
 
 
-def _body_reference_matches(plan, candidates):
-    matches = []
-    for candidate in candidates:
-        if candidate.id == plan.id:
+def _eligible(plan, candidate_ids, candidates, sessions):
+    by_id = {c.id: c for c in candidates}
+    eligible = []
+    for candidate_id in candidate_ids:
+        candidate = by_id.get(candidate_id)
+        if candidate is None or candidate.id == plan.id:
             continue
-        if re.search(re.escape(candidate.id) + r"\.md", plan.body):
-            matches.append(candidate)
-    return matches
-
-
-def _nearest_preceding(plan, matches):
-    preceding = [c for c in matches if c.mtime < plan.mtime]
-    pool = preceding or matches
-    return min(pool, key=lambda c: abs(plan.mtime - c.mtime))
-
-
-def _slug_containment_match(plan, candidates):
-    best = None
-    best_length = 0
-    for candidate in candidates:
-        if candidate.id == plan.id:
+        if candidate.project != plan.project:
             continue
-        body = slug_body(candidate.id)
-        for length in range(len(body), MIN_SLUG_PREFIX - 1, -1):
-            if body[:length] in plan.id:
-                if length > best_length:
-                    best = candidate
-                    best_length = length
-                break
-    return best
+        if not (candidate.started and plan.started and candidate.started < plan.started):
+            continue
+        eligible.append(candidate)
+    return eligible
 
 
-def derive_parent(plan, candidates) -> tuple[str | None, bool]:
-    """Returns (parent_id or None, conflict).
+def derive_parent(plan, candidates, sessions) -> str | None:
+    session = sessions.get(plan.id)
+    prompt_ids = _referenced_ids(session.prompt, candidates) if session else set()
+    preamble_ids = _referenced_ids(_preamble(plan.body), candidates)
 
-    conflict is True when both signals fire but disagree; parent is then
-    left unset rather than guessed.
-    """
-    body_matches = _body_reference_matches(plan, candidates)
-    body_parent = _nearest_preceding(plan, body_matches).id if body_matches else None
-    slug_match = _slug_containment_match(plan, candidates)
-    slug_parent = slug_match.id if slug_match else None
-
-    if body_parent and slug_parent:
-        if body_parent == slug_parent:
-            return body_parent, False
-        return None, True
-    return body_parent or slug_parent, False
+    for reference_ids in (prompt_ids, preamble_ids):
+        eligible = _eligible(plan, reference_ids, candidates, sessions)
+        if eligible:
+            return max(eligible, key=lambda c: c.started).id
+    return None

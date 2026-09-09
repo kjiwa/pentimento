@@ -56,11 +56,12 @@ off-vocabulary `status`/`intent` values -- and exits 1 on any finding.
 
 ```yaml
 ---
-status: not-started | partial | complete | superseded | unknown
-intent: active | queued | someday | abandoned | unset
-parent: some-other-plan-id   # omitted for roots
-project: platform             # omitted if undetermined
-created: 2026-09-08
+pentimento:
+  status: not-started | partial | complete | superseded | unknown
+  intent: active | queued | someday | abandoned | unset
+  parent: some-other-plan-id   # omitted for roots
+  project: platform             # omitted if undetermined
+  created: 2026-09-08
 ---
 ```
 
@@ -69,7 +70,10 @@ operator, so a half-implemented plan can still be marked abandoned. `parent`
 and `project` are derived, not authored — `backfill` fills them in and
 `set --parent` refuses a value that resolves to no plan in the corpus.
 `created` is a local-date (`YYYY-MM-DD`), derived once and then immutable
-except through `backfill --recreate`.
+except through `backfill --recreate`. `modified` is not stored in
+frontmatter; it comes from a plan's session log last-activity timestamp,
+falling back to the file's mtime when there is no session record.
+`backfill` preserves mtime — deriving frontmatter is not an edit.
 
 Lineage is read from the harness's own session logs, in
 `${AGENT_SESSIONS_DIR:-$HOME/.claude/projects}/<encoded-dir>/<uuid>.jsonl` —

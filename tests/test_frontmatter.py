@@ -37,6 +37,28 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(fields, {})
         self.assertEqual(body, text)
 
+    def test_nested_pentimento_block_is_parsed(self):
+        text = "---\npentimento:\n  status: complete\n  intent: active\n---\n# Title\n\nbody\n"
+        fields, body = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete", "intent": "active"})
+        self.assertEqual(body, "# Title\n\nbody\n")
+
+    def test_legacy_flat_block_still_parses(self):
+        text = "---\nstatus: complete\nintent: active\n---\nbody\n"
+        fields, body = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete", "intent": "active"})
+        self.assertEqual(body, "body\n")
+
+    def test_pentimento_opener_does_not_leak_as_a_key(self):
+        text = "---\npentimento:\n  status: complete\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertNotIn("pentimento", fields)
+
+    def test_unknown_top_level_keys_survive_nested_block(self):
+        text = "---\npentimento:\n  status: complete\nfoo: bar\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete", "foo": "bar"})
+
 
 class SerializeTests(unittest.TestCase):
     def test_empty_fields_returns_body_unchanged(self):
@@ -44,7 +66,7 @@ class SerializeTests(unittest.TestCase):
         self.assertEqual(frontmatter.serialize({}, body), body)
 
     def test_round_trip_preserves_body_bytes_exactly(self):
-        text = "---\nstatus: complete\nparent: eager-bird\n---\n# Title\n\n---\nrule\n"
+        text = "---\npentimento:\n  status: complete\n  parent: eager-bird\n---\n# Title\n\n---\nrule\n"
         fields, body = frontmatter.parse(text)
         self.assertEqual(frontmatter.serialize(fields, body), text)
 
@@ -53,9 +75,29 @@ class SerializeTests(unittest.TestCase):
         text = frontmatter.serialize(fields, "body\n")
         lines = text.split("\n")
         self.assertEqual(lines[0], "---")
-        self.assertEqual(lines[1], "status: complete")
-        self.assertEqual(lines[2], "intent: active")
-        self.assertEqual(lines[3], "parent: root")
+        self.assertEqual(lines[1], "pentimento:")
+        self.assertEqual(lines[2], "  status: complete")
+        self.assertEqual(lines[3], "  intent: active")
+        self.assertEqual(lines[4], "  parent: root")
+        self.assertEqual(lines[5], "---")
+
+    def test_flat_to_nested_round_trip_is_stable_on_a_second_pass(self):
+        flat = "---\nstatus: complete\nintent: active\n---\nbody\n"
+        fields, body = frontmatter.parse(flat)
+        nested = frontmatter.serialize(fields, body)
+
+        reparsed_fields, reparsed_body = frontmatter.parse(nested)
+        self.assertEqual(reparsed_fields, fields)
+        self.assertEqual(frontmatter.serialize(reparsed_fields, reparsed_body), nested)
+
+    def test_unknown_top_level_keys_survive_serialize(self):
+        fields = {"status": "complete", "foo": "bar"}
+        text = frontmatter.serialize(fields, "body\n")
+        lines = text.split("\n")
+        self.assertEqual(lines[0], "---")
+        self.assertEqual(lines[1], "pentimento:")
+        self.assertEqual(lines[2], "  status: complete")
+        self.assertEqual(lines[3], "foo: bar")
         self.assertEqual(lines[4], "---")
 
 

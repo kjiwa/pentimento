@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pentimento import lineage, status, times
+from pentimento import frontmatter, lineage, status, times
 from pentimento import plan as plan_module
 
 
@@ -78,10 +78,10 @@ def run(plans, sessions=None, *, dry_run: bool = False, rederive: bool = False, 
     changed = []
     for target in plans:
         new_fields = new_fields_by_id[target.id]
-        if new_fields == target.fields:
+        if frontmatter.serialize(new_fields, target.body) == target.text:
             continue
         changed.append(target.id)
         if not dry_run:
             target.fields = new_fields
-            plan_module.save(target)
+            plan_module.save(target, keep_mtime=True)
     return changed

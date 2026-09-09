@@ -105,6 +105,43 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual(reloaded.fields["created"], "2020-01-01")
         self.assertNotIn("parent", reloaded.fields)
 
+    def test_flat_file_with_complete_fields_is_migrated_to_nested(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\nintent: unset\ncreated: 2026-09-01\n---\n\n# Root\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, ["root-plan"])
+
+        text = (self.directory / "root-plan.md").read_text()
+        self.assertIn("pentimento:\n", text)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+        self.assertEqual(reloaded.fields["created"], "2026-09-01")
+
+    def test_dry_run_reports_migration_without_writing(self):
+        original = "---\nstatus: complete\nintent: unset\ncreated: 2026-09-01\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans, dry_run=True)
+        self.assertEqual(changed, ["root-plan"])
+
+        text = (self.directory / "root-plan.md").read_text()
+        self.assertEqual(text, original)
+
+    def test_already_nested_and_correct_file_is_skipped(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, [])
+
     def test_cycle_guard_drops_a_derived_parent_that_would_close_a_loop(self):
         # plan-b's parent was hand-set (e.g. via `set --parent`) against the grain of
         # chronology; plan-a has no parent yet and would naturally derive plan-b as its

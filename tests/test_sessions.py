@@ -68,6 +68,68 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result["plan-a"].started, "2026-09-01T00:00:00.000Z")
         self.assertEqual(result["plan-a"].prompt, "first prompt")
 
+    def test_ended_is_the_max_timestamp_across_a_slugs_lines(self):
+        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                {
+                    "type": "user",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/example",
+                    "timestamp": "2026-09-01T00:00:00.000Z",
+                    "message": {"role": "user", "content": "first"},
+                },
+                {
+                    "type": "assistant",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/example",
+                    "timestamp": "2026-09-03T00:00:00.000Z",
+                    "message": {"role": "assistant", "content": "last"},
+                },
+                {
+                    "type": "user",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/example",
+                    "timestamp": "2026-09-02T00:00:00.000Z",
+                    "message": {"role": "user", "content": "middle"},
+                },
+            ],
+        )
+        result = sessions.load(self.directory)
+        self.assertEqual(result["plan-a"].ended, "2026-09-03T00:00:00.000Z")
+
+    def test_ended_is_the_max_timestamp_across_multiple_logs(self):
+        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session-1.jsonl",
+            [
+                {
+                    "type": "user",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/example",
+                    "timestamp": "2026-09-01T00:00:00.000Z",
+                    "message": {"role": "user", "content": "first"},
+                },
+            ],
+        )
+        _write_jsonl(
+            project_dir / "session-2.jsonl",
+            [
+                {
+                    "type": "user",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/example",
+                    "timestamp": "2026-09-05T00:00:00.000Z",
+                    "message": {"role": "user", "content": "resumed"},
+                },
+            ],
+        )
+        result = sessions.load(self.directory)
+        self.assertEqual(result["plan-a"].ended, "2026-09-05T00:00:00.000Z")
+
     def test_malformed_json_lines_are_skipped(self):
         project_dir = self.directory / "-Users-kjiwa-example"
         project_dir.mkdir()

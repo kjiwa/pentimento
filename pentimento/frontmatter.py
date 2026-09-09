@@ -10,6 +10,9 @@ from __future__ import annotations
 
 DELIMITER = "---"
 
+NAMESPACE = "pentimento"
+INDENT = "  "
+
 # Canonical field order for serialization; the reader accepts any order.
 FIELD_ORDER = ("status", "intent", "parent", "project", "created")
 
@@ -42,29 +45,47 @@ def _find_closing_delimiter(lines: list[str]) -> int | None:
 
 def _parse_fields(lines: list[str]) -> dict[str, str]:
     fields = {}
+    in_namespace = False
     for line in lines:
         if not line.strip() or ":" not in line:
             continue
+        indented = line[:1] in (" ", "\t")
         key, _, value = line.partition(":")
-        fields[key.strip()] = value.strip()
+        key = key.strip()
+        value = value.strip()
+        if not indented and key == NAMESPACE and not value:
+            in_namespace = True
+            continue
+        if not indented:
+            in_namespace = False
+        if indented and not in_namespace:
+            continue
+        fields[key] = value
     return fields
 
 
 def serialize(fields: dict[str, str], body: str) -> str:
     """Render fields plus body back into text, in FIELD_ORDER.
 
-    Fields absent from `fields` are omitted. Body bytes are never touched.
+    Known fields (`FIELD_ORDER`) are emitted nested under a `pentimento:`
+    opener, indented, in canonical order. Fields absent from `fields` are
+    omitted. Unknown keys are emitted unindented after the block, outside
+    the namespace, so parse reads them back as top-level fields. Body bytes
+    are never touched.
     """
     if not fields:
         return body
 
-    lines = [DELIMITER]
     known = set(FIELD_ORDER)
-    for key in FIELD_ORDER:
-        if key in fields:
-            lines.append(f"{key}: {fields[key]}")
-    for key, value in fields.items():
-        if key not in known:
-            lines.append(f"{key}: {value}")
+    namespaced = [key for key in FIELD_ORDER if key in fields]
+    unknown = [key for key in fields if key not in known]
+
+    lines = [DELIMITER]
+    if namespaced:
+        lines.append(f"{NAMESPACE}:")
+        for key in namespaced:
+            lines.append(f"{INDENT}{key}: {fields[key]}")
+    for key in unknown:
+        lines.append(f"{key}: {fields[key]}")
     lines.append(DELIMITER)
     return "\n".join(lines) + "\n" + body

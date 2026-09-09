@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -119,6 +121,63 @@ class CmdBackfillRecreateTests(unittest.TestCase):
         cli.cmd_backfill(recreate_args)
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertNotEqual(reloaded.fields["created"], "2020-01-01")
+
+
+class CmdFooterTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _run(self, args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli.COMMANDS[args.command](args)
+        return out.getvalue()
+
+    def test_list_table_footer_reports_unfiltered_count(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["list", "--color", "never"])
+        output = self._run(args)
+        self.assertIn("1 plan", output.splitlines()[-1])
+
+    def test_list_table_footer_reports_filtered_of_total(self):
+        _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
+        _write(self.directory, "other-plan", "---\nstatus: not-started\n---\n\n# Other\n")
+        args = cli.build_parser().parse_args(["list", "--status", "complete", "--color", "never"])
+        output = self._run(args)
+        self.assertIn("1 of 2 plans", output.splitlines()[-1])
+
+    def test_list_json_has_no_footer(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["list", "--format", "json"])
+        output = self._run(args)
+        self.assertNotIn("plan", output.splitlines()[-1].lower())
+
+    def test_tree_table_footer_reports_unfiltered_count(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["tree", "--color", "never"])
+        output = self._run(args)
+        self.assertIn("1 plan", output.splitlines()[-1])
+
+    def test_tree_tsv_has_no_footer(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["tree", "--format", "tsv"])
+        output = self._run(args)
+        self.assertNotIn("1 plan", output)
+
+    def test_check_reports_summary(self):
+        _write(self.directory, "root-plan", "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n")
+        args = cli.build_parser().parse_args(["check"])
+        output = self._run(args)
+        self.assertIn("1 plan checked, 0 findings", output)
+
+    def test_index_reports_summary(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["index"])
+        output = self._run(args)
+        self.assertIn("1 plan indexed", output)
 
 
 class CmdListSortTests(unittest.TestCase):

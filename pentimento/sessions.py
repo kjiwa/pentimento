@@ -23,6 +23,7 @@ class Session:
     project: str
     started: str
     prompt: str
+    ended: str = ""
 
 
 def sessions_directory() -> Path:
@@ -48,7 +49,7 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
             if not slug:
                 continue
             entry = by_slug.setdefault(
-                slug, {"cwds": [], "started": None, "prompt": None, "prompt_ts": None}
+                slug, {"cwds": [], "started": None, "ended": None, "prompt": None, "prompt_ts": None}
             )
             cwd = record.get("cwd")
             if cwd:
@@ -56,6 +57,8 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
             timestamp = record.get("timestamp")
             if timestamp and (entry["started"] is None or timestamp < entry["started"]):
                 entry["started"] = timestamp
+            if timestamp and (entry["ended"] is None or timestamp > entry["ended"]):
+                entry["ended"] = timestamp
             if timestamp and record.get("type") == "user" and (
                 entry["prompt_ts"] is None or timestamp < entry["prompt_ts"]
             ):
@@ -71,6 +74,7 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
             project=project,
             started=entry["started"] or "",
             prompt=entry["prompt"] or "",
+            ended=entry["ended"] or "",
         )
         for slug, entry in by_slug.items()
     }

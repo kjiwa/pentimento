@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import os
 from pathlib import Path
 
 from pentimento import frontmatter, times
@@ -22,9 +23,14 @@ class Plan:
     mtime: float
     started: str
     source: str = "claude"
+    text: str = ""
+    ended: str = ""
 
     @property
     def modified(self) -> datetime.datetime:
+        ended = times.parse_iso(self.ended)
+        if ended is not None:
+            return ended
         return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
     @property
@@ -71,6 +77,7 @@ def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Pl
     plan_id = _id_for(path, source)
     session = (sessions or {}).get(plan_id)
     started = session.started if session else _file_started(path)
+    ended = session.ended if session else ""
     return Plan(
         id=plan_id,
         path=path,
@@ -79,6 +86,8 @@ def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Pl
         mtime=path.stat().st_mtime,
         started=started,
         source=source,
+        text=text,
+        ended=ended,
     )
 
 
@@ -89,9 +98,14 @@ def _file_started(path: Path) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
 
-def save(plan: Plan) -> None:
+def save(plan: Plan, *, keep_mtime: bool = False) -> None:
     text = frontmatter.serialize(plan.fields, plan.body)
-    plan.path.write_text(text)
+    if keep_mtime:
+        stat = plan.path.stat()
+        plan.path.write_text(text)
+        os.utime(plan.path, (stat.st_atime, stat.st_mtime))
+    else:
+        plan.path.write_text(text)
 
 
 def is_plan_file(path: Path) -> bool:

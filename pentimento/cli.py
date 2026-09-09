@@ -9,7 +9,7 @@ import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus, formats, listing, style
+from pentimento import corpus, counts, formats, listing, style
 from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
@@ -123,21 +123,27 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_list(args) -> int:
-    plans = sorted(_apply_filters(corpus.load_all(), args), key=_sort_key(args), reverse=_sort_reverse(args))
+    corpus_plans = corpus.load_all()
+    plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_reverse(args))
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(listing.render(plans, on_color))
+        print()
+        print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     else:
         formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout)
     return 0
 
 
 def cmd_tree(args) -> int:
-    plans = _apply_filters(corpus.load_all(), args)
+    corpus_plans = corpus.load_all()
+    plans = _apply_filters(corpus_plans, args)
     key, reverse = _sort_key(args), _sort_reverse(args)
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))
+        print()
+        print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     else:
         formats.emit(tree_module.as_records(plans, key=key, reverse=reverse), args.format, sys.stdout)
     return 0
@@ -216,6 +222,7 @@ def cmd_backfill(args) -> int:
 def cmd_index(_args) -> int:
     plans = corpus.load_all()
     index_module.write(plans, corpus.plans_directory())
+    print(f"{counts.plural(len(plans), 'plan')} indexed")
     return 0
 
 
@@ -225,6 +232,7 @@ def cmd_check(args) -> int:
     if args.format == "table":
         for finding in findings:
             print(finding.message)
+        print(f"{counts.plural(len(plans), 'plan')} checked, {counts.plural(len(findings), 'finding')}")
     else:
         formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout)
     return 1 if findings else 0

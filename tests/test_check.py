@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import unittest
 
@@ -23,35 +25,42 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="orphan", parent="no-such-plan")
         findings = check.run([plan])
         self.assertEqual(len(findings), 1)
-        self.assertIn("orphan", findings[0])
+        self.assertEqual(findings[0].code, "dangling-parent")
+        self.assertIn("orphan", findings[0].message)
 
     def test_self_parent_is_reported(self):
         plan = FakePlan(id="loopy", parent="loopy")
         findings = check.run([plan])
-        self.assertTrue(any("loopy" in f for f in findings))
+        self.assertTrue(any(f.code == "self-parent" and "loopy" in f.message for f in findings))
 
     def test_cross_project_parent_is_reported(self):
         parent = FakePlan(id="parent", project="project-a")
         child = FakePlan(id="child", parent="parent", project="project-b")
         findings = check.run([parent, child])
-        self.assertTrue(any("child" in f for f in findings))
+        self.assertTrue(
+            any(f.code == "cross-project-parent" and "child" in f.message for f in findings)
+        )
 
     def test_cycle_is_reported(self):
         a = FakePlan(id="a", parent="b")
         b = FakePlan(id="b", parent="a")
         findings = check.run([a, b])
-        self.assertTrue(any("a" in f for f in findings))
-        self.assertTrue(any("b" in f for f in findings))
+        self.assertTrue(any(f.code == "cycle" and "a" in f.message for f in findings))
+        self.assertTrue(any(f.code == "cycle" and "b" in f.message for f in findings))
 
     def test_off_vocabulary_status_is_reported(self):
         plan = FakePlan(id="weird-status", status="bogus")
         findings = check.run([plan])
-        self.assertTrue(any("weird-status" in f for f in findings))
+        self.assertTrue(
+            any(f.code == "off-vocabulary-status" and "weird-status" in f.message for f in findings)
+        )
 
     def test_off_vocabulary_intent_is_reported(self):
         plan = FakePlan(id="weird-intent", intent="bogus")
         findings = check.run([plan])
-        self.assertTrue(any("weird-intent" in f for f in findings))
+        self.assertTrue(
+            any(f.code == "off-vocabulary-intent" and "weird-intent" in f.message for f in findings)
+        )
 
 
 if __name__ == "__main__":

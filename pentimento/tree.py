@@ -6,6 +6,9 @@ Unicode in non-web UIs.
 
 from __future__ import annotations
 
+from pentimento import record as record_module
+from pentimento import style
+
 
 def _children_by_parent(plans):
     children = {}
@@ -46,38 +49,67 @@ def _roots(plans, children_by_parent):
     return roots
 
 
-def _render_node(plan, children_by_parent, prefix, is_last, lines, visited):
+def _render_node(plan, children_by_parent, prefix, is_last, lines, visited, on_color, root_annotation=None):
     connector = "`- " if is_last else "+- "
-    lines.append(f"{prefix}{connector}{plan.id} ({plan.title})")
-    if plan.id in visited:
-        return
-    visited.add(plan.id)
+    title_line = f"{prefix}{connector}{plan.title}"
+    if root_annotation:
+        title_line += " " + style.paint(f"({root_annotation})", style.DIM, on=on_color)
+    lines.append(title_line)
 
     child_prefix = prefix + ("   " if is_last else "|  ")
+    is_repeat = plan.id in visited
+    meta = f"{plan.id}  {plan.status}  {plan.intent}"
+    if is_repeat:
+        meta += "  (cycle)"
+    lines.append(f"{child_prefix}  " + style.paint(meta, style.DIM, on=on_color))
+
+    if is_repeat:
+        return
+    visited.add(plan.id)
     kids = children_by_parent.get(plan.id, [])
     for index, child in enumerate(kids):
-        _render_node(child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited)
+        _render_node(child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color)
 
 
-def render(plans) -> str:
+def render(plans, on_color: bool = False) -> str:
     """ASCII tree for one project's worth of plans (roots and descendants)."""
     children_by_parent = _children_by_parent(plans)
     roots = _roots(plans, children_by_parent)
+    ids = {p.id for p in plans}
     lines = []
     visited = set()
     for index, root in enumerate(roots):
-        _render_node(root, children_by_parent, "", index == len(roots) - 1, lines, visited)
+        annotation = f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
+        _render_node(root, children_by_parent, "", index == len(roots) - 1, lines, visited, on_color, annotation)
     return "\n".join(lines)
 
 
-def render_grouped(plans) -> str:
+def render_grouped(plans, on_color: bool = False) -> str:
     """Group plans by project, then render each group's tree."""
     groups: dict[str, list] = {}
     for p in plans:
         groups.setdefault(p.project or "(no project)", []).append(p)
 
-    sections = []
+    blocks = []
     for project in sorted(groups):
-        sections.append(f"{project}:")
-        sections.append(render(groups[project]))
-    return "\n".join(sections)
+        heading = style.paint(project, style.BOLD, on=on_color)
+        blocks.append(heading + "\n" + render(groups[project], on_color))
+    return "\n\n".join(blocks)
+
+
+def as_records(plans) -> list[dict]:
+    """Nested {record, children} tree for `formats.emit`, mirroring `render`."""
+    children_by_parent = _children_by_parent(plans)
+    roots = _roots(plans, children_by_parent)
+    visited: set[str] = set()
+
+    def build(plan):
+        rec = record_module.as_dict(plan)
+        if plan.id in visited:
+            rec["children"] = []
+            return rec
+        visited.add(plan.id)
+        rec["children"] = [build(child) for child in children_by_parent.get(plan.id, [])]
+        return rec
+
+    return [build(root) for root in roots]

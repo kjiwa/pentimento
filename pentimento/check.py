@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from pentimento import index as index_module
 
 INTENT_VALUES = ("active", "queued", "someday", "abandoned", "unset")
+
+
+@dataclasses.dataclass
+class Finding:
+    plan_id: str
+    code: str
+    message: str
 
 
 def _dangling_parents(plans, by_id):
@@ -51,22 +60,27 @@ def _off_vocabulary_intent(plans):
     return [p for p in plans if p.intent not in INTENT_VALUES]
 
 
-def run(plans) -> list[str]:
-    """Return findings as human-readable lines; empty means a clean corpus."""
+def run(plans) -> list[Finding]:
+    """Return structured findings; an empty list means a clean corpus."""
     by_id = {p.id: p for p in plans}
     findings = []
 
     for p in _dangling_parents(plans, by_id):
-        findings.append(f"{p.id}: parent {p.parent!r} does not resolve to a plan")
+        message = f"{p.id}: parent {p.parent!r} does not resolve to a plan"
+        findings.append(Finding(p.id, "dangling-parent", message))
     for p in _self_parents(plans):
-        findings.append(f"{p.id}: parent is itself")
+        findings.append(Finding(p.id, "self-parent", f"{p.id}: parent is itself"))
     for p in _cross_project_parents(plans, by_id):
-        findings.append(f"{p.id}: parent {p.parent!r} is in a different project")
+        message = f"{p.id}: parent {p.parent!r} is in a different project"
+        findings.append(Finding(p.id, "cross-project-parent", message))
     for p in _cycle_members(plans, by_id):
-        findings.append(f"{p.id}: parent chain cycles back to itself")
+        message = f"{p.id}: parent chain cycles back to itself"
+        findings.append(Finding(p.id, "cycle", message))
     for p in _off_vocabulary_status(plans):
-        findings.append(f"{p.id}: status {p.status!r} is outside {index_module.STATUS_ORDER}")
+        message = f"{p.id}: status {p.status!r} is outside {index_module.STATUS_ORDER}"
+        findings.append(Finding(p.id, "off-vocabulary-status", message))
     for p in _off_vocabulary_intent(plans):
-        findings.append(f"{p.id}: intent {p.intent!r} is outside {INTENT_VALUES}")
+        message = f"{p.id}: intent {p.intent!r} is outside {INTENT_VALUES}"
+        findings.append(Finding(p.id, "off-vocabulary-intent", message))
 
     return findings

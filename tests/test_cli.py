@@ -187,7 +187,7 @@ class CmdListSortTests(unittest.TestCase):
         self.directory = Path(self._tmp.name)
         _isolate_env(self, self.directory)
 
-    def test_default_sort_is_newest_modified_first(self):
+    def test_default_sort_is_oldest_modified_first(self):
         _write(self.directory, "older-plan", "# Older\n")
         os.utime(self.directory / "older-plan.md", (1000, 1000))
         _write(self.directory, "newer-plan", "# Newer\n")
@@ -195,27 +195,35 @@ class CmdListSortTests(unittest.TestCase):
 
         args = cli.build_parser().parse_args(["list", "--format", "json"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_reverse(args))
-        self.assertEqual([p.id for p in ordered], ["newer-plan", "older-plan"])
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual([p.id for p in ordered], ["older-plan", "newer-plan"])
 
-    def test_reverse_flips_the_default_date_order(self):
+    def test_order_desc_puts_newest_modified_first(self):
         _write(self.directory, "older-plan", "# Older\n")
         os.utime(self.directory / "older-plan.md", (1000, 1000))
         _write(self.directory, "newer-plan", "# Newer\n")
         os.utime(self.directory / "newer-plan.md", (2000, 2000))
 
-        args = cli.build_parser().parse_args(["list", "--reverse"])
+        args = cli.build_parser().parse_args(["list", "--order", "desc"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_reverse(args))
-        self.assertEqual([p.id for p in ordered], ["older-plan", "newer-plan"])
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual([p.id for p in ordered], ["newer-plan", "older-plan"])
 
     def test_id_sort_is_ascending_by_default(self):
         _write(self.directory, "b-plan", "# B\n")
         _write(self.directory, "a-plan", "# A\n")
         args = cli.build_parser().parse_args(["list", "--sort", "id"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_reverse(args))
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["a-plan", "b-plan"])
+
+    def test_status_sort_ranks_lifecycle_order(self):
+        _write(self.directory, "done-plan", "---\nstatus: complete\n---\n\n# Done\n")
+        _write(self.directory, "new-plan", "---\nstatus: not-started\n---\n\n# New\n")
+        args = cli.build_parser().parse_args(["list", "--sort", "status"])
+        plans = corpus.load_all(self.directory)
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual([p.id for p in ordered], ["new-plan", "done-plan"])
 
 
 if __name__ == "__main__":

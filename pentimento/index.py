@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from pentimento import plan as plan_module
-
-STATUS_ORDER = ("not-started", "partial", "complete", "superseded", "unknown")
+from pentimento import vocabulary as vocabulary_module
 
 
 def render(plans: list[plan_module.Plan]) -> str:
@@ -13,8 +12,8 @@ def render(plans: list[plan_module.Plan]) -> str:
     for p in plans:
         by_status.setdefault(p.status, []).append(p)
 
-    remaining = sorted(status for status in by_status if status not in STATUS_ORDER)
-    for status in (*STATUS_ORDER, *remaining):
+    remaining = sorted(status for status in by_status if status not in vocabulary_module.STATUS_ORDER)
+    for status in (*vocabulary_module.STATUS_ORDER, *remaining):
         group = sorted(by_status.get(status, []), key=lambda p: p.id)
         if not group:
             continue

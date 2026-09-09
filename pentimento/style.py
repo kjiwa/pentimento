@@ -9,9 +9,8 @@ from __future__ import annotations
 import os
 import shutil
 
-from pentimento import check
-from pentimento import index as index_module
 from pentimento import sources as sources_module
+from pentimento import vocabulary as vocabulary_module
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -33,7 +32,7 @@ STATUS_CODES = {
     "superseded": (DIM,),
     "unknown": (DIM,),
 }
-assert set(STATUS_CODES) == set(index_module.STATUS_ORDER)
+assert set(STATUS_CODES) == set(vocabulary_module.STATUS_ORDER)
 
 INTENT_CODES = {
     "active": (BOLD, MAGENTA),
@@ -42,7 +41,7 @@ INTENT_CODES = {
     "abandoned": (DIM,),
     "unset": (DIM,),
 }
-assert set(INTENT_CODES) == set(check.INTENT_VALUES)
+assert set(INTENT_CODES) == set(vocabulary_module.INTENT_VALUES)
 
 SOURCE_CODES = {
     "claude": (CYAN,),

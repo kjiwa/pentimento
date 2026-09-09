@@ -17,24 +17,33 @@ from pentimento import sessions as sessions_module
 from pentimento import sources as sources_module
 from pentimento import times as times_module
 from pentimento import tree as tree_module
+from pentimento import vocabulary as vocabulary_module
 
 STARRED_INTENTS = ("active", "queued")
 SORT_CHOICES = ("modified", "created", "id", "status", "title")
-DATE_SORTS = ("modified", "created")
 _MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+_UNRANKED_STATUS = len(vocabulary_module.STATUS_ORDER)
+
+
+def _status_rank(status: str) -> int:
+    try:
+        return vocabulary_module.STATUS_ORDER.index(status)
+    except ValueError:
+        return _UNRANKED_STATUS
+
 
 SORT_KEYS = {
     "modified": lambda p: p.modified,
     "created": lambda p: p.created_at or _MIN_INSTANT,
     "id": lambda p: p.id,
-    "status": lambda p: p.status,
+    "status": lambda p: _status_rank(p.status),
     "title": lambda p: p.title,
 }
 
 
 def _add_filter_args(parser):
-    parser.add_argument("--status", choices=index_module.STATUS_ORDER, help="filter by status")
-    parser.add_argument("--intent", choices=check_module.INTENT_VALUES, help="filter by intent")
+    parser.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
+    parser.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent")
     parser.add_argument("--project", help="filter by project")
     parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     parser.add_argument("--starred", action="store_true", help="only active/queued intent")
@@ -42,16 +51,15 @@ def _add_filter_args(parser):
 
 def _add_sort_args(parser):
     parser.add_argument("--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)")
-    parser.add_argument("--reverse", action="store_true", help="reverse the sort order")
+    parser.add_argument("--order", choices=("asc", "desc"), default="asc", help="sort direction (default: asc)")
 
 
 def _sort_key(args):
     return SORT_KEYS[args.sort]
 
 
-def _sort_reverse(args) -> bool:
-    default_reverse = args.sort in DATE_SORTS
-    return not default_reverse if args.reverse else default_reverse
+def _sort_descending(args) -> bool:
+    return args.order == "desc"
 
 
 def _add_format_args(parser):
@@ -103,8 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_set = sub.add_parser("set", help="rewrite frontmatter in place")
     p_set.add_argument("id", help="plan id (filename stem)")
-    p_set.add_argument("--status", choices=index_module.STATUS_ORDER, help="new status")
-    p_set.add_argument("--intent", choices=check_module.INTENT_VALUES, help="new intent")
+    p_set.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="new status")
+    p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
     p_set.add_argument("--parent", help="new parent plan id")
     p_set.add_argument("--project", help="new project")
 
@@ -124,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
-    plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_reverse(args))
+    plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(listing.render(plans, on_color))
@@ -138,7 +146,7 @@ def cmd_list(args) -> int:
 def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
-    key, reverse = _sort_key(args), _sort_reverse(args)
+    key, reverse = _sort_key(args), _sort_descending(args)
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))

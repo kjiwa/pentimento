@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from pentimento import index as index_module
-
-INTENT_VALUES = ("active", "queued", "someday", "abandoned", "unset")
+from pentimento import vocabulary as vocabulary_module
 
 
 @dataclasses.dataclass
@@ -64,11 +62,11 @@ def _duplicate_ids(plans):
 
 
 def _off_vocabulary_status(plans):
-    return [p for p in plans if p.status not in index_module.STATUS_ORDER]
+    return [p for p in plans if p.status not in vocabulary_module.STATUS_ORDER]
 
 
 def _off_vocabulary_intent(plans):
-    return [p for p in plans if p.intent not in INTENT_VALUES]
+    return [p for p in plans if p.intent not in vocabulary_module.INTENT_VALUES]
 
 
 def run(plans) -> list[Finding]:
@@ -91,10 +89,10 @@ def run(plans) -> list[Finding]:
         message = f"{p.id}: duplicate id across sources (second occurrence from {p.source})"
         findings.append(Finding(p.id, "duplicate-id", message))
     for p in _off_vocabulary_status(plans):
-        message = f"{p.id}: status {p.status!r} is outside {index_module.STATUS_ORDER}"
+        message = f"{p.id}: status {p.status!r} is outside {vocabulary_module.STATUS_ORDER}"
         findings.append(Finding(p.id, "off-vocabulary-status", message))
     for p in _off_vocabulary_intent(plans):
-        message = f"{p.id}: intent {p.intent!r} is outside {INTENT_VALUES}"
+        message = f"{p.id}: intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
         findings.append(Finding(p.id, "off-vocabulary-intent", message))
 
     return findings

@@ -29,12 +29,10 @@ def derive_fields(target, candidates) -> dict[str, str]:
     return fields
 
 
-def run(plans, *, new_only: bool = False, dry_run: bool = False) -> list[str]:
+def run(plans, *, dry_run: bool = False) -> list[str]:
     """Backfill frontmatter across `plans`. Returns ids that were changed."""
     changed = []
     for target in plans:
-        if new_only and target.fields:
-            continue
         new_fields = derive_fields(target, plans)
         if new_fields == target.fields:
             continue

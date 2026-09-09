@@ -24,7 +24,7 @@ pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--starr
 pentimento tree [--project PROJECT]
 pentimento show <id>
 pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--project PROJECT]
-pentimento backfill [--dry-run] [--new-only] [--quiet]
+pentimento backfill [--dry-run] [--quiet]
 pentimento index
 ```
 
@@ -41,7 +41,9 @@ created: 2026-09-08
 ```
 
 `status` is derived and correctable; `intent` is only ever set by the
-operator, so a half-implemented plan can still be marked abandoned.
+operator, so a half-implemented plan can still be marked abandoned. `parent`
+is derived, not authored — `backfill` fills it in and `set --parent` refuses
+a value that resolves to no plan in the corpus.
 
 Zero runtime dependencies: this is stdlib-only Python 3, no PyYAML, so it
 ships as a plain CLI.

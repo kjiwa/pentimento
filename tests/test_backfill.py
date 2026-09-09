@@ -57,17 +57,6 @@ class BackfillTests(unittest.TestCase):
         reloaded = corpus.load_all(self.directory)[0]
         self.assertEqual(reloaded.fields, {})
 
-    def test_new_only_skips_plans_with_existing_frontmatter(self):
-        _write(
-            self.directory,
-            "already-tagged",
-            "---\nstatus: complete\n---\n# Tagged\n",
-        )
-        _write(self.directory, "untagged", "# Untagged\n\n## Progress\n- [ ] todo\n")
-        plans = corpus.load_all(self.directory)
-        changed = backfill.run(plans, new_only=True)
-        self.assertEqual(changed, ["untagged"])
-
     def test_lineage_derived_across_corpus(self):
         _write(self.directory, "eager-bird", "# Root plan\n\n## Progress\nPlanning only.\n")
         _write(

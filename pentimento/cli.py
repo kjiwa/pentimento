@@ -55,7 +55,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
     p_backfill.add_argument("--dry-run", action="store_true")
-    p_backfill.add_argument("--new-only", action="store_true")
     p_backfill.add_argument("--quiet", action="store_true")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
@@ -117,6 +116,10 @@ def cmd_set(args) -> int:
         print(f"no such plan: {args.id}", file=sys.stderr)
         return 1
 
+    if args.parent is not None and corpus.by_id(plans, args.parent) is None:
+        print(f"no such plan: {args.parent}", file=sys.stderr)
+        return 1
+
     for field in ("status", "intent", "parent", "project"):
         value = getattr(args, field)
         if value is not None:
@@ -127,7 +130,7 @@ def cmd_set(args) -> int:
 
 def cmd_backfill(args) -> int:
     plans = corpus.load_all()
-    changed = backfill_module.run(plans, new_only=args.new_only, dry_run=args.dry_run)
+    changed = backfill_module.run(plans, dry_run=args.dry_run)
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)

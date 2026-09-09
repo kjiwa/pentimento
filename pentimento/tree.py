@@ -17,9 +17,33 @@ def _children_by_parent(plans):
     return children
 
 
-def _roots(plans):
+def _reachable_ids(root, children_by_parent):
+    reachable = {root.id}
+    stack = list(children_by_parent.get(root.id, []))
+    while stack:
+        node = stack.pop()
+        if node.id in reachable:
+            continue
+        reachable.add(node.id)
+        stack.extend(children_by_parent.get(node.id, []))
+    return reachable
+
+
+def _roots(plans, children_by_parent):
     ids = {p.id for p in plans}
-    return sorted((p for p in plans if not p.parent or p.parent not in ids), key=lambda p: p.id)
+    genuine = sorted((p for p in plans if not p.parent or p.parent not in ids), key=lambda p: p.id)
+
+    reachable: set[str] = set()
+    for root in genuine:
+        reachable |= _reachable_ids(root, children_by_parent)
+
+    roots = list(genuine)
+    for plan in sorted(plans, key=lambda p: p.id):
+        if plan.id in reachable:
+            continue
+        roots.append(plan)
+        reachable |= _reachable_ids(plan, children_by_parent)
+    return roots
 
 
 def _render_node(plan, children_by_parent, prefix, is_last, lines, visited):
@@ -38,7 +62,7 @@ def _render_node(plan, children_by_parent, prefix, is_last, lines, visited):
 def render(plans) -> str:
     """ASCII tree for one project's worth of plans (roots and descendants)."""
     children_by_parent = _children_by_parent(plans)
-    roots = _roots(plans)
+    roots = _roots(plans, children_by_parent)
     lines = []
     visited = set()
     for index, root in enumerate(roots):

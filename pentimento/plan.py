@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 from pathlib import Path
 
 from pentimento import frontmatter
@@ -17,6 +18,7 @@ class Plan:
     fields: dict[str, str]
     body: str
     mtime: float
+    started: str
 
     @property
     def title(self) -> str:
@@ -46,10 +48,19 @@ def _first_h1(body: str) -> str | None:
     return None
 
 
-def load(path: Path) -> Plan:
+def load(path: Path, sessions: dict | None = None) -> Plan:
     text = path.read_text()
     fields, body = frontmatter.parse(text)
-    return Plan(id=path.stem, path=path, fields=fields, body=body, mtime=path.stat().st_mtime)
+    session = (sessions or {}).get(path.stem)
+    started = session.started if session else _file_started(path)
+    return Plan(id=path.stem, path=path, fields=fields, body=body, mtime=path.stat().st_mtime, started=started)
+
+
+def _file_started(path: Path) -> str:
+    stat = path.stat()
+    ts = getattr(stat, "st_birthtime", stat.st_mtime)
+    dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
 
 def save(plan: Plan) -> None:

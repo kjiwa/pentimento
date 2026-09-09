@@ -24,9 +24,20 @@ pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--starr
 pentimento tree [--project PROJECT]
 pentimento show <id>
 pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--project PROJECT]
-pentimento backfill [--dry-run] [--quiet]
+pentimento backfill [--dry-run] [--quiet] [--rederive]
 pentimento index
+pentimento check
 ```
+
+`backfill` fills in missing fields without touching what's already set.
+`--rederive` instead recomputes `status`, `parent`, and `project` from
+scratch and overwrites them -- `intent` (operator-owned) and `created`
+(immutable) are never touched; a re-derivation that finds no parent removes
+an existing `parent` key.
+
+`check` validates the corpus -- dangling parents, self-parents,
+cross-project parents, cycles, and off-vocabulary `status`/`intent` values
+-- and exits 1 on any finding.
 
 ## Frontmatter
 
@@ -42,8 +53,18 @@ created: 2026-09-08
 
 `status` is derived and correctable; `intent` is only ever set by the
 operator, so a half-implemented plan can still be marked abandoned. `parent`
-is derived, not authored — `backfill` fills it in and `set --parent` refuses
-a value that resolves to no plan in the corpus.
+and `project` are derived, not authored — `backfill` fills them in and
+`set --parent` refuses a value that resolves to no plan in the corpus.
+
+Lineage is read from the harness's own session logs, in
+`${AGENT_SESSIONS_DIR:-$HOME/.claude/projects}/<encoded-dir>/<uuid>.jsonl` —
+one directory per project, one file per session. Each plan's id is a
+session `slug`; a plan's parent is whichever earlier, same-project plan its
+originating session's first prompt (or, failing that, the plan body above
+its first `##` heading) references by `<id>.md`. `project` is the basename
+of the common path across a session's `cwd` values. Never guessed: a plan
+with no session record and no reference falls back to no parent and no
+project.
 
 Zero runtime dependencies: this is stdlib-only Python 3, no PyYAML, so it
 ships as a plain CLI.

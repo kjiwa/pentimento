@@ -20,14 +20,18 @@ Plans live in `${AGENT_PLANS_DIR:-$HOME/.claude/plans}` — one markdown file
 per plan, its filename stem as the id, its first `# H1` as the title.
 
 ```sh
-pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--starred]
-pentimento tree [--project PROJECT]
-pentimento show <id>
+pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--starred] [--format table|json|tsv] [--color auto|always|never]
+pentimento tree [--status STATUS] [--intent INTENT] [--project PROJECT] [--starred] [--format table|json|tsv] [--color auto|always|never]
+pentimento show <id> [--format table|json|tsv] [--color auto|always|never]
 pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--project PROJECT]
 pentimento backfill [--dry-run] [--quiet] [--rederive]
 pentimento index
-pentimento check
+pentimento check [--format table|json|tsv] [--color auto|always|never]
 ```
+
+`--format` defaults to `table` (human-readable); `json` and `tsv` are for
+scripting. `--color` defaults to `auto` -- ANSI colour on a tty, off when
+piped, `NO_COLOR` is set, or `TERM=dumb`.
 
 `backfill` fills in missing fields without touching what's already set.
 `--rederive` instead recomputes `status`, `parent`, and `project` from

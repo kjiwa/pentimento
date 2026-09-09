@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus
+from pentimento import corpus, formats, listing, style
 from pentimento import index as index_module
 from pentimento import plan as plan_module
+from pentimento import record as record_module
 from pentimento import sessions as sessions_module
 from pentimento import tree as tree_module
 
@@ -17,10 +19,25 @@ STARRED_INTENTS = ("active", "queued")
 
 
 def _add_filter_args(parser):
-    parser.add_argument("--status")
-    parser.add_argument("--intent")
-    parser.add_argument("--project")
-    parser.add_argument("--starred", action="store_true")
+    parser.add_argument("--status", choices=index_module.STATUS_ORDER, help="filter by status")
+    parser.add_argument("--intent", choices=check_module.INTENT_VALUES, help="filter by intent")
+    parser.add_argument("--project", help="filter by project")
+    parser.add_argument("--starred", action="store_true", help="only active/queued intent")
+
+
+def _add_format_args(parser):
+    parser.add_argument(
+        "--format",
+        choices=("table", "json", "tsv"),
+        default="table",
+        help="output format (default: table)",
+    )
+    parser.add_argument(
+        "--color",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="colour policy (default: auto)",
+    )
 
 
 def _apply_filters(plans, args):
@@ -41,42 +58,53 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = sub.add_parser("list", help="flat table of plans")
     _add_filter_args(p_list)
+    _add_format_args(p_list)
 
     p_tree = sub.add_parser("tree", help="lineage tree, grouped by project")
     _add_filter_args(p_tree)
+    _add_format_args(p_tree)
 
     p_show = sub.add_parser("show", help="H1, frontmatter, and Progress block")
-    p_show.add_argument("id")
+    p_show.add_argument("id", help="plan id (filename stem)")
+    _add_format_args(p_show)
 
     p_set = sub.add_parser("set", help="rewrite frontmatter in place")
-    p_set.add_argument("id")
-    p_set.add_argument("--status")
-    p_set.add_argument("--intent")
-    p_set.add_argument("--parent")
-    p_set.add_argument("--project")
+    p_set.add_argument("id", help="plan id (filename stem)")
+    p_set.add_argument("--status", choices=index_module.STATUS_ORDER, help="new status")
+    p_set.add_argument("--intent", choices=check_module.INTENT_VALUES, help="new intent")
+    p_set.add_argument("--parent", help="new parent plan id")
+    p_set.add_argument("--project", help="new project")
 
     p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
-    p_backfill.add_argument("--dry-run", action="store_true")
-    p_backfill.add_argument("--quiet", action="store_true")
-    p_backfill.add_argument("--rederive", action="store_true")
+    p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
+    p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
+    p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
 
-    sub.add_parser("check", help="validate lineage and vocabulary; exits 1 on any finding")
+    p_check = sub.add_parser("check", help="validate lineage and vocabulary; exits 1 on any finding")
+    _add_format_args(p_check)
 
     return parser
 
 
 def cmd_list(args) -> int:
-    plans = _apply_filters(corpus.load_all(), args)
-    for p in sorted(plans, key=lambda p: p.id):
-        print(f"{p.id}\t{p.status}\t{p.intent}\t{p.project or ''}\t{p.title}")
+    plans = sorted(_apply_filters(corpus.load_all(), args), key=lambda p: p.id)
+    if args.format == "table":
+        on_color = style.enabled(sys.stdout, args.color)
+        print(listing.render(plans, on_color))
+    else:
+        formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout)
     return 0
 
 
 def cmd_tree(args) -> int:
     plans = _apply_filters(corpus.load_all(), args)
-    print(tree_module.render_grouped(plans))
+    if args.format == "table":
+        on_color = style.enabled(sys.stdout, args.color)
+        print(tree_module.render_grouped(plans, on_color))
+    else:
+        formats.emit(tree_module.as_records(plans), args.format, sys.stdout)
     return 0
 
 
@@ -86,14 +114,17 @@ def cmd_show(args) -> int:
     if target is None:
         print(f"no such plan: {args.id}", file=sys.stderr)
         return 1
-    print(f"# {target.title}")
-    print()
-    for key, value in target.fields.items():
-        print(f"{key}: {value}")
-    print()
-    section = _progress_block(target.body)
-    if section:
-        print(section)
+    if args.format == "table":
+        print(f"# {target.title}")
+        print()
+        for key, value in target.fields.items():
+            print(f"{key}: {value}")
+        print()
+        section = _progress_block(target.body)
+        if section:
+            print(section)
+    else:
+        formats.emit([record_module.as_dict(target)], args.format, sys.stdout)
     return 0
 
 
@@ -149,11 +180,14 @@ def cmd_index(_args) -> int:
     return 0
 
 
-def cmd_check(_args) -> int:
+def cmd_check(args) -> int:
     plans = corpus.load_all()
     findings = check_module.run(plans)
-    for finding in findings:
-        print(finding)
+    if args.format == "table":
+        for finding in findings:
+            print(finding.message)
+    else:
+        formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout)
     return 1 if findings else 0
 
 

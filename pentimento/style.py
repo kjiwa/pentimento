@@ -11,6 +11,7 @@ import shutil
 
 from pentimento import check
 from pentimento import index as index_module
+from pentimento import sources as sources_module
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -42,6 +43,12 @@ INTENT_CODES = {
     "unset": (DIM,),
 }
 assert set(INTENT_CODES) == set(check.INTENT_VALUES)
+
+SOURCE_CODES = {
+    "claude": (CYAN,),
+    "cursor": (MAGENTA,),
+}
+assert set(SOURCE_CODES) == set(sources_module.SOURCE_NAMES)
 
 
 def enabled(stream, choice: str) -> bool:

@@ -6,6 +6,9 @@ Two signals, in order, each covering a distinct minority of the corpus:
 2. Prose fallback for sections with no checkboxes at all, e.g. "Nothing
    started" or "Planning only".
 
+A body with no `## Progress` heading at all -- e.g. a Cursor plan, which has
+no such convention -- falls back to the checkbox ratio over the whole body.
+
 Everything else stays `unknown` -- guessing "complete" on a stale plan is
 the one failure mode that loses work, so an absent or ambiguous signal must
 never be upgraded to a real status.
@@ -65,5 +68,5 @@ def _from_prose(section: str) -> str | None:
 def derive_status(body: str) -> str:
     section = _progress_section(body)
     if section is None:
-        return "unknown"
+        return _from_checkboxes(body) or "unknown"
     return _from_checkboxes(section) or _from_prose(section) or "unknown"

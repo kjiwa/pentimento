@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import io
 import json
 import unittest
@@ -17,9 +18,15 @@ class FakePlan:
     intent: str = "unset"
     parent: str | None = None
     project: str | None = "example"
+    source: str = "claude"
     path: Path = Path("fake.md")
     started: str = "2026-01-01T00:00:00.000Z"
+    mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
+
+    @property
+    def modified(self) -> datetime.datetime:
+        return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
 
 def _emit(records, fmt) -> str:

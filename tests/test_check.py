@@ -13,6 +13,7 @@ class FakePlan:
     intent: str = "unset"
     parent: str | None = None
     project: str | None = "example"
+    source: str = "claude"
 
 
 class RunTests(unittest.TestCase):
@@ -61,6 +62,12 @@ class RunTests(unittest.TestCase):
         self.assertTrue(
             any(f.code == "off-vocabulary-intent" and "weird-intent" in f.message for f in findings)
         )
+
+    def test_duplicate_id_across_sources_is_reported(self):
+        claude_plan = FakePlan(id="same-id", source="claude")
+        cursor_plan = FakePlan(id="same-id", source="cursor")
+        findings = check.run([claude_plan, cursor_plan])
+        self.assertTrue(any(f.code == "duplicate-id" and "same-id" in f.message for f in findings))
 
 
 if __name__ == "__main__":

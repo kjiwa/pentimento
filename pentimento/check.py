@@ -52,6 +52,17 @@ def _cycle_members(plans, by_id):
     return [p for p in plans if p.parent and _in_cycle(p, by_id)]
 
 
+def _duplicate_ids(plans):
+    seen = set()
+    duplicates = []
+    for p in plans:
+        if p.id in seen:
+            duplicates.append(p)
+        else:
+            seen.add(p.id)
+    return duplicates
+
+
 def _off_vocabulary_status(plans):
     return [p for p in plans if p.status not in index_module.STATUS_ORDER]
 
@@ -76,6 +87,9 @@ def run(plans) -> list[Finding]:
     for p in _cycle_members(plans, by_id):
         message = f"{p.id}: parent chain cycles back to itself"
         findings.append(Finding(p.id, "cycle", message))
+    for p in _duplicate_ids(plans):
+        message = f"{p.id}: duplicate id across sources (second occurrence from {p.source})"
+        findings.append(Finding(p.id, "duplicate-id", message))
     for p in _off_vocabulary_status(plans):
         message = f"{p.id}: status {p.status!r} is outside {index_module.STATUS_ORDER}"
         findings.append(Finding(p.id, "off-vocabulary-status", message))

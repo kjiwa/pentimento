@@ -6,9 +6,11 @@ import dataclasses
 import datetime
 from pathlib import Path
 
-from pentimento import frontmatter
+from pentimento import frontmatter, times
 
 EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
+
+CURSOR_SUFFIX = ".plan.md"
 
 
 @dataclasses.dataclass
@@ -19,6 +21,15 @@ class Plan:
     body: str
     mtime: float
     started: str
+    source: str = "claude"
+
+    @property
+    def modified(self) -> datetime.datetime:
+        return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
+
+    @property
+    def created_at(self) -> datetime.datetime | None:
+        return times.parse_iso(self.started)
 
     @property
     def title(self) -> str:
@@ -48,12 +59,27 @@ def _first_h1(body: str) -> str | None:
     return None
 
 
-def load(path: Path, sessions: dict | None = None) -> Plan:
+def _id_for(path: Path, source: str) -> str:
+    if source == "cursor" and path.name.endswith(CURSOR_SUFFIX):
+        return path.name[: -len(CURSOR_SUFFIX)]
+    return path.stem
+
+
+def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
     text = path.read_text()
     fields, body = frontmatter.parse(text)
-    session = (sessions or {}).get(path.stem)
+    plan_id = _id_for(path, source)
+    session = (sessions or {}).get(plan_id)
     started = session.started if session else _file_started(path)
-    return Plan(id=path.stem, path=path, fields=fields, body=body, mtime=path.stat().st_mtime, started=started)
+    return Plan(
+        id=plan_id,
+        path=path,
+        fields=fields,
+        body=body,
+        mtime=path.stat().st_mtime,
+        started=started,
+        source=source,
+    )
 
 
 def _file_started(path: Path) -> str:

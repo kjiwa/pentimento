@@ -10,6 +10,7 @@ class FakePlan:
     body: str
     started: str
     project: str = "example"
+    source: str = "claude"
 
 
 @dataclasses.dataclass
@@ -70,6 +71,19 @@ class DeriveParentTests(unittest.TestCase):
             body="See ~/.claude/plans/eager-bird.md\n",
             started="2026-09-02T00:00:00Z",
             project="example",
+        )
+        parent_id = lineage.derive_parent(child, [parent, child], {})
+        self.assertIsNone(parent_id)
+
+    def test_candidate_from_a_different_source_is_ignored(self):
+        parent = FakePlan(
+            id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z", source="cursor"
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="See ~/.claude/plans/eager-bird.md\n",
+            started="2026-09-02T00:00:00Z",
+            source="claude",
         )
         parent_id = lineage.derive_parent(child, [parent, child], {})
         self.assertIsNone(parent_id)

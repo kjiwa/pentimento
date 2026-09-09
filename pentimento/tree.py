@@ -7,16 +7,20 @@ Unicode in non-web UIs.
 from __future__ import annotations
 
 from pentimento import record as record_module
-from pentimento import style
+from pentimento import style, times
 
 
-def _children_by_parent(plans):
+def _id_key(plan):
+    return plan.id
+
+
+def _children_by_parent(plans, key=_id_key, reverse=False):
     children = {}
     for p in plans:
         if p.parent:
             children.setdefault(p.parent, []).append(p)
     for kids in children.values():
-        kids.sort(key=lambda p: p.id)
+        kids.sort(key=key, reverse=reverse)
     return children
 
 
@@ -32,16 +36,16 @@ def _reachable_ids(root, children_by_parent):
     return reachable
 
 
-def _roots(plans, children_by_parent):
+def _roots(plans, children_by_parent, key=_id_key, reverse=False):
     ids = {p.id for p in plans}
-    genuine = sorted((p for p in plans if not p.parent or p.parent not in ids), key=lambda p: p.id)
+    genuine = sorted((p for p in plans if not p.parent or p.parent not in ids), key=key, reverse=reverse)
 
     reachable: set[str] = set()
     for root in genuine:
         reachable |= _reachable_ids(root, children_by_parent)
 
     roots = list(genuine)
-    for plan in sorted(plans, key=lambda p: p.id):
+    for plan in sorted(plans, key=key, reverse=reverse):
         if plan.id in reachable:
             continue
         roots.append(plan)
@@ -58,7 +62,7 @@ def _render_node(plan, children_by_parent, prefix, is_last, lines, visited, on_c
 
     child_prefix = prefix + ("   " if is_last else "|  ")
     is_repeat = plan.id in visited
-    meta = f"{plan.id}  {plan.status}  {plan.intent}"
+    meta = f"{plan.id}  {plan.status}  {plan.intent}  {times.relative(plan.modified)}"
     if is_repeat:
         meta += "  (cycle)"
     lines.append(f"{child_prefix}  " + style.paint(meta, style.DIM, on=on_color))
@@ -71,10 +75,10 @@ def _render_node(plan, children_by_parent, prefix, is_last, lines, visited, on_c
         _render_node(child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color)
 
 
-def render(plans, on_color: bool = False) -> str:
+def render(plans, on_color: bool = False, key=_id_key, reverse: bool = False) -> str:
     """ASCII tree for one project's worth of plans (roots and descendants)."""
-    children_by_parent = _children_by_parent(plans)
-    roots = _roots(plans, children_by_parent)
+    children_by_parent = _children_by_parent(plans, key, reverse)
+    roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
     lines = []
     visited = set()
@@ -84,7 +88,7 @@ def render(plans, on_color: bool = False) -> str:
     return "\n".join(lines)
 
 
-def render_grouped(plans, on_color: bool = False) -> str:
+def render_grouped(plans, on_color: bool = False, key=_id_key, reverse: bool = False) -> str:
     """Group plans by project, then render each group's tree."""
     groups: dict[str, list] = {}
     for p in plans:
@@ -93,14 +97,14 @@ def render_grouped(plans, on_color: bool = False) -> str:
     blocks = []
     for project in sorted(groups):
         heading = style.paint(project, style.BOLD, on=on_color)
-        blocks.append(heading + "\n" + render(groups[project], on_color))
+        blocks.append(heading + "\n" + render(groups[project], on_color, key, reverse))
     return "\n\n".join(blocks)
 
 
-def as_records(plans) -> list[dict]:
+def as_records(plans, key=_id_key, reverse: bool = False) -> list[dict]:
     """Nested {record, children} tree for `formats.emit`, mirroring `render`."""
-    children_by_parent = _children_by_parent(plans)
-    roots = _roots(plans, children_by_parent)
+    children_by_parent = _children_by_parent(plans, key, reverse)
+    roots = _roots(plans, children_by_parent, key, reverse)
     visited: set[str] = set()
 
     def build(plan):

@@ -8,7 +8,8 @@ Two signals, tried in order:
    can no longer make those children its parents.
 
 Both are filtered by the same guards -- not the plan itself, same project,
-strictly earlier `started` -- and the newest surviving candidate wins.
+same source, strictly earlier `started` -- and the newest surviving
+candidate wins.
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ def _eligible(plan, candidate_ids, candidates, sessions):
         if candidate is None or candidate.id == plan.id:
             continue
         if candidate.project != plan.project:
+            continue
+        if candidate.source != plan.source:
             continue
         if not (candidate.started and plan.started and candidate.started < plan.started):
             continue

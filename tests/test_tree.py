@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import unittest
 from pathlib import Path
 
@@ -15,9 +16,15 @@ class FakePlan:
     intent: str = "unset"
     parent: str | None = None
     project: str | None = "example"
+    source: str = "claude"
     path: Path = Path("fake.md")
     started: str = "2026-01-01T00:00:00.000Z"
+    mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
+
+    @property
+    def modified(self) -> datetime.datetime:
+        return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
 
 class RenderTests(unittest.TestCase):
@@ -25,7 +32,7 @@ class RenderTests(unittest.TestCase):
         root = FakePlan(id="root", title="Root Plan")
         lines = tree.render([root]).split("\n")
         self.assertEqual(lines[0], "`- Root Plan")
-        self.assertEqual(lines[1], "     root  not-started  unset")
+        self.assertTrue(lines[1].startswith("     root  not-started  unset  "))
 
     def test_two_children_use_branch_and_final_connectors(self):
         root = FakePlan(id="root", title="Root")
@@ -52,6 +59,13 @@ class RenderTests(unittest.TestCase):
         rendered = tree.render_grouped([p1, p2])
         self.assertLess(rendered.index("alpha"), rendered.index("zeta"))
         self.assertIn("\n\n", rendered)
+
+    def test_siblings_follow_the_given_sort_key(self):
+        root = FakePlan(id="root", title="Root")
+        a = FakePlan(id="a", title="A", parent="root", mtime=100)
+        b = FakePlan(id="b", title="B", parent="root", mtime=200)
+        rendered = tree.render([root, a, b], key=lambda p: p.mtime, reverse=True)
+        self.assertLess(rendered.index("B"), rendered.index("A"))
 
 
 class AsRecordsTests(unittest.TestCase):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import datetime
 import sys
 
 from pentimento import backfill as backfill_module
@@ -13,16 +14,44 @@ from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
 from pentimento import sessions as sessions_module
+from pentimento import sources as sources_module
+from pentimento import times as times_module
 from pentimento import tree as tree_module
 
 STARRED_INTENTS = ("active", "queued")
+SORT_CHOICES = ("modified", "created", "id", "status", "title")
+DATE_SORTS = ("modified", "created")
+_MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+
+SORT_KEYS = {
+    "modified": lambda p: p.modified,
+    "created": lambda p: p.created_at or _MIN_INSTANT,
+    "id": lambda p: p.id,
+    "status": lambda p: p.status,
+    "title": lambda p: p.title,
+}
 
 
 def _add_filter_args(parser):
     parser.add_argument("--status", choices=index_module.STATUS_ORDER, help="filter by status")
     parser.add_argument("--intent", choices=check_module.INTENT_VALUES, help="filter by intent")
     parser.add_argument("--project", help="filter by project")
+    parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     parser.add_argument("--starred", action="store_true", help="only active/queued intent")
+
+
+def _add_sort_args(parser):
+    parser.add_argument("--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)")
+    parser.add_argument("--reverse", action="store_true", help="reverse the sort order")
+
+
+def _sort_key(args):
+    return SORT_KEYS[args.sort]
+
+
+def _sort_reverse(args) -> bool:
+    default_reverse = args.sort in DATE_SORTS
+    return not default_reverse if args.reverse else default_reverse
 
 
 def _add_format_args(parser):
@@ -47,6 +76,8 @@ def _apply_filters(plans, args):
         plans = [p for p in plans if p.intent == args.intent]
     if args.project:
         plans = [p for p in plans if p.project == args.project]
+    if args.source:
+        plans = [p for p in plans if p.source == args.source]
     if args.starred:
         plans = [p for p in plans if p.intent in STARRED_INTENTS]
     return plans
@@ -59,10 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_list = sub.add_parser("list", help="flat table of plans")
     _add_filter_args(p_list)
     _add_format_args(p_list)
+    _add_sort_args(p_list)
 
     p_tree = sub.add_parser("tree", help="lineage tree, grouped by project")
     _add_filter_args(p_tree)
     _add_format_args(p_tree)
+    _add_sort_args(p_tree)
 
     p_show = sub.add_parser("show", help="H1, frontmatter, and Progress block")
     p_show.add_argument("id", help="plan id (filename stem)")
@@ -79,6 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
     p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
     p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
+    p_backfill.add_argument("--recreate", action="store_true", help="recompute created from local time too")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
 
@@ -89,7 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_list(args) -> int:
-    plans = sorted(_apply_filters(corpus.load_all(), args), key=lambda p: p.id)
+    plans = sorted(_apply_filters(corpus.load_all(), args), key=_sort_key(args), reverse=_sort_reverse(args))
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(listing.render(plans, on_color))
@@ -100,11 +134,12 @@ def cmd_list(args) -> int:
 
 def cmd_tree(args) -> int:
     plans = _apply_filters(corpus.load_all(), args)
+    key, reverse = _sort_key(args), _sort_reverse(args)
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
-        print(tree_module.render_grouped(plans, on_color))
+        print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))
     else:
-        formats.emit(tree_module.as_records(plans), args.format, sys.stdout)
+        formats.emit(tree_module.as_records(plans, key=key, reverse=reverse), args.format, sys.stdout)
     return 0
 
 
@@ -119,6 +154,8 @@ def cmd_show(args) -> int:
         print()
         for key, value in target.fields.items():
             print(f"{key}: {value}")
+        print(f"source: {target.source}")
+        print(f"modified: {times_module.local_stamp(target.modified)}")
         print()
         section = _progress_block(target.body)
         if section:
@@ -167,7 +204,9 @@ def cmd_set(args) -> int:
 def cmd_backfill(args) -> int:
     sessions = sessions_module.load()
     plans = corpus.load_all(sessions=sessions)
-    changed = backfill_module.run(plans, sessions, dry_run=args.dry_run, rederive=args.rederive)
+    changed = backfill_module.run(
+        plans, sessions, dry_run=args.dry_run, rederive=args.rederive, recreate=args.recreate
+    )
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)

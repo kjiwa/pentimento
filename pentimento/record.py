@@ -13,7 +13,9 @@ def as_dict(plan: plan_module.Plan) -> dict:
         "intent": plan.intent,
         "parent": plan.parent,
         "project": plan.project,
+        "source": plan.source,
         "created": plan.fields.get("created"),
         "started": plan.started,
+        "modified": plan.modified.astimezone().isoformat(),
         "path": str(plan.path),
     }

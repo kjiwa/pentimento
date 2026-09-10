@@ -49,6 +49,22 @@ class RunTests(unittest.TestCase):
         self.assertTrue(any(f.code == "cycle" and "a" in f.message for f in findings))
         self.assertTrue(any(f.code == "cycle" and "b" in f.message for f in findings))
 
+    def test_self_parent_is_reported_once_without_cycle_duplicate(self):
+        plan = FakePlan(id="loopy", parent="loopy")
+        findings = check.run([plan])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].code, "self-parent")
+
+    def test_node_pointing_to_cycle_is_not_reported_as_cycle(self):
+        a = FakePlan(id="a", parent="b")
+        b = FakePlan(id="b", parent="a")
+        x = FakePlan(id="x", parent="a")
+        findings = check.run([a, b, x])
+        cycle_ids = [f.plan_id for f in findings if f.code == "cycle"]
+        self.assertIn("a", cycle_ids)
+        self.assertIn("b", cycle_ids)
+        self.assertNotIn("x", cycle_ids)
+
     def test_off_vocabulary_status_is_reported(self):
         plan = FakePlan(id="weird-status", status="bogus")
         findings = check.run([plan])

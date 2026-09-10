@@ -23,36 +23,60 @@ def parse(text: str) -> tuple[dict[str, str], str]:
     Returns an empty dict and the whole text unchanged if text does not
     begin with a frontmatter block at byte 0.
     """
-    if not text.startswith(DELIMITER + "\n"):
+    if text.startswith(DELIMITER + "\r\n"):
+        nl = "\r\n"
+    elif text.startswith(DELIMITER + "\n"):
+        nl = "\n"
+    else:
         return {}, text
 
-    lines = text.split("\n")
+    lines = text.split(nl)
     closing_index = _find_closing_delimiter(lines)
     if closing_index is None:
         return {}, text
 
     fields = _parse_fields(lines[1:closing_index])
-    body = "\n".join(lines[closing_index + 1 :])
+    body = nl.join(lines[closing_index + 1 :])
     return fields, body
 
 
 def _find_closing_delimiter(lines: list[str]) -> int | None:
     for index, line in enumerate(lines[1:], start=1):
-        if line == DELIMITER:
+        if line.strip() == DELIMITER:
             return index
     return None
+
+
+def _clean_value(raw: str) -> str:
+    value = raw.strip()
+    if not value:
+        return ""
+    if value.startswith('"'):
+        end = value.find('"', 1)
+        if end != -1:
+            return value[1:end]
+        return value[1:].strip()
+    if value.startswith("'"):
+        end = value.find("'", 1)
+        if end != -1:
+            return value[1:end]
+        return value[1:].strip()
+    return value.split("#", 1)[0].strip()
 
 
 def _parse_fields(lines: list[str]) -> dict[str, str]:
     fields = {}
     in_namespace = False
     for line in lines:
-        if not line.strip() or ":" not in line:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if ":" not in line:
             continue
         indented = line[:1] in (" ", "\t")
-        key, _, value = line.partition(":")
+        key, _, raw_value = line.partition(":")
         key = key.strip()
-        value = value.strip()
+        value = _clean_value(raw_value)
         if not indented and key == NAMESPACE and not value:
             in_namespace = True
             continue
@@ -60,7 +84,8 @@ def _parse_fields(lines: list[str]) -> dict[str, str]:
             in_namespace = False
         if indented and not in_namespace:
             continue
-        fields[key] = value
+        if value:
+            fields[key] = value
     return fields
 
 

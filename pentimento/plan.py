@@ -65,14 +65,14 @@ def _first_h1(body: str) -> str | None:
     return None
 
 
-def _id_for(path: Path, source: str) -> str:
-    if source == "cursor" and path.name.endswith(CURSOR_SUFFIX):
+def _id_for(path: Path, source: str = "claude") -> str:
+    if path.name.endswith(CURSOR_SUFFIX):
         return path.name[: -len(CURSOR_SUFFIX)]
     return path.stem
 
 
 def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     fields, body = frontmatter.parse(text)
     plan_id = _id_for(path, source)
     session = (sessions or {}).get(plan_id)
@@ -100,12 +100,13 @@ def _file_started(path: Path) -> str:
 
 def save(plan: Plan, *, keep_mtime: bool = False) -> None:
     text = frontmatter.serialize(plan.fields, plan.body)
+    plan.text = text
     if keep_mtime:
         stat = plan.path.stat()
-        plan.path.write_text(text)
+        plan.path.write_text(text, encoding="utf-8")
         os.utime(plan.path, (stat.st_atime, stat.st_mtime))
     else:
-        plan.path.write_text(text)
+        plan.path.write_text(text, encoding="utf-8")
 
 
 def is_plan_file(path: Path) -> bool:

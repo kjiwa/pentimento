@@ -21,6 +21,15 @@ class ParseIsoTests(unittest.TestCase):
     def test_malformed_text_is_none(self):
         self.assertIsNone(times.parse_iso("not a timestamp"))
 
+    def test_naive_timestamp_gets_utc_timezone(self):
+        dt = times.parse_iso("2026-09-01T12:00:00")
+        self.assertEqual(dt, datetime.datetime(2026, 9, 1, 12, 0, 0, tzinfo=datetime.timezone.utc))
+
+    def test_naive_timestamp_works_with_relative(self):
+        dt = times.parse_iso("2026-09-01T12:00:00")
+        now = datetime.datetime(2026, 9, 1, 12, 0, 30, tzinfo=datetime.timezone.utc)
+        self.assertEqual(times.relative(dt, now), "just now")
+
 
 class LocalDateTests(unittest.TestCase):
     def test_none_input_is_none(self):

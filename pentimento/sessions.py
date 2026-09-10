@@ -67,11 +67,10 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
                     entry["prompt"] = text
                     entry["prompt_ts"] = timestamp
 
-    project = _project_name(cwd for entry in by_slug.values() for cwd in entry["cwds"])
     return {
         slug: Session(
             slug=slug,
-            project=project,
+            project=_project_name(entry["cwds"]),
             started=entry["started"] or "",
             prompt=entry["prompt"] or "",
             ended=entry["ended"] or "",
@@ -81,15 +80,18 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
 
 
 def _read_records(log_path: Path):
-    with log_path.open() as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
+    try:
+        with log_path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        return
 
 
 def _prompt_text(record: dict) -> str | None:

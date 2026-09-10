@@ -56,6 +56,32 @@ class CmdSetTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
         self.assertEqual(reloaded.fields["parent"], "root-plan")
 
+    def test_clear_parent_flag_removes_parent(self):
+        _write(
+            self.directory,
+            "child-plan",
+            "---\nstatus: not-started\nintent: unset\nparent: root-plan\n---\n\n# Child\n",
+        )
+        args = cli.build_parser().parse_args(["set", "child-plan", "--clear-parent"])
+        result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
+        self.assertNotIn("parent", reloaded.fields)
+
+    def test_empty_parent_removes_parent(self):
+        _write(
+            self.directory,
+            "child-plan",
+            "---\nstatus: not-started\nintent: unset\nparent: root-plan\n---\n\n# Child\n",
+        )
+        args = cli.build_parser().parse_args(["set", "child-plan", "--parent", ""])
+        result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
+        self.assertNotIn("parent", reloaded.fields)
+
 
 class CmdCheckTests(unittest.TestCase):
     def setUp(self):
@@ -178,6 +204,18 @@ class CmdFooterTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["index"])
         output = self._run(args)
         self.assertIn("1 plan indexed", output)
+    def test_list_empty_filter_reports_summary(self):
+        _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
+        args = cli.build_parser().parse_args(["list", "--status", "not-started", "--color", "never"])
+        output = self._run(args)
+        self.assertIn("0 of 1 plan", output)
+
+    def test_tree_empty_filter_reports_summary(self):
+        _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
+        args = cli.build_parser().parse_args(["tree", "--status", "not-started", "--color", "never"])
+        output = self._run(args)
+        self.assertIn("0 of 1 plan", output)
+
 
 
 class CmdListSortTests(unittest.TestCase):

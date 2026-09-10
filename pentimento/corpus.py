@@ -32,8 +32,18 @@ def load_all(directory: Path | None = None, sessions: dict | None = None) -> lis
 
 
 def by_id(plans: list[plan_module.Plan], plan_id: str) -> plan_module.Plan | None:
-    stem = Path(plan_id).stem
     for candidate in plans:
-        if candidate.id == stem:
+        if candidate.id == plan_id:
+            return candidate
+
+    target = plan_id
+    if target.endswith(".plan.md"):
+        target = target[: -len(".plan.md")]
+    elif target.endswith(".md"):
+        target = target[: -len(".md")]
+    target_stem = Path(target).stem
+
+    for candidate in plans:
+        if candidate.id in (target, target_stem) or candidate.path.name == plan_id:
             return candidate
     return None

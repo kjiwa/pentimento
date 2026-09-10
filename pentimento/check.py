@@ -36,11 +36,13 @@ def _cross_project_parents(plans, by_id):
 
 
 def _in_cycle(plan, by_id):
+    if plan.parent == plan.id:
+        return False
     seen = set()
     current = plan
     while current is not None and current.parent:
         if current.id in seen:
-            return True
+            return current.id == plan.id
         seen.add(current.id)
         current = by_id.get(current.parent)
     return False

@@ -114,6 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_set.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="new status")
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
     p_set.add_argument("--parent", help="new parent plan id")
+    p_set.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
     p_set.add_argument("--project", help="new project")
 
     p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
@@ -133,6 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
     plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
+    if not plans:
+        if corpus_plans and args.format == "table":
+            on_color = style.enabled(sys.stdout, args.color)
+            print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
+        return 0
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         print(listing.render(plans, on_color))
@@ -146,6 +152,11 @@ def cmd_list(args) -> int:
 def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
+    if not plans:
+        if corpus_plans and args.format == "table":
+            on_color = style.enabled(sys.stdout, args.color)
+            print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
+        return 0
     key, reverse = _sort_key(args), _sort_descending(args)
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
@@ -203,14 +214,22 @@ def cmd_set(args) -> int:
         print(f"no such plan: {args.id}", file=sys.stderr)
         return 1
 
-    if args.parent is not None and corpus.by_id(plans, args.parent) is None:
-        print(f"no such plan: {args.parent}", file=sys.stderr)
-        return 1
+    if args.clear_parent or args.parent in ("", "none", "None"):
+        target.fields.pop("parent", None)
+    elif args.parent is not None:
+        parent_plan = corpus.by_id(plans, args.parent)
+        if parent_plan is None:
+            print(f"no such plan: {args.parent}", file=sys.stderr)
+            return 1
+        target.fields["parent"] = parent_plan.id
 
-    for field in ("status", "intent", "parent", "project"):
-        value = getattr(args, field)
+    for field in ("status", "intent", "project"):
+        value = getattr(args, field, None)
         if value is not None:
-            target.fields[field] = value
+            if value == "" and field == "project":
+                target.fields.pop(field, None)
+            else:
+                target.fields[field] = value
     plan_module.save(target)
     return 0
 

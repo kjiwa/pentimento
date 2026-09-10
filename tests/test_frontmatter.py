@@ -59,6 +59,32 @@ class ParseTests(unittest.TestCase):
         fields, _ = frontmatter.parse(text)
         self.assertEqual(fields, {"status": "complete", "foo": "bar"})
 
+    def test_inline_comments_are_stripped(self):
+        text = "---\npentimento:\n  status: partial # in progress\n  parent: root-plan # omitted for roots\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "partial", "parent": "root-plan"})
+
+    def test_full_line_comments_are_ignored(self):
+        text = "---\n# top-level comment\npentimento:\n  # indented comment\n  status: complete\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete"})
+
+    def test_quoted_scalars_are_unquoted(self):
+        text = "---\npentimento:\n  status: \"complete\"\n  project: 'pentimento'\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete", "project": "pentimento"})
+
+    def test_empty_values_are_omitted(self):
+        text = "---\npentimento:\n  status: complete\n  parent:\n---\nbody\n"
+        fields, _ = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete"})
+
+    def test_crlf_line_endings_parse(self):
+        text = "---\r\npentimento:\r\n  status: complete\r\n---\r\n# Title\r\n\r\nbody\r\n"
+        fields, body = frontmatter.parse(text)
+        self.assertEqual(fields, {"status": "complete"})
+        self.assertEqual(body, "# Title\r\n\r\nbody\r\n")
+
 
 class SerializeTests(unittest.TestCase):
     def test_empty_fields_returns_body_unchanged(self):

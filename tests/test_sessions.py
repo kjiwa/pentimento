@@ -167,6 +167,39 @@ class LoadTests(unittest.TestCase):
         result = sessions.load(self.directory)
         self.assertEqual(result["plan-c"].project, "home")
 
+    def test_project_is_isolated_per_slug(self):
+        project_dir = self.directory / "-Users-kjiwa-src"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                {
+                    "type": "user",
+                    "slug": "plan-a",
+                    "cwd": "/Users/kjiwa/src/project-a",
+                    "timestamp": "2026-09-01T00:00:00.000Z",
+                    "message": {"role": "user", "content": "hi a"},
+                },
+                {
+                    "type": "user",
+                    "slug": "plan-b",
+                    "cwd": "/Users/kjiwa/src/project-b",
+                    "timestamp": "2026-09-01T00:00:00.000Z",
+                    "message": {"role": "user", "content": "hi b"},
+                },
+            ],
+        )
+        result = sessions.load(self.directory)
+        self.assertEqual(result["plan-a"].project, "project-a")
+        self.assertEqual(result["plan-b"].project, "project-b")
+
+    def test_unreadable_or_corrupted_file_does_not_crash(self):
+        project_dir = self.directory / "-Users-kjiwa"
+        project_dir.mkdir()
+        (project_dir / "bad.jsonl").write_bytes(b"\xff\xfe\x00\x00not valid json\n")
+        result = sessions.load(self.directory)
+        self.assertEqual(result, {})
+
 
 if __name__ == "__main__":
     unittest.main()

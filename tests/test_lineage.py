@@ -108,5 +108,22 @@ class DeriveParentTests(unittest.TestCase):
         self.assertIsNone(parent_id)
 
 
+    def test_cursor_plan_reference_finds_parent(self):
+        parent = FakePlan(
+            id="eager-bird",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
+            source="cursor",
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="See ~/.cursor/plans/eager-bird.plan.md\n",
+            started="2026-09-02T00:00:00Z",
+            source="cursor",
+        )
+        parent_id = lineage.derive_parent(child, [parent, child], {})
+        self.assertEqual(parent_id, parent.id)
+
+
 if __name__ == "__main__":
     unittest.main()

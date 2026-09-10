@@ -20,9 +20,12 @@ def parse_iso(text: str) -> datetime.datetime | None:
         return None
     normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
     try:
-        return datetime.datetime.fromisoformat(normalized)
+        dt = datetime.datetime.fromisoformat(normalized)
     except ValueError:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
 
 
 def local_date(dt: datetime.datetime | None) -> str | None:

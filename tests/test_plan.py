@@ -68,6 +68,48 @@ class SaveTests(unittest.TestCase):
 
         self.assertNotEqual(path.stat().st_mtime, 1000)
 
+    def test_load_cursor_plan_id_resolution(self):
+        path = self.directory / "refactor-auth.plan.md"
+        path.write_text("# Refactor Auth\n", encoding="utf-8")
+        target = plan_module.load(path)
+        self.assertEqual(target.id, "refactor-auth")
+
+    def test_load_utf8_encoding(self):
+        path = self.directory / "unicode-plan.md"
+        path.write_text("# Plan with üñîçødé\n", encoding="utf-8")
+        target = plan_module.load(path)
+        self.assertEqual(target.title, "Plan with üñîçødé")
+class ByIdTests(unittest.TestCase):
+    def test_by_id_matches_stem_and_plan_md(self):
+        from pentimento import corpus
+
+        p1 = plan_module.Plan(
+            id="auth",
+            path=Path("/cursor/plans/auth.plan.md"),
+            fields={},
+            body="# Auth",
+            mtime=1000.0,
+            started="",
+            source="cursor",
+        )
+        p2 = plan_module.Plan(
+            id="login",
+            path=Path("/claude/plans/login.md"),
+            fields={},
+            body="# Login",
+            mtime=1000.0,
+            started="",
+            source="claude",
+        )
+        self.assertEqual(corpus.by_id([p1, p2], "auth"), p1)
+        self.assertEqual(corpus.by_id([p1, p2], "auth.plan.md"), p1)
+        self.assertEqual(corpus.by_id([p1, p2], "auth.md"), p1)
+        self.assertEqual(corpus.by_id([p1, p2], "login.md"), p2)
+        self.assertEqual(corpus.by_id([p1, p2], "login"), p2)
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()

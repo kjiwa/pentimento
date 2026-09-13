@@ -4,6 +4,7 @@ import dataclasses
 import unittest
 
 from pentimento import check
+from pentimento import touches as touches_module
 
 
 @dataclasses.dataclass
@@ -140,6 +141,58 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="has-project", project="example")
         sessions = {"has-project": FakeSession(project="real-project")}
         self.assertEqual(check.run([plan], sessions), [])
+
+    def test_status_behind_history_fires_when_a_later_session_worked_the_plan(self):
+        plan = FakePlan(id="not-started-but-done", status="not-started")
+        touches = {
+            "not-started-but-done": [
+                touches_module.Touch(
+                    plan_id="not-started-but-done",
+                    session="implement-it-later",
+                    tool="Read",
+                    at="2026-09-05T00:00:00.000Z",
+                    cwd="/Users/kjiwa/example",
+                )
+            ]
+        }
+        findings = check.run([plan], touches=touches)
+        self.assertTrue(
+            any(f.code == "status-behind-history" and f.plan_id == "not-started-but-done" for f in findings)
+        )
+
+    def test_status_behind_history_is_silent_without_touches(self):
+        plan = FakePlan(id="not-started-but-done", status="not-started")
+        self.assertEqual(check.run([plan]), [])
+
+    def test_status_behind_history_is_silent_when_only_the_authoring_session_touched_it(self):
+        plan = FakePlan(id="not-started-but-done", status="not-started")
+        touches = {
+            "not-started-but-done": [
+                touches_module.Touch(
+                    plan_id="not-started-but-done",
+                    session="not-started-but-done",
+                    tool="Write",
+                    at="2026-09-01T00:00:00.000Z",
+                    cwd="/Users/kjiwa/example",
+                )
+            ]
+        }
+        self.assertEqual(check.run([plan], touches=touches), [])
+
+    def test_status_behind_history_is_silent_for_settled_statuses(self):
+        plan = FakePlan(id="already-complete", status="complete")
+        touches = {
+            "already-complete": [
+                touches_module.Touch(
+                    plan_id="already-complete",
+                    session="implement-it-later",
+                    tool="Read",
+                    at="2026-09-05T00:00:00.000Z",
+                    cwd="/Users/kjiwa/example",
+                )
+            ]
+        }
+        self.assertEqual(check.run([plan], touches=touches), [])
 
 
 if __name__ == "__main__":

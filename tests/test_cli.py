@@ -136,6 +136,38 @@ class CmdSetTests(unittest.TestCase):
         text = (self.directory / "root-plan.md").read_text()
         self.assertEqual(text, original)
 
+    def test_status_change_preserves_mtime(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: not-started\n  intent: unset\n---\n\n# Root\n",
+        )
+        path = self.directory / "root-plan.md"
+        stat = path.stat()
+        os.utime(path, (stat.st_atime, stat.st_mtime - 86400))
+        before = path.stat().st_mtime
+
+        args = cli.build_parser().parse_args(["set", "root-plan", "--status", "complete"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        self.assertEqual(path.stat().st_mtime, before)
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
+    def test_no_op_set_leaves_file_bytes_and_mtime_untouched(self):
+        original = "---\npentimento:\n  status: not-started\n  intent: unset\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        path = self.directory / "root-plan.md"
+        stat = path.stat()
+        os.utime(path, (stat.st_atime, stat.st_mtime - 86400))
+        before = path.stat().st_mtime
+
+        args = cli.build_parser().parse_args(["set", "root-plan", "--status", "not-started"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        self.assertEqual(path.stat().st_mtime, before)
+        self.assertEqual(path.read_text(), original)
+
 
 class CmdListTagFilterTests(unittest.TestCase):
     def setUp(self):
@@ -258,6 +290,27 @@ class CmdCheckTests(unittest.TestCase):
             cli.cmd_check(args)
         header = out.getvalue().splitlines()[0]
         self.assertEqual(header.split(), ["CODE", "PLAN", "MESSAGE"])
+
+
+class CmdHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_no_such_plan_exits_one(self):
+        args = cli.build_parser().parse_args(["history", "no-such-plan"])
+        self.assertEqual(cli.cmd_history(args), 1)
+
+    def test_no_history_prints_message_and_exits_zero(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["history", "root-plan"])
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_history(args)
+        self.assertEqual(result, 0)
+        self.assertIn("no session history for root-plan", out.getvalue())
 
 
 class CmdBackfillRederiveTests(unittest.TestCase):

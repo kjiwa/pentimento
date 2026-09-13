@@ -7,17 +7,42 @@
 # one raw (frontmatter-less) plan for the backfill step to work on, and
 # one deliberate dangling parent for the check step to flag. mtimes are
 # set relative to now so the relative-time column stays truthful whenever
-# samples are regenerated.
+# samples are regenerated. A synthetic session log under
+# `$TARGET_DIR/sessions/` gives the api-auth-* chain real touch history: one
+# authoring session per plan (timestamped to that plan's own mtime, so the
+# `list`/`tree` samples don't shift) and one later session that works
+# `api-auth-cleanup` despite its `not-started` status, so the `check` sample
+# gains `status-behind-history`.
 set -eu
 
+# Emits touch -t stamp, local created date, and UTC session timestamp, all
+# for the same instant, so a plan's mtime and its authoring session's
+# timestamp agree exactly.
 _stamp_days_ago() {
   _fixture_days=$1
   python3 -c '
 import datetime, sys
-d = datetime.datetime.now() - datetime.timedelta(days=int(sys.argv[1]))
+d = (datetime.datetime.now() - datetime.timedelta(days=int(sys.argv[1]))).replace(microsecond=0)
+utc = d.astimezone().astimezone(datetime.timezone.utc)
 print(d.strftime("%Y%m%d%H%M.%S"))
 print(d.strftime("%Y-%m-%d"))
+print(utc.strftime("%Y-%m-%dT%H:%M:%S.000Z"))
 ' "$_fixture_days"
+}
+
+_write_session() {
+  _fixture_dir=$1
+  _fixture_file=$2
+  _fixture_slug=$3
+  _fixture_cwd=$4
+  _fixture_ts=$5
+  _fixture_tool=$6
+  _fixture_plan_path=$7
+
+  mkdir -p "$_fixture_dir"
+  printf '{"type": "assistant", "slug": "%s", "cwd": "%s", "timestamp": "%s", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "%s", "input": {"file_path": "%s"}}]}}\n' \
+    "$_fixture_slug" "$_fixture_cwd" "$_fixture_ts" "$_fixture_tool" "$_fixture_plan_path" \
+    >"$_fixture_dir/$_fixture_file"
 }
 
 _write_plan() {
@@ -35,6 +60,7 @@ _write_plan() {
   _fixture_stamps=$(_stamp_days_ago "$_fixture_days_ago")
   _fixture_touch_ts=$(printf '%s\n' "$_fixture_stamps" | sed -n '1p')
   _fixture_created=$(printf '%s\n' "$_fixture_stamps" | sed -n '2p')
+  FIXTURE_SESSION_TS=$(printf '%s\n' "$_fixture_stamps" | sed -n '3p')
 
   {
     printf '%s\n' '---'
@@ -95,6 +121,9 @@ main() {
 - [x] Draft the new token schema
 - [x] Migrate existing sessions' \
     '[auth, security]'
+  _write_session "$TARGET_DIR/sessions/platform" api-auth-redesign-session.jsonl \
+    api-auth-redesign /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
+    Write /Users/kjiwa/.claude/plans/api-auth-redesign.md
 
   _write_plan api-auth-rollout "Roll out the new auth API" partial active \
     platform api-auth-redesign 20 \
@@ -103,6 +132,9 @@ main() {
 - [x] Ship behind a feature flag
 - [ ] Flip the flag for all tenants' \
     '[auth, security]'
+  _write_session "$TARGET_DIR/sessions/platform" api-auth-rollout-session.jsonl \
+    api-auth-rollout /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
+    Write /Users/kjiwa/.claude/plans/api-auth-rollout.md
 
   _write_plan api-auth-cleanup "Remove the old auth API" not-started queued \
     platform api-auth-rollout 15 \
@@ -111,6 +143,14 @@ main() {
 - [ ] Delete the legacy endpoints
 - [ ] Drop the compatibility shim' \
     '[auth, security]'
+  _write_session "$TARGET_DIR/sessions/platform" api-auth-cleanup-session.jsonl \
+    api-auth-cleanup /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
+    Write /Users/kjiwa/.claude/plans/api-auth-cleanup.md
+
+  _fixture_worked_ts=$(_stamp_days_ago 3 | sed -n '3p')
+  _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \
+    implement-api-auth-cleanup-eager-wolf /Users/kjiwa/src/github/kjiwa/pentimento "$_fixture_worked_ts" \
+    Read /Users/kjiwa/.claude/plans/api-auth-cleanup.md
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \
     billing no-such-plan 10 \

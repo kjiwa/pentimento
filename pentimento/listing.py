@@ -20,7 +20,7 @@ COLUMNS = (
     table.Column("TITLE", flex=1, comfort=32, floor=16),
     table.Column("TAGS", drop=2),
     table.Column("CREATED", drop=1),
-    table.Column("AGE", align="right"),
+    table.Column("UPDATED", align="right"),
 )
 
 
@@ -39,7 +39,7 @@ def render(plans, on_color: bool, unicode_ok: bool = True) -> str:
         "TITLE": True,
         "TAGS": show_tags,
         "CREATED": show_created,
-        "AGE": True,
+        "UPDATED": True,
     }
     columns = tuple(c for c in COLUMNS if shown[c.header])
 
@@ -55,7 +55,7 @@ def render(plans, on_color: bool, unicode_ok: bool = True) -> str:
             "TITLE": (title, ()),
             "TAGS": (", ".join(p.tags), ()),
             "CREATED": (p.fields.get("created", ""), (style.DIM,)),
-            "AGE": (times.relative(p.modified), (style.DIM,)),
+            "UPDATED": (times.relative(p.modified), (style.DIM,)),
         }
         rows.append(tuple(cells[c.header] for c in columns))
 

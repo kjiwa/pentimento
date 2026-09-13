@@ -44,6 +44,7 @@ pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--clear-p
 pentimento backfill [--dry-run] [--quiet] [--rederive] [--recreate]
 pentimento index
 pentimento check [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento --version
 ```
 
@@ -70,19 +71,19 @@ surplus width goes unused at the right edge. Every command guarantees its
 output fits `style.terminal_width()`: when a line would overflow, `TITLE`
 and `PLAN` shrink toward their floors first, then columns drop in order
 (`CREATED`, `TAGS`, `SOURCE`, `PROJECT`, `PLAN`, `INTENT`, `STATUS`) --
-`TITLE` is never dropped, and `AGE` stays flush right.
+`TITLE` is never dropped, and `UPDATED` stays flush right.
 
 <!-- sample:list -->
 ```
-STATUS       INTENT     PROJECT   PLAN                     TITLE                           TAGS            AGE
-superseded   abandoned  platform  docs-style-guide         Write a docs style guide                         6w
-complete     abandoned  platform  api-auth-redesign        Redesign the auth API           auth, security   5w
-complete     someday    billing   billing-dunning-copy     Rewrite dunning email copy      billing          3w
-partial      active     platform  api-auth-rollout         Roll out the new auth API       auth, security   2w
-not-started  queued     platform  api-auth-cleanup         Remove the old auth API         auth, security   2w
-unknown      unset      billing   billing-invoice-retry    Retry failed invoice charges    billing          1w
-not-started  active     billing   search-relevance-tuning  Tune search relevance           search           5d
-unknown      unset                onboarding-checklist     Write the onboarding checklist                   1d
+STATUS       INTENT     PROJECT   PLAN                     TITLE                           UPDATED
+superseded   abandoned  platform  docs-style-guide         Write a docs style guide             6w
+complete     abandoned  platform  api-auth-redesign        Redesign the auth API                5w
+complete     someday    billing   billing-dunning-copy     Rewrite dunning email copy           3w
+partial      active     platform  api-auth-rollout         Roll out the new auth API            2w
+not-started  queued     platform  api-auth-cleanup         Remove the old auth API              2w
+unknown      unset      billing   billing-invoice-retry    Retry failed invoice charges         1w
+not-started  active     billing   search-relevance-tuning  Tune search relevance                5d
+unknown      unset                onboarding-checklist     Write the onboarding checklist       1d
 
 8 plans
 ```
@@ -132,7 +133,7 @@ parent: api-auth-redesign
 project: platform
 created: 2026-08-24
 source: claude
-modified: 2026-08-24 14:43
+modified: 2026-08-24 16:45
 
 ## Progress
 
@@ -162,9 +163,26 @@ means and how to fix it.
 
 <!-- sample:check -->
 ```
-CODE             PLAN                   MESSAGE
-dangling-parent  billing-invoice-retry  parent 'no-such-plan' does not resolve to a plan
-8 plans checked, 1 finding
+CODE                   PLAN                   MESSAGE
+dangling-parent        billing-invoice-retry  parent 'no-such-plan' does not resolve…
+status-behind-history  api-auth-cleanup       status 'not-started' but 1 later sessio…
+8 plans checked, 2 findings
+```
+<!-- /sample -->
+
+### history
+
+`history` shows which sessions touched a plan's file, per `pentimento/touches.py`:
+the session whose id matches the plan's own id authored it; any later session
+that read, edited, or delegated work on it worked it. An empty result prints
+`no session history for <id>` -- that means no matching transcript was found
+on this machine, never a claim the plan wasn't worked.
+
+<!-- sample:history -->
+```
+WHEN              WHAT      SESSION                                TOUCHES
+2026-08-29 16:45  authored  api-auth-cleanup                             1
+2026-09-10 16:45  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 
@@ -201,7 +219,10 @@ that resolves to no plan in the corpus.
 except through `backfill --recreate`. `modified` is not stored in
 frontmatter; it comes from a plan's session log last-activity timestamp,
 falling back to the file's mtime when there is no session record.
-`backfill` preserves mtime — deriving frontmatter is not an edit.
+`backfill` preserves mtime — deriving frontmatter is not an edit. `set`
+does too, and no-ops without writing when the requested change matches what's
+already there -- frontmatter bookkeeping is not an edit either, and neither
+should bump a plan's `UPDATED` column or its derived `created_at`.
 
 Lineage and source discovery are covered in full in
 [docs/integrations.md](docs/integrations.md) and

@@ -35,7 +35,7 @@ class RenderTests(unittest.TestCase):
     def test_header_row_lists_columns(self):
         plans = [FakePlan(id="a", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertEqual(header.split(), ["STATUS", "INTENT", "PLAN", "TITLE", "AGE"])
+        self.assertEqual(header.split(), ["STATUS", "INTENT", "PLAN", "TITLE", "UPDATED"])
 
     def test_plan_column_holds_the_id(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
@@ -50,7 +50,7 @@ class RenderTests(unittest.TestCase):
     def test_title_column_blank_when_plan_has_no_title(self):
         plans = [FakePlan(id="a-plan", title="a-plan", has_title=False)]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
-        # Only STATUS, INTENT, PLAN, and AGE tokens should appear -- TITLE is blank.
+        # Only STATUS, INTENT, PLAN, and UPDATED tokens should appear -- TITLE is blank.
         self.assertEqual(len(record_line.split()), 4)
 
     def test_relative_age_column_is_rightmost(self):
@@ -161,7 +161,7 @@ class FitGuaranteeTests(unittest.TestCase):
     def test_drop_order_fires_in_sequence(self):
         plans = self._plans()
         wide_header = _with_width(200, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        for column in ("STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TITLE", "TAGS", "CREATED", "AGE"):
+        for column in ("STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TITLE", "TAGS", "CREATED", "UPDATED"):
             self.assertIn(column, wide_header)
 
         narrow_header = _with_width(60, lambda: listing.render(plans, on_color=False)).split("\n")[0]

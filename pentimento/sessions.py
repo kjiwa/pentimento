@@ -44,7 +44,7 @@ def load(directory: Path | None = None) -> dict[str, Session]:
 def _load_project(project_dir: Path) -> dict[str, Session]:
     by_slug: dict[str, dict] = {}
     for log_path in sorted(project_dir.glob("*.jsonl")):
-        for record in _read_records(log_path):
+        for record in read_records(log_path):
             slug = record.get("slug")
             if not slug:
                 continue
@@ -79,7 +79,7 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
     }
 
 
-def _read_records(log_path: Path):
+def read_records(log_path: Path):
     try:
         with log_path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:

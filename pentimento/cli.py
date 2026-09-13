@@ -11,6 +11,7 @@ import sys
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
 from pentimento import corpus, counts, formats, frontmatter, listing, style, table
+from pentimento import history as history_module
 from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
@@ -18,6 +19,7 @@ from pentimento import sessions as sessions_module
 from pentimento import sources as sources_module
 from pentimento import tags as tags_module
 from pentimento import times as times_module
+from pentimento import touches as touches_module
 from pentimento import tree as tree_module
 from pentimento import vocabulary as vocabulary_module
 
@@ -151,6 +153,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_check = sub.add_parser("check", help="validate lineage and vocabulary; exits 1 on any finding")
     _add_format_args(p_check)
+
+    p_history = sub.add_parser("history", help="session-touch history for a plan")
+    p_history.add_argument("id", help="plan id (filename stem)")
+    _add_format_args(p_history)
 
     return parser
 
@@ -317,7 +323,10 @@ def cmd_set(args) -> int:
                 target.fields.pop(field, None)
             else:
                 target.fields[field] = value
-    plan_module.save(target)
+
+    if frontmatter.serialize(target.fields, target.body) == target.text:
+        return 0
+    plan_module.save(target, keep_mtime=True)
     return 0
 
 
@@ -348,8 +357,9 @@ def cmd_index(_args) -> int:
 
 def cmd_check(args) -> int:
     sessions = sessions_module.load()
+    touches = touches_module.load()
     plans = corpus.load_all(sessions=sessions)
-    findings = check_module.run(plans, sessions)
+    findings = check_module.run(plans, sessions, touches)
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
@@ -372,6 +382,26 @@ def cmd_check(args) -> int:
     return 1 if findings else 0
 
 
+def cmd_history(args) -> int:
+    plans = corpus.load_all()
+    target = corpus.by_id(plans, args.id)
+    if target is None:
+        print(_no_such_plan(plans, args.id), file=sys.stderr)
+        return 1
+
+    plan_touches = touches_module.load().get(target.id, [])
+    if args.format != "table":
+        formats.emit(history_module.as_records(target.id, plan_touches), args.format, sys.stdout, history_module.FIELDS)
+        return 0
+    if not plan_touches:
+        print(history_module.EMPTY_MESSAGE.format(plan_id=target.id))
+        return 0
+    on_color = style.enabled(sys.stdout, args.color)
+    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+    print(history_module.render(target.id, plan_touches, on_color, unicode_ok))
+    return 0
+
+
 COMMANDS = {
     "list": cmd_list,
     "tree": cmd_tree,
@@ -380,6 +410,7 @@ COMMANDS = {
     "backfill": cmd_backfill,
     "index": cmd_index,
     "check": cmd_check,
+    "history": cmd_history,
 }
 
 

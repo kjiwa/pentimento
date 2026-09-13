@@ -77,6 +77,21 @@ Each finding code and its fix ([check.py](../pentimento/check.py)):
 - `underived-project` -- the plan has no `project`, but its session log
   supplies one, meaning `backfill` hasn't caught up. Run `pentimento
   backfill`.
+- `status-behind-history` -- `status` is `not-started` or `unknown`, but a
+  later, differently-slugged session read, edited, or delegated work on the
+  plan (see [touches.py](../pentimento/touches.py)). Run `pentimento history
+  <id>` to see the sessions, then `pentimento set <id> --status <value>` on
+  your own judgement -- this finding never fires the other way, so a plan
+  with no history isn't flagged as unworked.
+
+## `history` is empty
+
+`no session history for <id>` means no transcript under
+`AGENT_SESSIONS_DIR` (default `~/.claude/projects`) contains a `tool_use`
+call naming that plan's path -- never a claim the plan wasn't worked. Common
+causes: the work happened in a session whose transcript has since been
+deleted (Claude Code prunes old transcripts), or on a different machine.
+Absent history is not evidence of absent work.
 
 ## No colour
 

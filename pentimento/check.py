@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import dataclasses
 
+from pentimento import counts
 from pentimento import status as status_module
 from pentimento import tags as tags_module
+from pentimento import touches as touches_module
 from pentimento import vocabulary as vocabulary_module
+
+_HISTORY_ELIGIBLE_STATUSES = ("not-started", "unknown")
 
 
 @dataclasses.dataclass
@@ -96,14 +100,33 @@ def _underived_project(plans, sessions):
     return findings
 
 
-def run(plans, sessions=None) -> list[Finding]:
+def _status_behind_history(plans, touches):
+    findings = []
+    for p in plans:
+        if p.status not in _HISTORY_ELIGIBLE_STATUSES:
+            continue
+        worked = touches_module.worked(touches.get(p.id, []), p.id)
+        if not worked:
+            continue
+        sessions_worked = len({t.session for t in worked})
+        message = (
+            f"status {p.status!r} but {counts.plural(sessions_worked, 'later session')} worked this plan; "
+            f"see `pentimento history {p.id}`"
+        )
+        findings.append(Finding(p.id, "status-behind-history", message))
+    return findings
+
+
+def run(plans, sessions=None, touches=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
     `sessions`, when given, enables the `underived-project` finding; it
     stays silent by default so Cursor plans and session-less plans, where
-    an empty `project` is a legitimate state, are not flagged.
+    an empty `project` is a legitimate state, are not flagged. `touches`,
+    when given, enables `status-behind-history` the same way.
     """
     sessions = sessions or {}
+    touches = touches or {}
     by_id = {p.id: p for p in plans}
     findings = []
 
@@ -140,5 +163,6 @@ def run(plans, sessions=None) -> list[Finding]:
     for p in _underived_project(plans, sessions):
         message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
         findings.append(Finding(p.id, "underived-project", message))
+    findings.extend(_status_behind_history(plans, touches))
 
     return findings

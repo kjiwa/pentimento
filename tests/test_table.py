@@ -70,7 +70,7 @@ class UnconditionalFitTests(unittest.TestCase):
             _column("STATUS", drop=3),
             _column("PLAN", flex=2, comfort=24, floor=10, drop=2),
             _column("TITLE", flex=1, comfort=32, floor=16),
-            _column("AGE", align="right"),
+            _column("UPDATED", align="right"),
         )
         rows = [
             (("complete", ()), ("api-auth-redesign", ()), ("Redesign the auth API", ()), ("5w", ())),

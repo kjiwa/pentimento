@@ -60,6 +60,27 @@ but will remove a `parent` that no longer resolves.
 once, deliberately, to fix a plan whose `created` was derived incorrectly --
 never as part of a routine job.
 
+## Auditing what was actually done
+
+Frontmatter `status` only reflects what the operator set or `backfill`
+derived from `## Progress` checkboxes -- it says nothing about whether a
+later session actually picked the plan up. `pentimento check` surfaces the
+gap: `status-behind-history` fires on any `not-started`/`unknown` plan that
+a later, differently-slugged session read, edited, or delegated work on.
+`pentimento history <id>` shows that plan's full trail -- one row per
+session, `authored` for the session that wrote the plan and `worked` for
+every session since that touched it.
+
+```sh
+pentimento check --format tsv | grep status-behind-history
+pentimento history some-plan-id
+```
+
+Absence of history is not evidence of absent work -- it just means no
+transcript naming that plan's path survives on this machine (see
+[docs/troubleshooting.md](troubleshooting.md)). Update `status` on the
+operator's own judgement; neither command writes anything.
+
 ## Publishing an index
 
 `pentimento index` writes `INDEX.md` into the plans directory: a browsable,

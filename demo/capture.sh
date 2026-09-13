@@ -14,7 +14,7 @@ _capture() {
   shift
   _capture_status=0
   AGENT_PLANS_DIR="$FIXTURE_DIR" \
-    AGENT_SESSIONS_DIR="$FIXTURE_DIR/no-such-sessions-dir" \
+    AGENT_SESSIONS_DIR="$FIXTURE_DIR/sessions" \
     CURSOR_PLANS_DIR=/nonexistent \
     COLUMNS=110 \
     pentimento "$@" --color never >"$CAPTURE_DIR/$_capture_name.txt" || _capture_status=$?
@@ -74,8 +74,9 @@ main() {
   _capture tree tree
   _capture show show api-auth-rollout
   _capture check check
+  _capture history history api-auth-cleanup
 
-  for _name in list tree show check; do
+  for _name in list tree show check history; do
     _splice "$_name"
   done
 }

@@ -30,9 +30,20 @@ body above its first `##` heading. If a reference doesn't meet all four,
 ## `status: unknown`
 
 `unknown` means neither signal in [status.py](../pentimento/status.py)
-produced an answer: no `## Progress` heading and no checkboxes anywhere in
-the body. Add a `## Progress` section with `- [ ]` / `- [x]` items, or run
-`backfill --rederive` once it's there.
+produced an answer. There are two ways to land here:
+
+- There's no `## Progress` heading at all, and no checkboxes anywhere in
+  the body (checkboxes outside a `## Progress` section are only consulted
+  when the heading is entirely absent -- a Cursor plan, say).
+- There is a `## Progress` heading, but its section has no checkboxes and
+  no recognized prose phrase (`nothing started`, `planning only`,
+  `not started`, `no progress`). Body-wide checkboxes are *not* consulted
+  in this case -- a `## Progress` heading commits the section to being the
+  only signal read.
+
+Add checkboxes or one of the prose phrases to the `## Progress` section,
+then run `backfill` -- status is recomputed on every run now, not just
+`--rederive`.
 
 ## `check` findings
 
@@ -60,6 +71,9 @@ Each finding code and its fix ([check.py](../pentimento/check.py)):
 - `malformed-tag` -- a tag fails `tags.is_valid` (must match
   `^[a-z0-9][a-z0-9._/-]*$`). Fix it with `pentimento set <id> --remove-tag
   <bad> --add-tag <fixed>`.
+- `missing-progress` -- the body has no `## Progress` heading, so `status`
+  can never be more than a guess from body-wide checkboxes. Add a
+  `## Progress` heading with `- [ ]` / `- [x]` items.
 - `underived-project` -- the plan has no `project`, but its session log
   supplies one, meaning `backfill` hasn't caught up. Run `pentimento
   backfill`.
@@ -74,8 +88,18 @@ e.g. when piping through `less -R`.
 ## `set` or `show` exits 1
 
 Both exit 1 and print `no such plan: <id>` to stderr when the id doesn't
-match any plan's filename stem. `set --parent` also exits 1, before writing
-anything, if the given parent id doesn't resolve.
+resolve; if a close match exists in the corpus, the message also appends
+`-- did you mean: <id>?` (`corpus.suggest`, via `difflib`). `set --parent`
+also exits 1, before writing anything, if the given parent id doesn't
+resolve.
+
+`corpus.by_id` accepts more than the bare id: a full filename
+(`some-plan.md`), or the id with a `.md` or `.plan.md` suffix still
+attached, both resolve the same as the bare id.
+
+`--parent ""`, `--parent none`, `--parent None`, and `--clear-parent` all
+clear the `parent` key. `--project ""` deletes the `project` key entirely
+(there's no analogous `--clear-project` flag).
 
 ## Frontmatter isn't recognized
 

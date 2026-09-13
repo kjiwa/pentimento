@@ -217,7 +217,11 @@ class CmdCheckTests(unittest.TestCase):
         _isolate_env(self, self.directory)
 
     def test_clean_corpus_exits_zero(self):
-        _write(self.directory, "root-plan", "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n")
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
         args = cli.build_parser().parse_args(["check"])
         self.assertEqual(cli.cmd_check(args), 0)
 
@@ -320,7 +324,11 @@ class CmdFooterTests(unittest.TestCase):
         self.assertNotIn("1 plan", output)
 
     def test_check_reports_summary(self):
-        _write(self.directory, "root-plan", "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n")
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
         args = cli.build_parser().parse_args(["check"])
         output = self._run(args)
         self.assertIn("1 plan checked, 0 findings", output)
@@ -388,6 +396,91 @@ class CmdListSortTests(unittest.TestCase):
         plans = corpus.load_all(self.directory)
         ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["new-plan", "done-plan"])
+
+
+class VersionTests(unittest.TestCase):
+    def test_version_flag_exits_zero(self):
+        with self.assertRaises(SystemExit) as ctx:
+            cli.build_parser().parse_args(["--version"])
+        self.assertEqual(ctx.exception.code, 0)
+
+
+class EmptyCorpusTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name) / "no-such-plans-dir"
+        _isolate_env(self, self.directory)
+
+    def test_list_hint_goes_to_stderr_with_exit_zero(self):
+        args = cli.build_parser().parse_args(["list"])
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            result = cli.cmd_list(args)
+        self.assertEqual(result, 0)
+        self.assertEqual(out.getvalue(), "")
+        self.assertNotEqual(err.getvalue(), "")
+
+    def test_tree_hint_goes_to_stderr_with_exit_zero(self):
+        args = cli.build_parser().parse_args(["tree"])
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            result = cli.cmd_tree(args)
+        self.assertEqual(result, 0)
+        self.assertEqual(out.getvalue(), "")
+        self.assertNotEqual(err.getvalue(), "")
+
+
+class UnknownIdSuggestionTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_show_suggests_a_close_match(self):
+        _write(self.directory, "api-auth-rollout", "# Rollout\n")
+        args = cli.build_parser().parse_args(["show", "api-auth-rollot"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = cli.cmd_show(args)
+        self.assertEqual(result, 1)
+        self.assertIn("did you mean", err.getvalue())
+        self.assertIn("api-auth-rollout", err.getvalue())
+
+
+class BackfillFooterTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_dry_run_footer_distinguishes_from_a_real_run(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["backfill", "--dry-run"])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli.cmd_backfill(args)
+        self.assertIn("(dry run)", out.getvalue())
+
+    def test_no_changes_footer(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["backfill"])
+        cli.cmd_backfill(args)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli.cmd_backfill(args)
+        self.assertIn("no changes", out.getvalue())
+
+    def test_quiet_suppresses_footer(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["backfill", "--quiet"])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli.cmd_backfill(args)
+        self.assertEqual(out.getvalue(), "")
 
 
 if __name__ == "__main__":

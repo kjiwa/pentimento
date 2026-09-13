@@ -1,78 +1,108 @@
-"""Human-facing `list` rendering: bold header, two-line records.
+"""Human-facing `list` rendering: one greppable line per plan.
 
 Sort order is decided by the caller (`cli.py`); this module renders plans
-in the order given.
+in the order given. The `PLAN` column is a flexible gutter: it absorbs
+whatever width the fixed columns don't use, and shrinks -- down to a
+12-column floor, truncating with an ellipsis -- when the terminal is too
+narrow to hold everything, so every line fits `style.terminal_width()`.
 """
 
 from __future__ import annotations
 
 from pentimento import style, times
-from pentimento import tags as tags_module
 
 GUTTER = 2
-ELLIPSIS = "..."
+PLAN_FLOOR = 12
+
+# Left to right; PLAN is flexible, everything else is fixed-width. Drop
+# order when the terminal is too narrow, applied in sequence.
+DROP_ORDER = ("TAGS", "SOURCE", "PROJECT", "INTENT", "STATUS")
 
 
 def _column_width(header: str, values: list[str]) -> int:
-    return max(len(header), *(len(v) for v in values)) if values else len(header)
+    if not values:
+        return style.display_width(header)
+    return max(style.display_width(header), *(style.display_width(v) for v in values))
 
 
-def _truncate(text: str, width: int) -> str:
-    if width <= 0 or len(text) <= width:
-        return text
-    if width <= len(ELLIPSIS):
-        return text[:width]
-    return text[: width - len(ELLIPSIS)].rstrip() + ELLIPSIS
-
-
-def render(plans, on_color: bool) -> str:
+def render(plans, on_color: bool, unicode_ok: bool = True) -> str:
     show_project = len({p.project for p in plans}) > 1
     show_source = len({p.source for p in plans}) > 1
+    show_tags = any(p.tags for p in plans)
 
-    status_width = _column_width("STATUS", [p.status for p in plans])
-    intent_width = _column_width("INTENT", [p.intent for p in plans])
-    project_width = _column_width("PROJECT", [p.project or "" for p in plans]) if show_project else 0
-    source_width = _column_width("SOURCE", [p.source for p in plans]) if show_source else 0
-    relative_width = _column_width("", [times.relative(p.modified) for p in plans])
+    status_values = [p.status for p in plans]
+    intent_values = [p.intent for p in plans]
+    project_values = [p.project or "" for p in plans]
+    source_values = [p.source for p in plans]
+    plan_values = [p.id for p in plans]
+    tags_values = [", ".join(p.tags) for p in plans]
+    age_values = [times.relative(p.modified) for p in plans]
 
-    header_cells = ["STATUS".ljust(status_width), "INTENT".ljust(intent_width)]
-    if show_project:
-        header_cells.append("PROJECT".ljust(project_width))
-    if show_source:
-        header_cells.append("SOURCE".ljust(source_width))
-    header_cells.append("PLAN")
-    header_row = (" " * GUTTER).join(header_cells)
-    header = style.paint(header_row, style.BOLD, on=on_color)
+    widths = {
+        "STATUS": _column_width("STATUS", status_values),
+        "INTENT": _column_width("INTENT", intent_values),
+        "PROJECT": _column_width("PROJECT", project_values),
+        "SOURCE": _column_width("SOURCE", source_values),
+        "PLAN": _column_width("PLAN", plan_values),
+        "TAGS": _column_width("TAGS", tags_values),
+        "AGE": _column_width("AGE", age_values),
+    }
 
-    indent = status_width + GUTTER + intent_width + GUTTER
-    if show_project:
-        indent += project_width + GUTTER
-    if show_source:
-        indent += source_width + GUTTER
+    shown = {
+        "STATUS": True,
+        "INTENT": True,
+        "PROJECT": show_project,
+        "SOURCE": show_source,
+        "PLAN": True,
+        "TAGS": show_tags,
+        "AGE": True,
+    }
+    active = [c for c in ("STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TAGS", "AGE") if shown[c]]
 
-    prefix_width = len(header_row) - len("PLAN")
-    title_width = max(style.terminal_width() - prefix_width - GUTTER - relative_width, 1)
+    term_width = style.terminal_width()
+    drop_order = list(DROP_ORDER)
+
+    def others_total() -> int:
+        fixed = [c for c in active if c != "PLAN"]
+        return sum(widths[c] for c in fixed) + GUTTER * (len(active) - 1)
+
+    while drop_order and (term_width - others_total()) < PLAN_FLOOR:
+        candidate = drop_order.pop(0)
+        if candidate in active:
+            active.remove(candidate)
+
+    widths["PLAN"] = max(term_width - others_total(), PLAN_FLOOR)
+
+    header_cells = []
+    for column in active:
+        if column == "AGE":
+            header_cells.append(column.rjust(widths[column]))
+        else:
+            header_cells.append(column.ljust(widths[column]))
+    header = style.paint((" " * GUTTER).join(header_cells), style.BOLD, on=on_color)
 
     lines = [header]
-    for p in plans:
-        cells = [
-            style.paint(p.status.ljust(status_width), *style.STATUS_CODES.get(p.status, ()), on=on_color),
-            style.paint(p.intent.ljust(intent_width), *style.INTENT_CODES.get(p.intent, ()), on=on_color),
-        ]
-        if show_project:
-            cells.append((p.project or "").ljust(project_width))
-        if show_source:
-            source_codes = style.SOURCE_CODES.get(p.source, ())
-            cells.append(style.paint(p.source.ljust(source_width), *source_codes, on=on_color))
-        title = _truncate(p.title, title_width).ljust(title_width)
-        relative_field = style.paint(times.relative(p.modified).rjust(relative_width), style.DIM, on=on_color)
-        cells.append(title)
-        lines.append((" " * GUTTER).join(cells) + (" " * GUTTER) + relative_field)
-
-        stamp = times.local_stamp(p.modified)
-        meta = f"{p.id}  {stamp}"
-        if p.tags:
-            meta += f"  {tags_module.render(p.tags)}"
-        lines.append(" " * indent + style.paint(meta, style.DIM, on=on_color))
+    for index, p in enumerate(plans):
+        cells = []
+        for column in active:
+            if column == "STATUS":
+                text = status_values[index].ljust(widths[column])
+                cells.append(style.paint(text, *style.STATUS_CODES.get(p.status, ()), on=on_color))
+            elif column == "INTENT":
+                text = intent_values[index].ljust(widths[column])
+                cells.append(style.paint(text, *style.INTENT_CODES.get(p.intent, ()), on=on_color))
+            elif column == "PROJECT":
+                cells.append(project_values[index].ljust(widths[column]))
+            elif column == "SOURCE":
+                text = source_values[index].ljust(widths[column])
+                cells.append(style.paint(text, *style.SOURCE_CODES.get(p.source, ()), on=on_color))
+            elif column == "PLAN":
+                text = style.truncate(plan_values[index], widths[column], unicode_ok=unicode_ok)
+                cells.append(text.ljust(widths[column]))
+            elif column == "TAGS":
+                cells.append(tags_values[index].ljust(widths[column]))
+            elif column == "AGE":
+                cells.append(style.paint(age_values[index].rjust(widths[column]), style.DIM, on=on_color))
+        lines.append((" " * GUTTER).join(cells))
 
     return "\n".join(lines)

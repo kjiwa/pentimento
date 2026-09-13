@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from pentimento import status as status_module
 from pentimento import tags as tags_module
 from pentimento import vocabulary as vocabulary_module
 
@@ -80,6 +81,10 @@ def _malformed_tags(plans):
     return [p for p in plans if any(not tags_module.is_valid(t) for t in p.tags)]
 
 
+def _missing_progress(plans):
+    return [p for p in plans if status_module.progress_section(p.body) is None]
+
+
 def _underived_project(plans, sessions):
     findings = []
     for p in plans:
@@ -129,6 +134,9 @@ def run(plans, sessions=None) -> list[Finding]:
         bad = [t for t in p.tags if not tags_module.is_valid(t)]
         message = f"{p.id}: malformed tag(s) {bad!r}"
         findings.append(Finding(p.id, "malformed-tag", message))
+    for p in _missing_progress(plans):
+        message = f"{p.id}: body has no '## Progress' heading; status can't be derived"
+        findings.append(Finding(p.id, "missing-progress", message))
     for p in _underived_project(plans, sessions):
         message = f"{p.id}: session supplies project {sessions[p.id].project!r} but frontmatter has none"
         findings.append(Finding(p.id, "underived-project", message))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import os
 from pathlib import Path
 
@@ -46,3 +47,8 @@ def by_id(plans: list[plan_module.Plan], plan_id: str) -> plan_module.Plan | Non
         if candidate.id in (target, target_stem) or candidate.path.name == plan_id:
             return candidate
     return None
+
+
+def suggest(plans: list[plan_module.Plan], wanted: str) -> list[str]:
+    """Close-match ids for a `wanted` id that didn't resolve, for a hint."""
+    return difflib.get_close_matches(wanted, [p.id for p in plans])

@@ -1,4 +1,4 @@
-"""Render plan lineage as an ASCII tree, grouped by project."""
+"""Render plan lineage as a tree, grouped by project."""
 
 from __future__ import annotations
 
@@ -50,32 +50,48 @@ def _roots(plans, children_by_parent, key=_id_key, reverse=False):
     return roots
 
 
-def _render_node(plan, children_by_parent, prefix, is_last, lines, visited, on_color, root_annotation=None):
-    connector = "`- " if is_last else "+- "
+def _render_node(
+    plan, children_by_parent, prefix, is_last, lines, visited, on_color, glyphs, unicode_ok, width, root_annotation=None
+):
+    connector = glyphs["last"] if is_last else glyphs["branch"]
+    annotation_text = f"({root_annotation})" if root_annotation else ""
     title_line = f"{prefix}{connector}{plan.title}"
-    if root_annotation:
-        title_line += " " + style.paint(f"({root_annotation})", style.DIM, on=on_color)
+    if annotation_text:
+        title_line += f" {annotation_text}"
+    title_line = style.truncate(title_line, width, unicode_ok=unicode_ok)
+    if annotation_text and title_line.endswith(annotation_text):
+        title_line = title_line[: -len(annotation_text)] + style.paint(annotation_text, style.DIM, on=on_color)
     lines.append(title_line)
 
-    child_prefix = prefix + ("   " if is_last else "|  ")
+    child_prefix = prefix + (glyphs["space"] if is_last else glyphs["vertical"])
     is_repeat = plan.id in visited
-    meta = f"{plan.id}  {plan.status}  {plan.intent}  {times.relative(plan.modified)}"
+    status_text = style.paint(plan.status, *style.STATUS_CODES.get(plan.status, ()), on=on_color)
+    intent_text = style.paint(plan.intent, *style.INTENT_CODES.get(plan.intent, ()), on=on_color)
+    meta = f"{plan.id}  {status_text}  {intent_text}  {times.relative(plan.modified)}"
     if plan.tags:
         meta += f"  {tags_module.render(plan.tags)}"
     if is_repeat:
         meta += "  (cycle)"
-    lines.append(f"{child_prefix}  " + style.paint(meta, style.DIM, on=on_color))
+    meta_line = style.truncate(f"{child_prefix}  {meta}", width, unicode_ok=unicode_ok)
+    lines.append(meta_line)
 
     if is_repeat:
         return
     visited.add(plan.id)
     kids = children_by_parent.get(plan.id, [])
     for index, child in enumerate(kids):
-        _render_node(child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color)
+        _render_node(
+            child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color, glyphs,
+            unicode_ok, width,
+        )
 
 
-def render(plans, on_color: bool = False, key=_id_key, reverse: bool = False) -> str:
-    """ASCII tree for one project's worth of plans (roots and descendants)."""
+def render(
+    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False
+) -> str:
+    """Tree for one project's worth of plans (roots and descendants)."""
+    glyphs = glyphs or style.GLYPHS_ASCII
+    width = style.terminal_width()
     children_by_parent = _children_by_parent(plans, key, reverse)
     roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
@@ -83,11 +99,16 @@ def render(plans, on_color: bool = False, key=_id_key, reverse: bool = False) ->
     visited = set()
     for index, root in enumerate(roots):
         annotation = f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
-        _render_node(root, children_by_parent, "", index == len(roots) - 1, lines, visited, on_color, annotation)
+        _render_node(
+            root, children_by_parent, "", index == len(roots) - 1, lines, visited, on_color, glyphs, unicode_ok,
+            width, annotation,
+        )
     return "\n".join(lines)
 
 
-def render_grouped(plans, on_color: bool = False, key=_id_key, reverse: bool = False) -> str:
+def render_grouped(
+    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False
+) -> str:
     """Group plans by project, then render each group's tree."""
     groups: dict[str, list] = {}
     for p in plans:
@@ -96,7 +117,7 @@ def render_grouped(plans, on_color: bool = False, key=_id_key, reverse: bool = F
     blocks = []
     for project in sorted(groups):
         heading = style.paint(project, style.BOLD, on=on_color)
-        blocks.append(heading + "\n" + render(groups[project], on_color, key, reverse))
+        blocks.append(heading + "\n" + render(groups[project], on_color, key, reverse, glyphs, unicode_ok))
     return "\n\n".join(blocks)
 
 

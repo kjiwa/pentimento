@@ -3,8 +3,9 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import unittest
+from unittest import mock
 
-from pentimento import listing
+from pentimento import listing, style
 
 
 @dataclasses.dataclass
@@ -23,39 +24,30 @@ class FakePlan:
         return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
 
+def _with_width(width, fn):
+    with mock.patch("pentimento.style.terminal_width", return_value=width):
+        return fn()
+
+
 class RenderTests(unittest.TestCase):
     def test_header_row_lists_columns(self):
         plans = [FakePlan(id="a", title="Alpha")]
-        lines = listing.render(plans, on_color=False).split("\n")
-        self.assertEqual(lines[0].split(), ["STATUS", "INTENT", "PLAN"])
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertEqual(header.split(), ["STATUS", "INTENT", "PLAN", "AGE"])
 
-    def test_continuation_line_holds_the_id(self):
+    def test_plan_column_holds_the_id(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
-        lines = listing.render(plans, on_color=False).split("\n")
-        self.assertTrue(lines[2].strip().startswith("a-plan"))
+        record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
+        self.assertIn("a-plan", record_line)
 
-    def test_continuation_line_holds_the_absolute_modified_stamp(self):
-        plans = [FakePlan(id="a-plan", title="Alpha", mtime=1757462805.0)]
-        lines = listing.render(plans, on_color=False).split("\n")
-        self.assertIn("-", lines[2].strip().split("  ", 1)[1])
-
-    def test_relative_time_column_present(self):
+    def test_relative_age_column_is_rightmost(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
-        record_line = listing.render(plans, on_color=False).split("\n")[1]
+        record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
         self.assertTrue(record_line.rstrip().endswith("y") or "just now" in record_line)
-
-    def test_continuation_indent_matches_plan_column(self):
-        plans = [FakePlan(id="a-plan", title="Alpha")]
-        lines = listing.render(plans, on_color=False).split("\n")
-        record_line = lines[1]
-        continuation_line = lines[2]
-        plan_column_start = record_line.index("Alpha")
-        indent = len(continuation_line) - len(continuation_line.lstrip(" "))
-        self.assertEqual(indent, plan_column_start)
 
     def test_project_column_dropped_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
-        header = listing.render(plans, on_color=False).split("\n")[0]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("PROJECT", header)
 
     def test_project_column_shown_when_mixed(self):
@@ -63,12 +55,12 @@ class RenderTests(unittest.TestCase):
             FakePlan(id="a", title="Alpha", project="one"),
             FakePlan(id="b", title="Beta", project="two"),
         ]
-        header = listing.render(plans, on_color=False).split("\n")[0]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("PROJECT", header)
 
     def test_source_column_dropped_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
-        header = listing.render(plans, on_color=False).split("\n")[0]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("SOURCE", header)
 
     def test_source_column_shown_when_mixed(self):
@@ -76,28 +68,72 @@ class RenderTests(unittest.TestCase):
             FakePlan(id="a", title="Alpha", source="claude"),
             FakePlan(id="b", title="Beta", source="cursor"),
         ]
-        header = listing.render(plans, on_color=False).split("\n")[0]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("SOURCE", header)
+
+    def test_tags_column_shown_when_any_plan_has_tags(self):
+        plans = [FakePlan(id="a-plan", title="Alpha", tags=["auth", "security"])]
+        rendered = _with_width(120, lambda: listing.render(plans, on_color=False))
+        self.assertIn("TAGS", rendered.split("\n")[0])
+        self.assertIn("auth, security", rendered.split("\n")[1])
+
+    def test_tags_column_omitted_when_absent(self):
+        plans = [FakePlan(id="a-plan", title="Alpha")]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertNotIn("TAGS", header)
 
     def test_no_ansi_bytes_when_color_off(self):
         plans = [FakePlan(id="a", title="Alpha")]
-        rendered = listing.render(plans, on_color=False)
+        rendered = _with_width(120, lambda: listing.render(plans, on_color=False))
         self.assertNotIn("\033", rendered)
 
     def test_ansi_bytes_present_when_color_on(self):
         plans = [FakePlan(id="a", title="Alpha")]
-        rendered = listing.render(plans, on_color=True)
+        rendered = _with_width(120, lambda: listing.render(plans, on_color=True))
         self.assertIn("\033", rendered)
 
-    def test_continuation_line_shows_tags_when_present(self):
-        plans = [FakePlan(id="a-plan", title="Alpha", tags=["auth", "security"])]
-        lines = listing.render(plans, on_color=False).split("\n")
-        self.assertIn("[auth, security]", lines[2])
 
-    def test_continuation_line_omits_tags_when_absent(self):
-        plans = [FakePlan(id="a-plan", title="Alpha")]
-        lines = listing.render(plans, on_color=False).split("\n")
-        self.assertNotIn("[", lines[2])
+class FitGuaranteeTests(unittest.TestCase):
+    def _plans(self):
+        return [
+            FakePlan(id="api-auth-redesign", title="Redesign the auth API", status="complete", mtime=1),
+            FakePlan(
+                id="api-auth-rollout",
+                title="Roll out the new auth API",
+                status="partial",
+                intent="active",
+                tags=["auth", "security"],
+                project="platform",
+                mtime=2,
+            ),
+            FakePlan(
+                id="billing-invoice-retry",
+                title="Retry failed invoice charges",
+                status="unknown",
+                project="billing",
+                source="cursor",
+                mtime=3,
+            ),
+        ]
+
+    def test_every_line_fits_every_width(self):
+        for width in range(20, 201):
+            rendered = _with_width(width, lambda: listing.render(self._plans(), on_color=False))
+            for line in rendered.split("\n"):
+                self.assertLessEqual(
+                    style.display_width(line), width, f"width={width} overflowed: {line!r}"
+                )
+
+    def test_drop_order_fires_in_sequence(self):
+        plans = self._plans()
+        wide_header = _with_width(200, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        for column in ("STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TAGS", "AGE"):
+            self.assertIn(column, wide_header)
+
+        narrow_header = _with_width(40, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertNotIn("TAGS", narrow_header)
+        self.assertNotIn("SOURCE", narrow_header)
+        self.assertNotIn("PROJECT", narrow_header)
 
 
 if __name__ == "__main__":

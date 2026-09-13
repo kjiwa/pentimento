@@ -16,7 +16,7 @@ _capture() {
   AGENT_PLANS_DIR="$FIXTURE_DIR" \
     AGENT_SESSIONS_DIR="$FIXTURE_DIR/no-such-sessions-dir" \
     CURSOR_PLANS_DIR=/nonexistent \
-    COLUMNS=100 \
+    COLUMNS=80 \
     pentimento "$@" --color never >"$CAPTURE_DIR/$_capture_name.txt" || _capture_status=$?
 
   # `check` exits 1 when it finds something; the fixture has a deliberate

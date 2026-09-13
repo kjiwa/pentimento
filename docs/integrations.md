@@ -9,43 +9,20 @@ supports a `matcher` on the exit reason (`clear`, `resume`, `logout`,
 `prompt_input_exit`, `other`) if you want to filter which exits trigger it;
 leaving it unset runs on every exit reason.
 
-`~/.claude/settings.json` (use `.claude/settings.json` in a project instead
-to scope the hook to that repo):
-
-```json
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pentimento backfill --quiet"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-`SessionEnd` hooks get a 1.5-second default timeout budget across all
-`SessionEnd` hooks combined, and can't block or report back to Claude -- so
-keep this to the one command, and use `backfill --dry-run` from a terminal
-if you want to see what it would change before it runs unattended.
+Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
+into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to
+scope the hook to that repo). `backfill` now recomputes `status` from the
+`## Progress` checkboxes on every run, so this one hook keeps `status`
+current as well as `intent`/`created`/`parent`/`project` -- there's no
+separate step for status to go stale in. `SessionEnd` hooks can't block or
+report back to Claude, so keep this to the one command, and use
+`backfill --dry-run` from a terminal if you want to see what it would
+change before it runs unattended.
 
 A slash command wrapping `pentimento list --starred`, so you can pull up
-your active/queued plans mid-session. Save this as
-`~/.claude/commands/plans.md`:
-
-```markdown
----
-description: List active and queued plans
-allowed-tools: Bash(pentimento list *)
----
-
-!`pentimento list --starred`
-```
+your active/queued plans mid-session. Copy
+[integrations/claude/commands/plans.md](../integrations/claude/commands/plans.md)
+to `~/.claude/commands/plans.md`.
 
 `allowed-tools` pre-approves the exact command so Claude doesn't prompt for
 permission when the command runs it.

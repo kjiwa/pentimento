@@ -75,5 +75,69 @@ class PaintTests(unittest.TestCase):
         self.assertEqual(style.paint("hello", on=True), "hello")
 
 
+class DisplayWidthTests(unittest.TestCase):
+    def test_ascii_is_one_column_per_char(self):
+        self.assertEqual(style.display_width("abc"), 3)
+
+    def test_east_asian_wide_characters_count_double(self):
+        self.assertEqual(style.display_width("中文"), 4)
+
+    def test_combining_marks_count_zero(self):
+        # "e" + combining acute accent (U+0301)
+        self.assertEqual(style.display_width("é"), 1)
+
+
+class TruncateTests(unittest.TestCase):
+    def test_short_text_is_unchanged(self):
+        self.assertEqual(style.truncate("hi", 10, unicode_ok=True), "hi")
+
+    def test_unicode_ellipsis_is_one_column(self):
+        result = style.truncate("hello world", 6, unicode_ok=True)
+        self.assertTrue(result.endswith("…"))
+        self.assertEqual(style.display_width(result), 6)
+
+    def test_ascii_ellipsis_is_three_columns(self):
+        result = style.truncate("hello world", 6, unicode_ok=False)
+        self.assertTrue(result.endswith("..."))
+        self.assertEqual(style.display_width(result), 6)
+
+
+class GlyphsTests(unittest.TestCase):
+    def test_unicode_glyphs_selected(self):
+        self.assertEqual(style.glyphs(True), style.GLYPHS_UNICODE)
+
+    def test_ascii_glyphs_selected(self):
+        self.assertEqual(style.glyphs(False), style.GLYPHS_ASCII)
+
+
+class _FakeEncodedStream:
+    def __init__(self, encoding: str):
+        self.encoding = encoding
+
+    def isatty(self) -> bool:
+        return True
+
+
+class UnicodeEnabledTests(unittest.TestCase):
+    def _stream(self, encoding: str):
+        return _FakeEncodedStream(encoding)
+
+    def test_ascii_flag_forces_off(self):
+        with _EnvGuard(TERM="xterm"):
+            self.assertFalse(style.unicode_enabled(self._stream("utf-8"), True))
+
+    def test_dumb_term_forces_off(self):
+        with _EnvGuard(TERM="dumb"):
+            self.assertFalse(style.unicode_enabled(self._stream("utf-8"), False))
+
+    def test_utf8_encoding_enables_it(self):
+        with _EnvGuard(TERM="xterm"):
+            self.assertTrue(style.unicode_enabled(self._stream("utf-8"), False))
+
+    def test_non_utf_encoding_disables_it(self):
+        with _EnvGuard(TERM="xterm"):
+            self.assertFalse(style.unicode_enabled(self._stream("ascii"), False))
+
+
 if __name__ == "__main__":
     unittest.main()

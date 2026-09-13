@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import unicodedata
 
 from pentimento import sources as sources_module
 from pentimento import vocabulary as vocabulary_module
@@ -71,3 +72,64 @@ def paint(text: str, *codes: str, on: bool) -> str:
 
 def terminal_width() -> int:
     return shutil.get_terminal_size().columns
+
+
+def display_width(text: str) -> int:
+    """Terminal column width: East Asian wide/fullwidth count 2, combining marks 0."""
+    total = 0
+    for ch in text:
+        if unicodedata.combining(ch):
+            continue
+        total += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+    return total
+
+
+def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
+    """Truncate `text` to `width` display columns, appending an ellipsis glyph."""
+    ellipsis = "…" if unicode_ok else "..."
+    ellipsis_width = display_width(ellipsis)
+    if width <= 0 or display_width(text) <= width:
+        return text
+    if width <= ellipsis_width:
+        return text[:width]
+
+    budget = width - ellipsis_width
+    kept = []
+    used = 0
+    for ch in text:
+        char_width = display_width(ch)
+        if used + char_width > budget:
+            break
+        kept.append(ch)
+        used += char_width
+    return "".join(kept).rstrip() + ellipsis
+
+
+GLYPHS_UNICODE = {
+    "branch": "├─ ",
+    "last": "└─ ",
+    "vertical": "│  ",
+    "space": "   ",
+    "ellipsis": "…",
+}
+
+GLYPHS_ASCII = {
+    "branch": "+- ",
+    "last": "`- ",
+    "vertical": "|  ",
+    "space": "   ",
+    "ellipsis": "...",
+}
+
+
+def glyphs(unicode_ok: bool) -> dict:
+    return GLYPHS_UNICODE if unicode_ok else GLYPHS_ASCII
+
+
+def unicode_enabled(stream, ascii_flag: bool) -> bool:
+    """Resolve whether Unicode glyphs are safe to emit on `stream`."""
+    if ascii_flag:
+        return False
+    if os.environ.get("TERM") == "dumb":
+        return False
+    return (stream.encoding or "").lower().startswith("utf")

@@ -182,6 +182,43 @@ class BackfillTests(unittest.TestCase):
         changed = backfill.run(plans)
         self.assertEqual(changed, [])
 
+    def test_plain_backfill_promotes_status_on_checkbox_completion(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: partial\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] one\n- [x] two\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, ["root-plan"])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
+    def test_superseded_status_survives_a_plain_backfill(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: superseded\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] done\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "superseded")
+
+    def test_existing_status_is_not_downgraded_to_unknown(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\nintent: unset\n---\n\n# Root\n\nNo progress section here.\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
     def test_cycle_guard_drops_a_derived_parent_that_would_close_a_loop(self):
         # plan-b's parent was hand-set (e.g. via `set --parent`) against the grain of
         # chronology; plan-a has no parent yet and would naturally derive plan-b as its

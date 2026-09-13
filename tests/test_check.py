@@ -16,6 +16,7 @@ class FakePlan:
     project: str | None = "example"
     source: str = "claude"
     has_title: bool = True
+    body: str = "## Progress\n\n- [ ] todo\n"
 
 
 @dataclasses.dataclass
@@ -109,6 +110,17 @@ class RunTests(unittest.TestCase):
 
     def test_valid_tags_are_not_reported(self):
         plan = FakePlan(id="good-tags", tags=["auth", "security"])
+        self.assertEqual(check.run([plan]), [])
+
+    def test_missing_progress_is_reported(self):
+        plan = FakePlan(id="no-progress", body="# Root\n\nJust prose, no heading.\n")
+        findings = check.run([plan])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].code, "missing-progress")
+        self.assertIn("no-progress", findings[0].message)
+
+    def test_missing_progress_is_silent_when_heading_is_present(self):
+        plan = FakePlan(id="has-progress", body="## Progress\n\n- [ ] todo\n")
         self.assertEqual(check.run([plan]), [])
 
     def test_underived_project_fires_when_session_supplies_a_project(self):

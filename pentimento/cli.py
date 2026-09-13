@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime
+import importlib.metadata
 import sys
 
 from pentimento import backfill as backfill_module
@@ -79,6 +80,11 @@ def _add_format_args(parser):
         default="auto",
         help="colour policy (default: auto)",
     )
+    parser.add_argument(
+        "--ascii",
+        action="store_true",
+        help="force ASCII box-drawing glyphs, even on a UTF-8 terminal",
+    )
 
 
 def _apply_filters(plans, args):
@@ -98,8 +104,16 @@ def _apply_filters(plans, args):
     return plans
 
 
+def _version() -> str:
+    try:
+        return importlib.metadata.version("pentimento")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pentimento")
+    parser.add_argument("--version", action="version", version=f"pentimento {_version()}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_list = sub.add_parser("list", help="flat table of plans")
@@ -141,19 +155,37 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _no_such_plan(plans, wanted: str) -> str:
+    message = f"no such plan: {wanted}"
+    close = corpus.suggest(plans, wanted)
+    if close:
+        message += f" -- did you mean: {', '.join(close)}?"
+    return message
+
+
+def _empty_corpus_hint() -> str:
+    directories = []
+    for source in (sources_module.claude_source(), sources_module.cursor_source()):
+        directories.extend(str(d) for d in source.directories)
+    return "no plans found; searched: " + ", ".join(directories)
+
+
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
     plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
     if args.format != "table":
         formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS)
         return 0
+    if not corpus_plans:
+        print(_empty_corpus_hint(), file=sys.stderr)
+        return 0
     if not plans:
-        if corpus_plans:
-            on_color = style.enabled(sys.stdout, args.color)
-            print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
+        on_color = style.enabled(sys.stdout, args.color)
+        print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    print(listing.render(plans, on_color))
+    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+    print(listing.render(plans, on_color, unicode_ok))
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -167,13 +199,17 @@ def cmd_tree(args) -> int:
         records = tree_module.as_records(plans, key=key, reverse=reverse)
         formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
         return 0
+    if not corpus_plans:
+        print(_empty_corpus_hint(), file=sys.stderr)
+        return 0
     if not plans:
-        if corpus_plans:
-            on_color = style.enabled(sys.stdout, args.color)
-            print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
+        on_color = style.enabled(sys.stdout, args.color)
+        print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))
+    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+    glyphs = style.glyphs(unicode_ok)
+    print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse, glyphs=glyphs, unicode_ok=unicode_ok))
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -183,17 +219,23 @@ def cmd_show(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
-        print(f"no such plan: {args.id}", file=sys.stderr)
+        print(_no_such_plan(plans, args.id), file=sys.stderr)
         return 1
     if args.format == "table":
-        print(f"# {target.title}")
+        on_color = style.enabled(sys.stdout, args.color)
+        print(style.paint(f"# {target.title}", style.BOLD, on=on_color))
         print()
         ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
         remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
         for key in ordered + remaining:
-            print(f"{key}: {target.fields[key]}")
-        print(f"source: {target.source}")
-        print(f"modified: {times_module.local_stamp(target.modified)}")
+            value = target.fields[key]
+            if key == "status":
+                value = style.paint(value, *style.STATUS_CODES.get(value, ()), on=on_color)
+            elif key == "intent":
+                value = style.paint(value, *style.INTENT_CODES.get(value, ()), on=on_color)
+            print(f"{style.paint(f'{key}:', style.DIM, on=on_color)} {value}")
+        print(f"{style.paint('source:', style.DIM, on=on_color)} {target.source}")
+        print(f"{style.paint('modified:', style.DIM, on=on_color)} {times_module.local_stamp(target.modified)}")
         print()
         section = _progress_block(target.body)
         if section:
@@ -249,7 +291,7 @@ def cmd_set(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
-        print(f"no such plan: {args.id}", file=sys.stderr)
+        print(_no_such_plan(plans, args.id), file=sys.stderr)
         return 1
 
     if args.clear_parent or args.parent in ("", "none", "None"):
@@ -257,7 +299,7 @@ def cmd_set(args) -> int:
     elif args.parent is not None:
         parent_plan = corpus.by_id(plans, args.parent)
         if parent_plan is None:
-            print(f"no such plan: {args.parent}", file=sys.stderr)
+            print(_no_such_plan(plans, args.parent), file=sys.stderr)
             return 1
         target.fields["parent"] = parent_plan.id
 
@@ -287,6 +329,12 @@ def cmd_backfill(args) -> int:
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)
+        if not changed:
+            print("no changes")
+        elif args.dry_run:
+            print(f"{counts.plural(len(changed), 'plan')} would change (dry run)")
+        else:
+            print(f"{counts.plural(len(changed), 'plan')} updated")
     return 0
 
 
@@ -302,8 +350,16 @@ def cmd_check(args) -> int:
     plans = corpus.load_all(sessions=sessions)
     findings = check_module.run(plans, sessions)
     if args.format == "table":
-        for finding in findings:
-            print(finding.message)
+        on_color = style.enabled(sys.stdout, args.color)
+        unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+        if findings:
+            code_width = max(style.display_width(f.code) for f in findings)
+            width = style.terminal_width()
+            for finding in findings:
+                code = style.paint(finding.code.ljust(code_width), style.RED, on=on_color)
+                message_width = max(width - code_width - 1, 1)
+                message = style.truncate(finding.message, message_width, unicode_ok=unicode_ok)
+                print(f"{code} {message}")
         print(f"{counts.plural(len(plans), 'plan')} checked, {counts.plural(len(findings), 'finding')}")
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))

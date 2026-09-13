@@ -28,7 +28,7 @@ NOT_STARTED_PHRASES = (
 )
 
 
-def _progress_section(body: str) -> str | None:
+def progress_section(body: str) -> str | None:
     lines = body.split("\n")
     start = None
     for index, line in enumerate(lines):
@@ -66,7 +66,7 @@ def _from_prose(section: str) -> str | None:
 
 
 def derive_status(body: str) -> str:
-    section = _progress_section(body)
+    section = progress_section(body)
     if section is None:
         return _from_checkboxes(body) or "unknown"
     return _from_checkboxes(section) or _from_prose(section) or "unknown"

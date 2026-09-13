@@ -33,8 +33,11 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
 
     Each derived field states its gap-fill and its rederive behaviour once:
 
-    - `status`: gap-filled if absent; recomputed and overwritten when
-      `rederive`.
+    - `status`: recomputed every run, plain or `--rederive` alike, and
+      written unless the existing value is `superseded` (operator-only,
+      never derivable) or the recomputed value is `unknown` while a status
+      is already set (an absent or ambiguous signal must never downgrade a
+      real status).
     - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
     - `created`: gap-filled if absent; never touched by `rederive`, only by
       `recreate`, which overwrites it from local time.
@@ -50,8 +53,10 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
     if recreate:
         fields["created"] = _created_date(target)
 
-    if rederive or "status" not in fields:
-        fields["status"] = status.derive_status(target.body)
+    existing_status = fields.get("status")
+    derived_status = status.derive_status(target.body)
+    if existing_status != "superseded" and not (derived_status == "unknown" and existing_status is not None):
+        fields["status"] = derived_status
 
     if rederive or "project" not in fields:
         project = _derive_project(target, sessions)

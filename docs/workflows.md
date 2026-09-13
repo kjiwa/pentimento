@@ -10,6 +10,13 @@ finds work that's underway and still wanted.
 
 ## Recording supersession
 
+`status` is maintained automatically -- `backfill` recomputes it from the
+`## Progress` checkboxes on every run, plain or `--rederive`. `set --status`
+exists for the two cases that are always the operator's call: marking a
+plan `superseded` (a value `backfill` never derives and never overwrites),
+and overriding a derivation that's stuck at `unknown` (no `## Progress`
+heading, or one with neither checkboxes nor a recognized prose phrase).
+
 When a plan is replaced rather than finished, mark it explicitly instead of
 leaving it to rot as `not-started`:
 
@@ -18,7 +25,7 @@ pentimento set old-plan-id --status superseded
 pentimento set old-plan-id --parent new-plan-id
 ```
 
-`intent` is never touched by `set --status` or by `backfill --rederive` --
+`intent` is never touched by `set --status` or by `backfill` --
 it's operator-owned, so a superseded plan can still be `abandoned` (nobody's
 picking it up) or `active` (its replacement is what's active, but you still
 want the paper trail flagged). Nothing infers intent from status.
@@ -42,10 +49,13 @@ becoming a root -- run `tree` without `--project` to see the whole chain.
 ## Backfilling safely
 
 Run `pentimento backfill --dry-run` periodically to see what a real run
-would change before it writes anything. Plain `backfill` only fills in
-fields that are missing, including `project`; `--rederive` recomputes
-`status`, `parent`, and `project` from scratch and overwrites them, which is
-safe to run repeatedly but will remove a `parent` that no longer resolves.
+would change before it writes anything. Its footer reports `N plans updated`
+(or `N plans would change (dry run)`, or `no changes`), so a dry run is never
+mistaken for a real one; `--quiet` suppresses the footer along with the id
+list. Plain `backfill` always recomputes `status`, and fills in `parent` and
+`project` only if missing; `--rederive` additionally recomputes `parent` and
+`project` from scratch and overwrites them, which is safe to run repeatedly
+but will remove a `parent` that no longer resolves.
 `--recreate` is the one flag that touches `created`, and should only be run
 once, deliberately, to fix a plan whose `created` was derived incorrectly --
 never as part of a routine job.
@@ -57,6 +67,12 @@ status-grouped list of every plan, suitable for committing alongside the
 plans themselves or serving as a static page.
 
 ## Scripting
+
+`check --format json|tsv` emits one record per finding: `plan_id`, `code`,
+`message` (see [check.py](../pentimento/check.py)'s `Finding`). `code` is
+the stable, greppable identifier that
+[docs/troubleshooting.md](troubleshooting.md) is indexed by; `message` is
+the human-readable sentence the table format prints.
 
 `--format json` and `--format tsv` emit the same record for every plan:
 

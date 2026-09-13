@@ -5,7 +5,7 @@ Require pentimento
 
 Set Shell "bash"
 Set FontSize 20
-Set Width 1200
+Set Width 960
 Set Height 800
 Set Theme "Builtin Dark"
 Set TypingSpeed 40ms
@@ -29,6 +29,10 @@ Sleep 2000ms
 Type "pentimento tree"
 Enter
 Sleep 3000ms
+
+Type "pentimento show api-auth-rollout"
+Enter
+Sleep 2500ms
 
 Type "pentimento check"
 Enter

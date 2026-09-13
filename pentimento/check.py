@@ -108,37 +108,37 @@ def run(plans, sessions=None) -> list[Finding]:
     findings = []
 
     for p in _dangling_parents(plans, by_id):
-        message = f"{p.id}: parent {p.parent!r} does not resolve to a plan"
+        message = f"parent {p.parent!r} does not resolve to a plan"
         findings.append(Finding(p.id, "dangling-parent", message))
     for p in _self_parents(plans):
-        findings.append(Finding(p.id, "self-parent", f"{p.id}: parent is itself"))
+        findings.append(Finding(p.id, "self-parent", "parent is itself"))
     for p in _cross_project_parents(plans, by_id):
-        message = f"{p.id}: parent {p.parent!r} is in a different project"
+        message = f"parent {p.parent!r} is in a different project"
         findings.append(Finding(p.id, "cross-project-parent", message))
     for p in _cycle_members(plans, by_id):
-        message = f"{p.id}: parent chain cycles back to itself"
+        message = "parent chain cycles back to itself"
         findings.append(Finding(p.id, "cycle", message))
     for p in _duplicate_ids(plans):
-        message = f"{p.id}: duplicate id across sources (second occurrence from {p.source})"
+        message = f"duplicate id across sources (second occurrence from {p.source})"
         findings.append(Finding(p.id, "duplicate-id", message))
     for p in _off_vocabulary_status(plans):
-        message = f"{p.id}: status {p.status!r} is outside {vocabulary_module.STATUS_ORDER}"
+        message = f"status {p.status!r} is outside {vocabulary_module.STATUS_ORDER}"
         findings.append(Finding(p.id, "off-vocabulary-status", message))
     for p in _off_vocabulary_intent(plans):
-        message = f"{p.id}: intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
+        message = f"intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
         findings.append(Finding(p.id, "off-vocabulary-intent", message))
     for p in _missing_title(plans):
-        message = f"{p.id}: body has no H1 title; falling back to the plan id"
+        message = "body has no H1 title; falling back to the plan id"
         findings.append(Finding(p.id, "missing-title", message))
     for p in _malformed_tags(plans):
         bad = [t for t in p.tags if not tags_module.is_valid(t)]
-        message = f"{p.id}: malformed tag(s) {bad!r}"
+        message = f"malformed tag(s) {bad!r}"
         findings.append(Finding(p.id, "malformed-tag", message))
     for p in _missing_progress(plans):
-        message = f"{p.id}: body has no '## Progress' heading; status can't be derived"
+        message = "body has no '## Progress' heading; status can't be derived"
         findings.append(Finding(p.id, "missing-progress", message))
     for p in _underived_project(plans, sessions):
-        message = f"{p.id}: session supplies project {sessions[p.id].project!r} but frontmatter has none"
+        message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
         findings.append(Finding(p.id, "underived-project", message))
 
     return findings

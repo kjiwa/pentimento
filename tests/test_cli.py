@@ -202,11 +202,23 @@ class CmdShowTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             cli.cmd_show(args)
         lines = out.getvalue().splitlines()
+        id_index = next(i for i, line in enumerate(lines) if line.startswith("id:"))
         status_index = next(i for i, line in enumerate(lines) if line.startswith("status:"))
         intent_index = next(i for i, line in enumerate(lines) if line.startswith("intent:"))
         project_index = next(i for i, line in enumerate(lines) if line.startswith("project:"))
+        self.assertLess(id_index, status_index)
         self.assertLess(status_index, intent_index)
         self.assertLess(intent_index, project_index)
+
+    def test_id_line_holds_the_plan_id(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "root-plan"])
+        with contextlib.redirect_stdout(out):
+            cli.cmd_show(args)
+        lines = out.getvalue().splitlines()
+        id_line = next(line for line in lines if line.startswith("id:"))
+        self.assertIn("root-plan", id_line)
 
 
 class CmdCheckTests(unittest.TestCase):
@@ -233,6 +245,19 @@ class CmdCheckTests(unittest.TestCase):
         )
         args = cli.build_parser().parse_args(["check"])
         self.assertEqual(cli.cmd_check(args), 1)
+
+    def test_table_output_prints_a_code_plan_message_header(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\nparent: no-such-plan\n---\n\n# Root\n",
+        )
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["check", "--color", "never"])
+        with contextlib.redirect_stdout(out):
+            cli.cmd_check(args)
+        header = out.getvalue().splitlines()[0]
+        self.assertEqual(header.split(), ["CODE", "PLAN", "MESSAGE"])
 
 
 class CmdBackfillRederiveTests(unittest.TestCase):

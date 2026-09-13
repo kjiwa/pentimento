@@ -67,9 +67,13 @@ def _render_node(
     is_repeat = plan.id in visited
     status_text = style.paint(plan.status, *style.STATUS_CODES.get(plan.status, ()), on=on_color)
     intent_text = style.paint(plan.intent, *style.INTENT_CODES.get(plan.intent, ()), on=on_color)
-    meta = f"{plan.id}  {status_text}  {intent_text}  {times.relative(plan.modified)}"
+    meta = f"{plan.id}  {status_text}  {intent_text}"
     if plan.tags:
         meta += f"  {tags_module.render(plan.tags)}"
+    created = plan.fields.get("created")
+    if created:
+        meta += f"  {style.paint(created, style.DIM, on=on_color)}"
+    meta += f"  {style.paint(times.relative(plan.modified), style.DIM, on=on_color)}"
     if is_repeat:
         meta += "  (cycle)"
     meta_line = style.truncate(f"{child_prefix}  {meta}", width, unicode_ok=unicode_ok)

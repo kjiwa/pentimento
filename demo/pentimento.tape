@@ -5,7 +5,7 @@ Require pentimento
 
 Set Shell "bash"
 Set FontSize 20
-Set Width 960
+Set Width 1320
 Set Height 800
 Set Theme "Builtin Dark"
 Set TypingSpeed 40ms

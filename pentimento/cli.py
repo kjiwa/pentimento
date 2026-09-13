@@ -10,7 +10,7 @@ import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus, counts, formats, frontmatter, listing, style
+from pentimento import corpus, counts, formats, frontmatter, listing, style, table
 from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
@@ -225,6 +225,7 @@ def cmd_show(args) -> int:
         on_color = style.enabled(sys.stdout, args.color)
         print(style.paint(f"# {target.title}", style.BOLD, on=on_color))
         print()
+        print(f"{style.paint('id:', style.DIM, on=on_color)} {target.id}")
         ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
         remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
         for key in ordered + remaining:
@@ -353,13 +354,17 @@ def cmd_check(args) -> int:
         on_color = style.enabled(sys.stdout, args.color)
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
         if findings:
-            code_width = max(style.display_width(f.code) for f in findings)
+            columns = (
+                table.Column("CODE", drop=1),
+                table.Column("PLAN", flex=1, comfort=24, floor=10),
+                table.Column("MESSAGE", flex=2, comfort=40, floor=20),
+            )
+            rows = [
+                ((f.code, (style.RED,)), (f.plan_id, ()), (f.message, ()))
+                for f in findings
+            ]
             width = style.terminal_width()
-            for finding in findings:
-                code = style.paint(finding.code.ljust(code_width), style.RED, on=on_color)
-                message_width = max(width - code_width - 1, 1)
-                message = style.truncate(finding.message, message_width, unicode_ok=unicode_ok)
-                print(f"{code} {message}")
+            print(table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width))
         print(f"{counts.plural(len(plans), 'plan')} checked, {counts.plural(len(findings), 'finding')}")
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))

@@ -13,6 +13,8 @@ import unicodedata
 from pentimento import sources as sources_module
 from pentimento import vocabulary as vocabulary_module
 
+GUTTER = 2
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"

@@ -103,6 +103,28 @@ class RenderTests(unittest.TestCase):
         rendered = _with_width(120, lambda: tree.render([root], on_color=False))
         self.assertNotIn("\033", rendered)
 
+    def test_meta_line_field_order_is_id_status_intent_tags_created_age(self):
+        root = FakePlan(
+            id="root", title="Root", tags=["auth"], fields={"created": "2026-01-01"}, mtime=1,
+        )
+        lines = _with_width(120, lambda: tree.render([root])).split("\n")
+        meta = lines[1]
+        self.assertLess(meta.index("root"), meta.index("not-started"))
+        self.assertLess(meta.index("not-started"), meta.index("unset"))
+        self.assertLess(meta.index("unset"), meta.index("[auth]"))
+        self.assertLess(meta.index("[auth]"), meta.index("2026-01-01"))
+        self.assertLess(meta.index("2026-01-01") + len("2026-01-01"), len(meta))
+
+    def test_meta_line_shows_created_stamp_when_present(self):
+        root = FakePlan(id="root", title="Root", fields={"created": "2026-01-01"})
+        lines = _with_width(120, lambda: tree.render([root])).split("\n")
+        self.assertIn("2026-01-01", lines[1])
+
+    def test_meta_line_omits_created_stamp_when_absent(self):
+        root = FakePlan(id="root", title="Root")
+        lines = _with_width(120, lambda: tree.render([root])).split("\n")
+        self.assertNotIn("2026-", lines[1])
+
 
 class FitGuaranteeTests(unittest.TestCase):
     def _plans(self):

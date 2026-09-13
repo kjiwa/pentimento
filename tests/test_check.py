@@ -14,6 +14,7 @@ class FakePlan:
     parent: str | None = None
     project: str | None = "example"
     source: str = "claude"
+    has_title: bool = True
 
 
 class RunTests(unittest.TestCase):
@@ -84,6 +85,13 @@ class RunTests(unittest.TestCase):
         cursor_plan = FakePlan(id="same-id", source="cursor")
         findings = check.run([claude_plan, cursor_plan])
         self.assertTrue(any(f.code == "duplicate-id" and "same-id" in f.message for f in findings))
+
+    def test_missing_title_is_reported(self):
+        plan = FakePlan(id="no-title", has_title=False)
+        findings = check.run([plan])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].code, "missing-title")
+        self.assertIn("no-title", findings[0].message)
 
 
 if __name__ == "__main__":

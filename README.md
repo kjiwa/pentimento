@@ -144,8 +144,9 @@ before this local-time fix landed.
 ### check
 
 `check` validates the corpus -- dangling parents, self-parents,
-cross-project parents, cycles, duplicate ids across sources, and
-off-vocabulary `status`/`intent` values -- and exits 1 on any finding. See
+cross-project parents, cycles, duplicate ids across sources,
+off-vocabulary `status`/`intent` values, and missing titles -- and exits 1
+on any finding. See
 [docs/troubleshooting.md](docs/troubleshooting.md) for what each finding code
 means and how to fix it.
 

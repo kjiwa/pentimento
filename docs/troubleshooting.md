@@ -53,6 +53,8 @@ Each finding code and its fix ([check.py](../pentimento/check.py)):
   `STATUS_ORDER`. Fix by hand or run `backfill --rederive`.
 - `off-vocabulary-intent` -- `intent` isn't one of `vocabulary.py`'s
   `INTENT_VALUES`. Fix with `pentimento set <id> --intent <value>`.
+- `missing-title` -- the body has no H1, so `title` falls back to the plan
+  id. Add a `# Title` line to the body.
 
 ## No colour
 

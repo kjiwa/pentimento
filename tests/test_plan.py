@@ -79,6 +79,20 @@ class SaveTests(unittest.TestCase):
         path.write_text("# Plan with üñîçødé\n", encoding="utf-8")
         target = plan_module.load(path)
         self.assertEqual(target.title, "Plan with üñîçødé")
+
+    def test_has_title_true_when_h1_present(self):
+        path = self.directory / "titled-plan.md"
+        path.write_text("# Titled Plan\n", encoding="utf-8")
+        target = plan_module.load(path)
+        self.assertTrue(target.has_title)
+
+    def test_has_title_false_when_h1_missing(self):
+        path = self.directory / "titleless-plan.md"
+        path.write_text("no heading here\n", encoding="utf-8")
+        target = plan_module.load(path)
+        self.assertFalse(target.has_title)
+
+
 class ByIdTests(unittest.TestCase):
     def test_by_id_matches_stem_and_plan_md(self):
         from pentimento import corpus

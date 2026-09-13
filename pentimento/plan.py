@@ -42,6 +42,10 @@ class Plan:
         return _first_h1(self.body) or self.id
 
     @property
+    def has_title(self) -> bool:
+        return _first_h1(self.body) is not None
+
+    @property
     def status(self) -> str:
         return self.fields.get("status", "unknown")
 

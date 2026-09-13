@@ -71,6 +71,10 @@ def _off_vocabulary_intent(plans):
     return [p for p in plans if p.intent not in vocabulary_module.INTENT_VALUES]
 
 
+def _missing_title(plans):
+    return [p for p in plans if not p.has_title]
+
+
 def run(plans) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus."""
     by_id = {p.id: p for p in plans}
@@ -96,5 +100,8 @@ def run(plans) -> list[Finding]:
     for p in _off_vocabulary_intent(plans):
         message = f"{p.id}: intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
         findings.append(Finding(p.id, "off-vocabulary-intent", message))
+    for p in _missing_title(plans):
+        message = f"{p.id}: body has no H1 title; falling back to the plan id"
+        findings.append(Finding(p.id, "missing-title", message))
 
     return findings

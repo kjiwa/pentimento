@@ -18,8 +18,7 @@ def load_all(directory: Path | None = None, sessions: dict | None = None) -> lis
     """Load every plan across all sources.
 
     `directory`, when given, overrides discovery entirely with a single
-    Claude-style directory -- the shape callers and tests relied on before
-    Cursor discovery existed.
+    Claude-style directory.
     """
     if sessions is None:
         sessions = sessions_module.load()

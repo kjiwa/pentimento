@@ -142,6 +142,46 @@ class BackfillTests(unittest.TestCase):
         changed = backfill.run(plans)
         self.assertEqual(changed, [])
 
+    def test_plain_backfill_gap_fills_project_from_a_session(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\ncreated: 2026-09-01\n---\n\n# Root\n",
+        )
+        session_sessions = {
+            "root-plan": sessions.Session(
+                slug="root-plan", project="real-project", started="2026-09-01T00:00:00.000Z", prompt=""
+            ),
+        }
+        plans = corpus.load_all(self.directory, sessions=session_sessions)
+        changed = backfill.run(plans, session_sessions)
+        self.assertEqual(changed, ["root-plan"])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions=session_sessions), "root-plan")
+        self.assertEqual(reloaded.fields["project"], "real-project")
+
+    def test_rederive_does_not_clear_a_project_that_no_longer_derives(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\nproject: kept-project\ncreated: 2026-09-01\n---\n\n# Root\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, {}, rederive=True)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["project"], "kept-project")
+
+    def test_plan_with_tags_is_not_rewritten_by_backfill(self):
+        original = (
+            "---\npentimento:\n  status: complete\n  intent: unset\n"
+            "  tags: [auth, security]\n  created: 2026-09-01\n---\n\n# Root\n"
+        )
+        _write(self.directory, "root-plan", original)
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, [])
+
     def test_cycle_guard_drops_a_derived_parent_that_would_close_a_loop(self):
         # plan-b's parent was hand-set (e.g. via `set --parent`) against the grain of
         # chronology; plan-a has no parent yet and would naturally derive plan-b as its

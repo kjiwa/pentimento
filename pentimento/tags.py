@@ -1,0 +1,37 @@
+"""Operator-owned tags: a flow-style list frontmatter can round-trip as one scalar."""
+
+from __future__ import annotations
+
+import re
+
+_VALID = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
+
+
+def parse(raw: str | None) -> list[str]:
+    """Parse `[a, b]` or bare `a, b` into a sorted, deduped list.
+
+    Faithful to case: does not normalize, so `check` can flag a hand-written
+    `Auth`.
+    """
+    if not raw:
+        return []
+    text = raw.strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    values = {v.strip() for v in text.split(",")}
+    values.discard("")
+    return sorted(values)
+
+
+def render(tags) -> str:
+    if not tags:
+        return ""
+    return "[" + ", ".join(tags) + "]"
+
+
+def normalize(tag: str) -> str:
+    return tag.strip().lower()
+
+
+def is_valid(tag: str) -> bool:
+    return bool(_VALID.match(tag))

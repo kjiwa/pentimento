@@ -9,27 +9,17 @@ import sys
 def _sanitize_tsv(value) -> str:
     if value is None:
         return ""
+    if isinstance(value, list):
+        return ",".join(str(v) for v in value)
     return str(value).replace("\t", " ").replace("\n", " ")
 
 
-def _tsv_columns(records) -> tuple:
-    """Scalar keys of the first record, in insertion order.
-
-    Non-scalar fields (e.g. a tree node's `children`) can't round-trip
-    through TSV, so they're dropped rather than silently truncated per row.
-    """
-    if not records:
-        return ()
-    return tuple(k for k, v in records[0].items() if not isinstance(v, (list, dict)))
-
-
-def _emit_json(records, stream) -> None:
+def _emit_json(records, stream, columns) -> None:
     json.dump(records, stream, indent=2)
     stream.write("\n")
 
 
-def _emit_tsv(records, stream) -> None:
-    columns = _tsv_columns(records)
+def _emit_tsv(records, stream, columns) -> None:
     if columns:
         stream.write("\t".join(columns) + "\n")
     for r in records:
@@ -42,5 +32,12 @@ FORMATS = {
 }
 
 
-def emit(records, fmt: str, stream=sys.stdout) -> None:
-    FORMATS[fmt](records, stream)
+def emit(records, fmt: str, stream=sys.stdout, columns: tuple = ()) -> None:
+    """Emit `records` in `fmt`.
+
+    `columns` names the record's scalar keys, in order, for `tsv`; a nested
+    field like a tree node's `children` is left out by the caller rather
+    than sniffed from the data, so it's dropped from the header and every
+    row rather than silently truncated.
+    """
+    FORMATS[fmt](records, stream, columns)

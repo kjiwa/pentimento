@@ -29,6 +29,7 @@ _write_plan() {
   _fixture_parent=$6
   _fixture_days_ago=$7
   _fixture_progress=$8
+  _fixture_tags=${9:-}
 
   _fixture_path="$TARGET_DIR/$_fixture_id.md"
   _fixture_stamps=$(_stamp_days_ago "$_fixture_days_ago")
@@ -40,6 +41,9 @@ _write_plan() {
     printf 'pentimento:\n'
     printf '  status: %s\n' "$_fixture_status"
     printf '  intent: %s\n' "$_fixture_intent"
+    if [ -n "$_fixture_tags" ]; then
+      printf '  tags: %s\n' "$_fixture_tags"
+    fi
     if [ -n "$_fixture_parent" ]; then
       printf '  parent: %s\n' "$_fixture_parent"
     fi
@@ -89,34 +93,39 @@ main() {
     '## Progress
 
 - [x] Draft the new token schema
-- [x] Migrate existing sessions'
+- [x] Migrate existing sessions' \
+    '[auth, security]'
 
   _write_plan api-auth-rollout "Roll out the new auth API" partial active \
     platform api-auth-redesign 20 \
     '## Progress
 
 - [x] Ship behind a feature flag
-- [ ] Flip the flag for all tenants'
+- [ ] Flip the flag for all tenants' \
+    '[auth, security]'
 
   _write_plan api-auth-cleanup "Remove the old auth API" not-started queued \
     platform api-auth-rollout 15 \
     '## Progress
 
 - [ ] Delete the legacy endpoints
-- [ ] Drop the compatibility shim'
+- [ ] Drop the compatibility shim' \
+    '[auth, security]'
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \
     billing no-such-plan 10 \
     '## Progress
 
-Notes only, no checklist yet.'
+Notes only, no checklist yet.' \
+    '[billing]'
 
   _write_plan billing-dunning-copy "Rewrite dunning email copy" complete someday \
     billing "" 25 \
     '## Progress
 
 - [x] Draft new copy
-- [x] Get legal sign-off'
+- [x] Get legal sign-off' \
+    '[billing]'
 
   _write_plan docs-style-guide "Write a docs style guide" superseded abandoned \
     platform "" 45 \
@@ -130,7 +139,8 @@ Notes only, no checklist yet.'
     '## Progress
 
 - [ ] Collect query logs
-- [ ] Retrain ranking model'
+- [ ] Retrain ranking model' \
+    '[search]'
 
   _write_raw_plan onboarding-checklist "Write the onboarding checklist" 1 \
     '## Progress

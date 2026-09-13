@@ -6,7 +6,7 @@
 # Runs `pentimento list`, `tree`, `show`, and `check` against a fresh
 # `demo/fixture.sh` corpus and splices each result into README.md between
 # `<!-- sample:NAME -->` / `<!-- /sample -->` marker pairs, so the samples
-# are regenerable rather than hand-transcribed.
+# are regenerable.
 set -eu
 
 _capture() {

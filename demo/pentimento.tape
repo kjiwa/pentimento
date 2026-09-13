@@ -22,6 +22,10 @@ Type "pentimento list --starred"
 Enter
 Sleep 2000ms
 
+Type "pentimento list --tag auth"
+Enter
+Sleep 2000ms
+
 Type "pentimento tree"
 Enter
 Sleep 3000ms

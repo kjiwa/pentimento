@@ -31,24 +31,34 @@ def _resolves_to_cycle(plan_id: str, parent_id: str, fields_by_id: dict[str, dic
 def derive_fields(target, candidates, sessions, *, rederive: bool = False, recreate: bool = False) -> dict[str, str]:
     """Fields to backfill for `target`.
 
-    When `rederive` is false, only fills fields absent from `target.fields`.
-    When true, `status`, `parent`, and `project` are recomputed and
-    overwritten; `intent` and `created` are never touched. `recreate`
-    overwrites `created` too -- the opt-in fix for the day-late bug, kept
-    separate so plain `backfill` and `--rederive` never touch it.
+    Each derived field states its gap-fill and its rederive behaviour once:
+
+    - `status`: gap-filled if absent; recomputed and overwritten when
+      `rederive`.
+    - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
+    - `created`: gap-filled if absent; never touched by `rederive`, only by
+      `recreate`, which overwrites it from local time.
+    - `parent`: gap-filled if absent; when `rederive`, recomputed and
+      overwritten, cleared if re-derivation finds nothing.
+    - `project`: gap-filled if absent; when `rederive`, recomputed and
+      overwritten, but `_derive_project` falls back to the existing value,
+      so unlike `parent`, `rederive` never clears `project`.
     """
     fields = dict(target.fields)
-    fields.setdefault("status", status.derive_status(target.body))
     fields.setdefault("intent", "unset")
     fields.setdefault("created", _created_date(target))
     if recreate:
         fields["created"] = _created_date(target)
 
-    if rederive:
+    if rederive or "status" not in fields:
         fields["status"] = status.derive_status(target.body)
+
+    if rederive or "project" not in fields:
         project = _derive_project(target, sessions)
         if project:
             fields["project"] = project
+
+    if rederive:
         parent_id = lineage.derive_parent(target, candidates, sessions)
         if parent_id:
             fields["parent"] = parent_id

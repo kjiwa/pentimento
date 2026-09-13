@@ -7,7 +7,7 @@ import datetime
 import os
 from pathlib import Path
 
-from pentimento import frontmatter, times
+from pentimento import frontmatter, tags, times
 
 EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
 
@@ -54,6 +54,10 @@ class Plan:
         return self.fields.get("intent", "unset")
 
     @property
+    def tags(self) -> list[str]:
+        return tags.parse(self.fields.get("tags"))
+
+    @property
     def parent(self) -> str | None:
         return self.fields.get("parent")
 
@@ -69,7 +73,7 @@ def _first_h1(body: str) -> str | None:
     return None
 
 
-def _id_for(path: Path, source: str = "claude") -> str:
+def _id_for(path: Path) -> str:
     if path.name.endswith(CURSOR_SUFFIX):
         return path.name[: -len(CURSOR_SUFFIX)]
     return path.stem
@@ -78,7 +82,7 @@ def _id_for(path: Path, source: str = "claude") -> str:
 def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
     text = path.read_text(encoding="utf-8")
     fields, body = frontmatter.parse(text)
-    plan_id = _id_for(path, source)
+    plan_id = _id_for(path)
     session = (sessions or {}).get(plan_id)
     started = session.started if session else _file_started(path)
     ended = session.ended if session else ""

@@ -12,9 +12,11 @@ holds `.md` files (or `.plan.md` for Cursor).
 
 Either there's no session log for that plan (nothing in
 `AGENT_SESSIONS_DIR`, default `~/.claude/projects`, records that plan's id
-as a session `slug`), or it's a Cursor plan -- Cursor keeps no session logs,
-so `project` is never derived for one
-([sessions.py](../pentimento/sessions.py)).
+as a session `slug`), it's a Cursor plan -- Cursor keeps no session logs, so
+`project` is never derived for one
+([sessions.py](../pentimento/sessions.py)) -- or `backfill` hasn't run since
+the session log appeared; run `pentimento backfill` (or `check`, which flags
+this as `underived-project`).
 
 ## `parent` is empty
 
@@ -55,6 +57,12 @@ Each finding code and its fix ([check.py](../pentimento/check.py)):
   `INTENT_VALUES`. Fix with `pentimento set <id> --intent <value>`.
 - `missing-title` -- the body has no H1, so `title` falls back to the plan
   id. Add a `# Title` line to the body.
+- `malformed-tag` -- a tag fails `tags.is_valid` (must match
+  `^[a-z0-9][a-z0-9._/-]*$`). Fix it with `pentimento set <id> --remove-tag
+  <bad> --add-tag <fixed>`.
+- `underived-project` -- the plan has no `project`, but its session log
+  supplies one, meaning `backfill` hasn't caught up. Run `pentimento
+  backfill`.
 
 ## No colour
 

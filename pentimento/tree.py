@@ -1,13 +1,10 @@
-"""Render plan lineage as an ASCII tree, grouped by project.
-
-Glyphs are plain ASCII (`+-`, `|`, `` `- ``) -- the working agreement bars
-Unicode in non-web UIs.
-"""
+"""Render plan lineage as an ASCII tree, grouped by project."""
 
 from __future__ import annotations
 
 from pentimento import record as record_module
 from pentimento import style, times
+from pentimento import tags as tags_module
 
 
 def _id_key(plan):
@@ -63,6 +60,8 @@ def _render_node(plan, children_by_parent, prefix, is_last, lines, visited, on_c
     child_prefix = prefix + ("   " if is_last else "|  ")
     is_repeat = plan.id in visited
     meta = f"{plan.id}  {plan.status}  {plan.intent}  {times.relative(plan.modified)}"
+    if plan.tags:
+        meta += f"  {tags_module.render(plan.tags)}"
     if is_repeat:
         meta += "  (cycle)"
     lines.append(f"{child_prefix}  " + style.paint(meta, style.DIM, on=on_color))

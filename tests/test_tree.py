@@ -14,6 +14,7 @@ class FakePlan:
     title: str
     status: str = "not-started"
     intent: str = "unset"
+    tags: list = dataclasses.field(default_factory=list)
     parent: str | None = None
     project: str | None = "example"
     source: str = "claude"
@@ -66,6 +67,16 @@ class RenderTests(unittest.TestCase):
         b = FakePlan(id="b", title="B", parent="root", mtime=200)
         rendered = tree.render([root, a, b], key=lambda p: p.mtime, reverse=True)
         self.assertLess(rendered.index("B"), rendered.index("A"))
+
+    def test_meta_line_shows_tags_when_present(self):
+        root = FakePlan(id="root", title="Root", tags=["auth", "security"])
+        lines = tree.render([root]).split("\n")
+        self.assertIn("[auth, security]", lines[1])
+
+    def test_meta_line_omits_tags_when_absent(self):
+        root = FakePlan(id="root", title="Root")
+        lines = tree.render([root]).split("\n")
+        self.assertNotIn("[", lines[1])
 
 
 class AsRecordsTests(unittest.TestCase):

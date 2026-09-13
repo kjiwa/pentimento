@@ -13,6 +13,7 @@ class FakePlan:
     title: str
     status: str = "not-started"
     intent: str = "unset"
+    tags: list = dataclasses.field(default_factory=list)
     project: str | None = "example"
     source: str = "claude"
     mtime: float = 0.0
@@ -87,6 +88,16 @@ class RenderTests(unittest.TestCase):
         plans = [FakePlan(id="a", title="Alpha")]
         rendered = listing.render(plans, on_color=True)
         self.assertIn("\033", rendered)
+
+    def test_continuation_line_shows_tags_when_present(self):
+        plans = [FakePlan(id="a-plan", title="Alpha", tags=["auth", "security"])]
+        lines = listing.render(plans, on_color=False).split("\n")
+        self.assertIn("[auth, security]", lines[2])
+
+    def test_continuation_line_omits_tags_when_absent(self):
+        plans = [FakePlan(id="a-plan", title="Alpha")]
+        lines = listing.render(plans, on_color=False).split("\n")
+        self.assertNotIn("[", lines[2])
 
 
 if __name__ == "__main__":

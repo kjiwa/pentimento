@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from pentimento import tags as tags_module
 from pentimento import vocabulary as vocabulary_module
 
 
@@ -75,8 +76,29 @@ def _missing_title(plans):
     return [p for p in plans if not p.has_title]
 
 
-def run(plans) -> list[Finding]:
-    """Return structured findings; an empty list means a clean corpus."""
+def _malformed_tags(plans):
+    return [p for p in plans if any(not tags_module.is_valid(t) for t in p.tags)]
+
+
+def _underived_project(plans, sessions):
+    findings = []
+    for p in plans:
+        if p.project:
+            continue
+        session = sessions.get(p.id)
+        if session and session.project:
+            findings.append(p)
+    return findings
+
+
+def run(plans, sessions=None) -> list[Finding]:
+    """Return structured findings; an empty list means a clean corpus.
+
+    `sessions`, when given, enables the `underived-project` finding; it
+    stays silent by default so Cursor plans and session-less plans, where
+    an empty `project` is a legitimate state, are not flagged.
+    """
+    sessions = sessions or {}
     by_id = {p.id: p for p in plans}
     findings = []
 
@@ -103,5 +125,12 @@ def run(plans) -> list[Finding]:
     for p in _missing_title(plans):
         message = f"{p.id}: body has no H1 title; falling back to the plan id"
         findings.append(Finding(p.id, "missing-title", message))
+    for p in _malformed_tags(plans):
+        bad = [t for t in p.tags if not tags_module.is_valid(t)]
+        message = f"{p.id}: malformed tag(s) {bad!r}"
+        findings.append(Finding(p.id, "malformed-tag", message))
+    for p in _underived_project(plans, sessions):
+        message = f"{p.id}: session supplies project {sessions[p.id].project!r} but frontmatter has none"
+        findings.append(Finding(p.id, "underived-project", message))
 
     return findings

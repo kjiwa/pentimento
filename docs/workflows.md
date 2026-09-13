@@ -23,6 +23,14 @@ it's operator-owned, so a superseded plan can still be `abandoned` (nobody's
 picking it up) or `active` (its replacement is what's active, but you still
 want the paper trail flagged). Nothing infers intent from status.
 
+## Triaging by tag
+
+`pentimento list --tag auth --tag security` narrows to plans carrying both
+tags -- repeated `--tag` is an AND filter, like every other filter. Tags are
+operator-owned and cross-cutting, so they group plans across projects in a
+way `--project` can't; use `set --add-tag`/`--remove-tag`/`--clear-tags` to
+maintain them.
+
 ## Reading lineage
 
 `pentimento tree --project platform` groups a project's plans into ASCII
@@ -35,12 +43,12 @@ becoming a root -- run `tree` without `--project` to see the whole chain.
 
 Run `pentimento backfill --dry-run` periodically to see what a real run
 would change before it writes anything. Plain `backfill` only fills in
-fields that are missing; `--rederive` recomputes `status`, `parent`, and
-`project` from scratch and overwrites them, which is safe to run repeatedly
-but will remove a `parent` that no longer resolves. `--recreate` is the one
-flag that touches `created`, and should only be run once, deliberately, to
-fix a plan whose `created` was derived incorrectly -- never as part of a
-routine job.
+fields that are missing, including `project`; `--rederive` recomputes
+`status`, `parent`, and `project` from scratch and overwrites them, which is
+safe to run repeatedly but will remove a `parent` that no longer resolves.
+`--recreate` is the one flag that touches `created`, and should only be run
+once, deliberately, to fix a plan whose `created` was derived incorrectly --
+never as part of a routine job.
 
 ## Publishing an index
 
@@ -53,7 +61,7 @@ plans themselves or serving as a static page.
 `--format json` and `--format tsv` emit the same record for every plan:
 
 ```
-id, title, status, intent, parent, project, source, created, started, modified, path
+id, title, status, intent, tags, parent, project, source, created, started, modified, path
 ```
 
 (see [record.py](../pentimento/record.py)). `tsv` drops non-scalar fields

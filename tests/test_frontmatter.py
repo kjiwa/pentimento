@@ -107,6 +107,18 @@ class SerializeTests(unittest.TestCase):
         self.assertEqual(lines[4], "  parent: root")
         self.assertEqual(lines[5], "---")
 
+    def test_tags_round_trip_in_canonical_position(self):
+        fields = {"status": "complete", "intent": "active", "tags": "[auth, security]", "parent": "root"}
+        text = frontmatter.serialize(fields, "body\n")
+        lines = text.split("\n")
+        self.assertEqual(lines[2], "  status: complete")
+        self.assertEqual(lines[3], "  intent: active")
+        self.assertEqual(lines[4], "  tags: [auth, security]")
+        self.assertEqual(lines[5], "  parent: root")
+
+        reparsed, _ = frontmatter.parse(text)
+        self.assertEqual(reparsed["tags"], "[auth, security]")
+
     def test_flat_to_nested_round_trip_is_stable_on_a_second_pass(self):
         flat = "---\nstatus: complete\nintent: active\n---\nbody\n"
         fields, body = frontmatter.parse(flat)

@@ -9,12 +9,13 @@ import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus, counts, formats, listing, style
+from pentimento import corpus, counts, formats, frontmatter, listing, style
 from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
 from pentimento import sessions as sessions_module
 from pentimento import sources as sources_module
+from pentimento import tags as tags_module
 from pentimento import times as times_module
 from pentimento import tree as tree_module
 from pentimento import vocabulary as vocabulary_module
@@ -47,6 +48,9 @@ def _add_filter_args(parser):
     parser.add_argument("--project", help="filter by project")
     parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     parser.add_argument("--starred", action="store_true", help="only active/queued intent")
+    parser.add_argument(
+        "--tag", action="append", help="filter by tag; repeatable, every given tag must be present"
+    )
 
 
 def _add_sort_args(parser):
@@ -88,6 +92,9 @@ def _apply_filters(plans, args):
         plans = [p for p in plans if p.source == args.source]
     if args.starred:
         plans = [p for p in plans if p.intent in STARRED_INTENTS]
+    if args.tag:
+        wanted = {tags_module.normalize(t) for t in args.tag}
+        plans = [p for p in plans if wanted <= {tags_module.normalize(t) for t in p.tags}]
     return plans
 
 
@@ -116,6 +123,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_set.add_argument("--parent", help="new parent plan id")
     p_set.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
     p_set.add_argument("--project", help="new project")
+    p_set.add_argument("--add-tag", action="append", help="add a tag; repeatable")
+    p_set.add_argument("--remove-tag", action="append", help="remove a tag; repeatable")
+    p_set.add_argument("--clear-tags", action="store_true", help="remove all tags")
 
     p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
@@ -134,37 +144,38 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
     plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
+    if args.format != "table":
+        formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS)
+        return 0
     if not plans:
-        if corpus_plans and args.format == "table":
+        if corpus_plans:
             on_color = style.enabled(sys.stdout, args.color)
             print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
-    if args.format == "table":
-        on_color = style.enabled(sys.stdout, args.color)
-        print(listing.render(plans, on_color))
-        print()
-        print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
-    else:
-        formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout)
+    on_color = style.enabled(sys.stdout, args.color)
+    print(listing.render(plans, on_color))
+    print()
+    print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
 
 
 def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
+    key, reverse = _sort_key(args), _sort_descending(args)
+    if args.format != "table":
+        records = tree_module.as_records(plans, key=key, reverse=reverse)
+        formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
+        return 0
     if not plans:
-        if corpus_plans and args.format == "table":
+        if corpus_plans:
             on_color = style.enabled(sys.stdout, args.color)
             print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
-    key, reverse = _sort_key(args), _sort_descending(args)
-    if args.format == "table":
-        on_color = style.enabled(sys.stdout, args.color)
-        print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))
-        print()
-        print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
-    else:
-        formats.emit(tree_module.as_records(plans, key=key, reverse=reverse), args.format, sys.stdout)
+    on_color = style.enabled(sys.stdout, args.color)
+    print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse))
+    print()
+    print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
 
 
@@ -177,8 +188,10 @@ def cmd_show(args) -> int:
     if args.format == "table":
         print(f"# {target.title}")
         print()
-        for key, value in target.fields.items():
-            print(f"{key}: {value}")
+        ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
+        remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
+        for key in ordered + remaining:
+            print(f"{key}: {target.fields[key]}")
         print(f"source: {target.source}")
         print(f"modified: {times_module.local_stamp(target.modified)}")
         print()
@@ -186,7 +199,7 @@ def cmd_show(args) -> int:
         if section:
             print(section)
     else:
-        formats.emit([record_module.as_dict(target)], args.format, sys.stdout)
+        formats.emit([record_module.as_dict(target)], args.format, sys.stdout, record_module.FIELDS)
     return 0
 
 
@@ -207,6 +220,31 @@ def _progress_block(body: str) -> str | None:
     return "\n".join(lines[start:end]).rstrip()
 
 
+def _apply_tag_edits(target, args) -> str | None:
+    """Apply --clear-tags, --remove-tag, --add-tag in order.
+
+    Existing tags are normalized on any edit, so a hand-written `Auth`
+    self-heals the next time `set` touches tags. Each `--add-tag` value must
+    already pass `tags.is_valid` as given -- normalize only lowercases, it
+    doesn't fix a malformed tag -- so this mutates `target.fields["tags"]`
+    on success, or returns the offending value without mutating anything.
+    """
+    current = {tags_module.normalize(t) for t in target.tags}
+    if args.clear_tags:
+        current = set()
+    for tag in args.remove_tag or ():
+        current.discard(tags_module.normalize(tag))
+    for tag in args.add_tag or ():
+        if not tags_module.is_valid(tag):
+            return tag
+        current.add(tags_module.normalize(tag))
+    if current:
+        target.fields["tags"] = tags_module.render(sorted(current))
+    else:
+        target.fields.pop("tags", None)
+    return None
+
+
 def cmd_set(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
@@ -222,6 +260,12 @@ def cmd_set(args) -> int:
             print(f"no such plan: {args.parent}", file=sys.stderr)
             return 1
         target.fields["parent"] = parent_plan.id
+
+    if args.clear_tags or args.remove_tag or args.add_tag:
+        invalid = _apply_tag_edits(target, args)
+        if invalid is not None:
+            print(f"invalid tag: {invalid!r}", file=sys.stderr)
+            return 1
 
     for field in ("status", "intent", "project"):
         value = getattr(args, field, None)
@@ -254,14 +298,16 @@ def cmd_index(_args) -> int:
 
 
 def cmd_check(args) -> int:
-    plans = corpus.load_all()
-    findings = check_module.run(plans)
+    sessions = sessions_module.load()
+    plans = corpus.load_all(sessions=sessions)
+    findings = check_module.run(plans, sessions)
     if args.format == "table":
         for finding in findings:
             print(finding.message)
         print(f"{counts.plural(len(plans), 'plan')} checked, {counts.plural(len(findings), 'finding')}")
     else:
-        formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout)
+        columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))
+        formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout, columns)
     return 1 if findings else 0
 
 

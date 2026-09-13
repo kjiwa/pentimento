@@ -93,6 +93,30 @@ class SaveTests(unittest.TestCase):
         self.assertFalse(target.has_title)
 
 
+class TagsTests(unittest.TestCase):
+    def test_tags_property_parses_frontmatter_field(self):
+        target = plan_module.Plan(
+            id="root-plan",
+            path=Path("root-plan.md"),
+            fields={"tags": "[auth, security]"},
+            body="",
+            mtime=1000.0,
+            started="",
+        )
+        self.assertEqual(target.tags, ["auth", "security"])
+
+    def test_tags_property_defaults_to_empty_list(self):
+        target = plan_module.Plan(
+            id="root-plan",
+            path=Path("root-plan.md"),
+            fields={},
+            body="",
+            mtime=1000.0,
+            started="",
+        )
+        self.assertEqual(target.tags, [])
+
+
 class ByIdTests(unittest.TestCase):
     def test_by_id_matches_stem_and_plan_md(self):
         from pentimento import corpus

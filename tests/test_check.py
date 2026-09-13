@@ -11,10 +11,16 @@ class FakePlan:
     id: str
     status: str = "not-started"
     intent: str = "unset"
+    tags: list = dataclasses.field(default_factory=list)
     parent: str | None = None
     project: str | None = "example"
     source: str = "claude"
     has_title: bool = True
+
+
+@dataclasses.dataclass
+class FakeSession:
+    project: str
 
 
 class RunTests(unittest.TestCase):
@@ -92,6 +98,33 @@ class RunTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "missing-title")
         self.assertIn("no-title", findings[0].message)
+
+    def test_malformed_tag_is_reported(self):
+        plan = FakePlan(id="bad-tags", tags=["Auth", "security"])
+        findings = check.run([plan])
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].code, "malformed-tag")
+        self.assertIn("bad-tags", findings[0].message)
+        self.assertIn("Auth", findings[0].message)
+
+    def test_valid_tags_are_not_reported(self):
+        plan = FakePlan(id="good-tags", tags=["auth", "security"])
+        self.assertEqual(check.run([plan]), [])
+
+    def test_underived_project_fires_when_session_supplies_a_project(self):
+        plan = FakePlan(id="no-project", project=None)
+        sessions = {"no-project": FakeSession(project="real-project")}
+        findings = check.run([plan], sessions)
+        self.assertTrue(any(f.code == "underived-project" and "no-project" in f.message for f in findings))
+
+    def test_underived_project_is_silent_without_a_session(self):
+        plan = FakePlan(id="no-project", project=None)
+        self.assertEqual(check.run([plan]), [])
+
+    def test_underived_project_is_silent_when_project_already_set(self):
+        plan = FakePlan(id="has-project", project="example")
+        sessions = {"has-project": FakeSession(project="real-project")}
+        self.assertEqual(check.run([plan], sessions), [])
 
 
 if __name__ == "__main__":

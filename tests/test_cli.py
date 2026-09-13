@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -81,6 +82,131 @@ class CmdSetTests(unittest.TestCase):
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
         self.assertNotIn("parent", reloaded.fields)
+
+    def test_add_tag_writes(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "auth"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.tags, ["auth"])
+
+    def test_existing_mixed_case_tags_are_normalized_on_any_tag_edit(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [Auth]\n---\n\n# Root\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "security"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.tags, ["auth", "security"])
+
+    def test_remove_tag_removes_a_normalized_match(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [auth, security]\n---\n\n# Root\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--remove-tag", "auth"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.tags, ["security"])
+
+    def test_clear_tags_pops_the_field(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [auth, security]\n---\n\n# Root\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--clear-tags"])
+        self.assertEqual(cli.cmd_set(args), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertNotIn("tags", reloaded.fields)
+
+    def test_invalid_tag_exits_one_and_writes_nothing(self):
+        original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "Nope!"])
+        self.assertEqual(cli.cmd_set(args), 1)
+
+        text = (self.directory / "root-plan.md").read_text()
+        self.assertEqual(text, original)
+
+
+class CmdListTagFilterTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _run_json(self, argv):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            cli.COMMANDS[args.command](args)
+        return out.getvalue()
+
+    def test_repeated_tag_is_an_and_filter(self):
+        _write(
+            self.directory,
+            "auth-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [auth, security]\n---\n\n# Auth\n",
+        )
+        _write(
+            self.directory,
+            "billing-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [billing]\n---\n\n# Billing\n",
+        )
+
+        both = json.loads(self._run_json(["list", "--tag", "auth", "--tag", "security", "--format", "json"]))
+        self.assertEqual([p["id"] for p in both], ["auth-plan"])
+
+        neither = json.loads(self._run_json(["list", "--tag", "auth", "--tag", "billing", "--format", "json"]))
+        self.assertEqual(neither, [])
+
+    def test_tag_filter_is_case_insensitive(self):
+        _write(
+            self.directory,
+            "auth-plan",
+            "---\nstatus: not-started\nintent: unset\ntags: [Auth]\n---\n\n# Auth\n",
+        )
+        matched = json.loads(self._run_json(["list", "--tag", "auth", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["auth-plan"])
+
+    def test_empty_result_emits_empty_json_array(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        output = self._run_json(["list", "--project", "no-such", "--format", "json"])
+        self.assertEqual(json.loads(output), [])
+
+
+class CmdShowTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_field_order_is_canonical_regardless_of_file_order(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nproject: example\nstatus: complete\nintent: active\n---\n\n# Root\n",
+        )
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "root-plan"])
+        with contextlib.redirect_stdout(out):
+            cli.cmd_show(args)
+        lines = out.getvalue().splitlines()
+        status_index = next(i for i, line in enumerate(lines) if line.startswith("status:"))
+        intent_index = next(i for i, line in enumerate(lines) if line.startswith("intent:"))
+        project_index = next(i for i, line in enumerate(lines) if line.startswith("project:"))
+        self.assertLess(status_index, intent_index)
+        self.assertLess(intent_index, project_index)
 
 
 class CmdCheckTests(unittest.TestCase):

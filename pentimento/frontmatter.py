@@ -14,7 +14,7 @@ NAMESPACE = "pentimento"
 INDENT = "  "
 
 # Canonical field order for serialization; the reader accepts any order.
-FIELD_ORDER = ("status", "intent", "parent", "project", "created")
+FIELD_ORDER = ("status", "intent", "tags", "parent", "project", "created")
 
 
 def parse(text: str) -> tuple[dict[str, str], str]:

@@ -7,6 +7,7 @@ in the order given.
 from __future__ import annotations
 
 from pentimento import style, times
+from pentimento import tags as tags_module
 
 GUTTER = 2
 ELLIPSIS = "..."
@@ -69,6 +70,9 @@ def render(plans, on_color: bool) -> str:
         lines.append((" " * GUTTER).join(cells) + (" " * GUTTER) + relative_field)
 
         stamp = times.local_stamp(p.modified)
-        lines.append(" " * indent + style.paint(f"{p.id}  {stamp}", style.DIM, on=on_color))
+        meta = f"{p.id}  {stamp}"
+        if p.tags:
+            meta += f"  {tags_module.render(p.tags)}"
+        lines.append(" " * indent + style.paint(meta, style.DIM, on=on_color))
 
     return "\n".join(lines)

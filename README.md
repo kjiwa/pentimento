@@ -13,8 +13,8 @@ gives you a CLI to list, filter, and render them as a lineage tree.
 ## Install
 
 ```sh
-pip install -e .
-# or straight from the git URL:
+pip install pentimento
+# or from source:
 pip install git+https://github.com/kjiwa/pentimento.git
 ```
 

@@ -87,6 +87,22 @@ class DisplayWidthTests(unittest.TestCase):
         self.assertEqual(style.display_width("é"), 1)
 
 
+class SplitWidthTests(unittest.TestCase):
+    def test_splits_on_a_boundary(self):
+        self.assertEqual(style.split_width("hello world", 5), ("hello", " world"))
+
+    def test_splits_inside_a_wide_character(self):
+        head, tail = style.split_width("中文", 1)
+        self.assertEqual(head, "")
+        self.assertEqual(tail, "中文")
+
+    def test_width_past_the_end_returns_the_whole_text(self):
+        self.assertEqual(style.split_width("hi", 10), ("hi", ""))
+
+    def test_width_of_zero_returns_nothing(self):
+        self.assertEqual(style.split_width("hi", 0), ("", "hi"))
+
+
 class TruncateTests(unittest.TestCase):
     def test_short_text_is_unchanged(self):
         self.assertEqual(style.truncate("hi", 10, unicode_ok=True), "hi")

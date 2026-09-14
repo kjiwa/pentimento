@@ -96,6 +96,23 @@ def display_width(text: str) -> int:
     return total
 
 
+def split_width(text: str, width: int) -> tuple[str, str]:
+    """Split `text` into the longest prefix fitting `width` display columns and the remainder.
+
+    A combining mark rides along with the character it follows, same as
+    every other display-width accumulation in this module.
+    """
+    used = 0
+    for index, ch in enumerate(text):
+        if unicodedata.combining(ch):
+            continue
+        char_width = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if used + char_width > width:
+            return text[:index], text[index:]
+        used += char_width
+    return text, ""
+
+
 def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
     """Truncate `text` to `width` display columns, appending an ellipsis glyph."""
     ellipsis = "…" if unicode_ok else "..."
@@ -103,26 +120,11 @@ def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
     if width <= 0 or display_width(text) <= width:
         return text
     if width <= ellipsis_width:
-        kept = []
-        used = 0
-        for ch in text:
-            char_width = display_width(ch)
-            if used + char_width > width:
-                break
-            kept.append(ch)
-            used += char_width
-        return "".join(kept)
+        kept, _ = split_width(text, width)
+        return kept
 
-    budget = width - ellipsis_width
-    kept = []
-    used = 0
-    for ch in text:
-        char_width = display_width(ch)
-        if used + char_width > budget:
-            break
-        kept.append(ch)
-        used += char_width
-    return "".join(kept).rstrip() + ellipsis
+    kept, _ = split_width(text, width - ellipsis_width)
+    return kept.rstrip() + ellipsis
 
 
 def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[str, str]:

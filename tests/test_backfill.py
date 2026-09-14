@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from pentimento import backfill, corpus, sessions
+from pentimento import plan as plan_module
 
 
 def _write(directory: Path, name: str, text: str) -> None:
@@ -206,6 +207,76 @@ class BackfillTests(unittest.TestCase):
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["status"], "superseded")
+
+    def test_plain_backfill_promotes_not_started_to_partial(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] one\n- [ ] two\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, ["root-plan"])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+    def test_backfill_does_not_retract_complete_to_not_started(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, [])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
+    def test_backfill_does_not_retract_partial_to_not_started(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: partial\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, [])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+    def test_backfill_does_not_retract_complete_to_partial(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [x] one\n- [ ] two\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans)
+        self.assertEqual(changed, [])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
+    def test_set_survives_a_backfill(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: not-started\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\nNot started.\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        first = corpus.by_id(plans, "root-plan")
+        first.fields["status"] = "complete"
+        plan_module.save(first, keep_mtime=True)
+
+        reloaded_plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(reloaded_plans)
+        self.assertEqual(changed, [])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
 
     def test_existing_status_is_not_downgraded_to_unknown(self):
         _write(

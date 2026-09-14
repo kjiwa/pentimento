@@ -5,6 +5,8 @@ from __future__ import annotations
 from pentimento import frontmatter, lineage, status, times
 from pentimento import plan as plan_module
 
+_PROGRESS_RANK = {"not-started": 0, "partial": 1, "complete": 2}
+
 
 def _created_date(target) -> str:
     return times.local_date(target.created_at) or target.started[:10]
@@ -33,11 +35,12 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
 
     Each derived field states its gap-fill and its rederive behaviour once:
 
-    - `status`: recomputed every run, plain or `--rederive` alike, and
-      written unless the existing value is `superseded` (operator-only,
-      never derivable) or the recomputed value is `unknown` while a status
-      is already set (an absent or ambiguous signal must never downgrade a
-      real status).
+    - `status`: recomputed every run, plain or `--rederive` alike. Derivation
+      advances a plan's status but never retracts it: written only when it
+      ranks strictly above the existing value on `_PROGRESS_RANK`, or when no
+      status is set yet. `superseded` and `unknown` never rank, so a
+      `superseded` status is never overwritten and a recomputed `unknown`
+      never overwrites a real status; retraction is `set`'s job.
     - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
     - `created`: gap-filled if absent; never touched by `rederive`, only by
       `recreate`, which overwrites it from local time.
@@ -55,8 +58,13 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
 
     existing_status = fields.get("status")
     derived_status = status.derive_status(target.body)
-    if existing_status != "superseded" and not (derived_status == "unknown" and existing_status is not None):
+    if existing_status is None:
         fields["status"] = derived_status
+    elif existing_status != "superseded":
+        existing_rank = _PROGRESS_RANK.get(existing_status, -1)
+        derived_rank = _PROGRESS_RANK.get(derived_status, -1)
+        if derived_rank > existing_rank:
+            fields["status"] = derived_status
 
     if rederive or "project" not in fields:
         project = _derive_project(target, sessions)

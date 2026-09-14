@@ -69,7 +69,8 @@ class RenderTests(unittest.TestCase):
     def test_title_column_blank_when_plan_has_no_title(self):
         plans = [FakePlan(id="a-plan", title="a-plan", has_title=False)]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
-        # Only PLAN and UPDATED tokens should appear -- TITLE is blank, STATUS/INTENT dropped as uniform.
+        # Only PLAN and UPDATED tokens should appear -- TITLE is blank,
+        # STATUS/INTENT dropped as uniform.
         self.assertEqual(len(record_line.split()), 2)
 
     def test_relative_age_column_is_rightmost(self):
@@ -166,7 +167,10 @@ class FitGuaranteeTests(unittest.TestCase):
     def _plans(self):
         return [
             FakePlan(
-                id="api-auth-redesign", title="Redesign the auth API", status="complete", mtime=1,
+                id="api-auth-redesign",
+                title="Redesign the auth API",
+                status="complete",
+                mtime=1,
                 fields={"created": "2026-01-01"},
             ),
             FakePlan(
@@ -201,7 +205,9 @@ class FitGuaranteeTests(unittest.TestCase):
     def test_plan_column_is_never_truncated_at_any_width_where_it_is_present(self):
         plans = self._plans()
         for width in range(20, 201):
-            header = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+            header = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")[
+                0
+            ]
             if "PLAN" not in header:
                 continue
             rendered = _with_width(width, lambda: listing.render(plans, on_color=False))
@@ -218,15 +224,29 @@ class FitGuaranteeTests(unittest.TestCase):
     def test_drop_order_fires_in_sequence(self):
         plans = self._plans()
         wide_header = _with_width(200, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        for column in ("STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TITLE", "TAGS", "CREATED", "UPDATED"):
+        for column in (
+            "STATUS",
+            "INTENT",
+            "PROJECT",
+            "SOURCE",
+            "PLAN",
+            "TITLE",
+            "TAGS",
+            "CREATED",
+            "UPDATED",
+        ):
             self.assertIn(column, wide_header)
 
-        narrow_header = _with_width(60, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        narrow_header = _with_width(60, lambda: listing.render(plans, on_color=False)).split("\n")[
+            0
+        ]
         self.assertNotIn("CREATED", narrow_header)
         self.assertNotIn("TAGS", narrow_header)
         self.assertIn("PLAN", narrow_header)  # the only addressable handle on a row -- drops last
 
-        narrower_header = _with_width(40, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        narrower_header = _with_width(40, lambda: listing.render(plans, on_color=False)).split(
+            "\n"
+        )[0]
         self.assertIn("TITLE", narrower_header)
         self.assertNotIn("PLAN", narrower_header)
 

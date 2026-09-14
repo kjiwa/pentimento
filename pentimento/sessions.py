@@ -84,8 +84,10 @@ def _parse_log(log_path: Path) -> dict[str, dict]:
             entry["started"] = timestamp
         if timestamp and (entry["ended"] is None or timestamp > entry["ended"]):
             entry["ended"] = timestamp
-        if timestamp and record.get("type") == "user" and (
-            entry["prompt_ts"] is None or timestamp < entry["prompt_ts"]
+        if (
+            timestamp
+            and record.get("type") == "user"
+            and (entry["prompt_ts"] is None or timestamp < entry["prompt_ts"])
         ):
             text = _prompt_text(record)
             if text is not None:
@@ -103,7 +105,9 @@ def _merge_slug(by_slug: dict[str, dict], slug: str, partial: dict) -> None:
         entry["started"] = partial["started"]
     if partial["ended"] and (entry["ended"] is None or partial["ended"] > entry["ended"]):
         entry["ended"] = partial["ended"]
-    if partial["prompt_ts"] and (entry["prompt_ts"] is None or partial["prompt_ts"] < entry["prompt_ts"]):
+    if partial["prompt_ts"] and (
+        entry["prompt_ts"] is None or partial["prompt_ts"] < entry["prompt_ts"]
+    ):
         entry["prompt"] = partial["prompt"]
         entry["prompt_ts"] = partial["prompt_ts"]
 
@@ -128,7 +132,9 @@ def _prompt_text(record: dict) -> str | None:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        blocks = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+        blocks = [
+            b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+        ]
         return "\n".join(blocks)
     return None
 

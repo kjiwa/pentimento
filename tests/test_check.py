@@ -131,7 +131,9 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="no-project", project=None)
         sessions = {"no-project": FakeSession(project="real-project")}
         findings = check.run([plan], sessions)
-        self.assertTrue(any(f.code == "underived-project" and f.plan_id == "no-project" for f in findings))
+        self.assertTrue(
+            any(f.code == "underived-project" and f.plan_id == "no-project" for f in findings)
+        )
 
     def test_underived_project_is_silent_without_a_session(self):
         plan = FakePlan(id="no-project", project=None)
@@ -157,7 +159,10 @@ class RunTests(unittest.TestCase):
         }
         findings = check.run([plan], touches=touches)
         self.assertTrue(
-            any(f.code == "status-behind-history" and f.plan_id == "not-started-but-done" for f in findings)
+            any(
+                f.code == "status-behind-history" and f.plan_id == "not-started-but-done"
+                for f in findings
+            )
         )
 
     def test_status_behind_history_is_silent_without_touches(self):

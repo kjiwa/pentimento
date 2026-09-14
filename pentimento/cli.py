@@ -65,8 +65,12 @@ ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 def _add_filter_args(parser):
     parser.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
-    parser.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent")
-    parser.add_argument("--project", help="filter by project; '.' resolves to the current directory's name")
+    parser.add_argument(
+        "--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent"
+    )
+    parser.add_argument(
+        "--project", help="filter by project; '.' resolves to the current directory's name"
+    )
     parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     parser.add_argument("--starred", action="store_true", help="only active/queued intent")
     parser.add_argument(
@@ -76,9 +80,14 @@ def _add_filter_args(parser):
 
 
 def _add_sort_args(parser):
-    parser.add_argument("--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)")
     parser.add_argument(
-        "--order", choices=ORDER_CHOICES, default=_ORDER_ASC, help=f"sort direction (default: {_ORDER_ASC})"
+        "--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)"
+    )
+    parser.add_argument(
+        "--order",
+        choices=ORDER_CHOICES,
+        default=_ORDER_ASC,
+        help=f"sort direction (default: {_ORDER_ASC})",
     )
 
 
@@ -111,7 +120,8 @@ def _add_format_args(parser):
 
 
 def _resolve_project(value: str) -> str:
-    """`.` resolves to the current directory's name -- exactly how `backfill` derives `project` from a session's `cwd`."""
+    """`.` resolves to the current directory's name -- exactly how `backfill`
+    derives `project` from a session's `cwd`."""
     return Path.cwd().name if value == "." else value
 
 
@@ -157,7 +167,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_format_args(p_list)
     _add_sort_args(p_list)
     p_list.add_argument(
-        "-n", "--limit", type=int, help="keep only the N rows nearest the prompt (before rendering or emitting)"
+        "-n",
+        "--limit",
+        type=int,
+        help="keep only the N rows nearest the prompt (before rendering or emitting)",
     )
 
     p_tree = sub.add_parser("tree", help="lineage tree, grouped by project")
@@ -185,13 +198,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
     p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
     p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
-    p_backfill.add_argument("--recreate", action="store_true", help="recompute created from local time too")
+    p_backfill.add_argument(
+        "--recreate", action="store_true", help="recompute created from local time too"
+    )
 
     sub.add_parser("hook", help="run as a Claude Code PostToolUse hook; reads the payload on stdin")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
 
-    p_check = sub.add_parser("check", help="validate lineage and vocabulary; exits 1 on any finding")
+    p_check = sub.add_parser(
+        "check", help="validate lineage and vocabulary; exits 1 on any finding"
+    )
     _add_format_args(p_check)
 
     p_history = sub.add_parser("history", help="session-touch history for a plan")
@@ -223,15 +240,19 @@ def _apply_limit(plans, args):
     """Keep the N rows nearest the prompt: the tail under `--order asc`, the head under `desc`."""
     if args.limit is None:
         return plans
-    return plans[:args.limit] if _sort_descending(args) else plans[-args.limit:]
+    return plans[: args.limit] if _sort_descending(args) else plans[-args.limit :]
 
 
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
-    plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
+    plans = sorted(
+        _apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args)
+    )
     plans = _apply_limit(plans, args)
     if args.format != formats.TABLE:
-        formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS)
+        formats.emit(
+            [record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS
+        )
         return 0
     if not corpus_plans:
         print(_empty_corpus_hint(), file=sys.stderr)
@@ -270,7 +291,13 @@ def cmd_tree(args) -> int:
     short_ids = shortid.shorten(p.id for p in corpus_plans)
     print(
         tree_module.render_grouped(
-            plans, on_color, key=key, reverse=reverse, glyphs=glyphs, unicode_ok=unicode_ok, short_ids=short_ids
+            plans,
+            on_color,
+            key=key,
+            reverse=reverse,
+            glyphs=glyphs,
+            unicode_ok=unicode_ok,
+            short_ids=short_ids,
         )
     )
     print()
@@ -362,7 +389,9 @@ def cmd_show(args) -> int:
         emit()
         for group in _show_field_groups(target):
             pairs = [
-                style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
+                style.render_cells(
+                    [(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color
+                )
                 for key, value, codes in group
             ]
             for line in _flow_pairs(pairs, width):
@@ -532,8 +561,12 @@ def cmd_check(args) -> int:
                 for f in findings
             ]
             width = style.terminal_width()
-            print(table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width))
-        print(f"{counts.plural(len(plans), 'plan')} checked, {counts.plural(len(findings), 'finding')}")
+            print(
+                table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
+            )
+        plan_count = counts.plural(len(plans), "plan")
+        finding_count = counts.plural(len(findings), "finding")
+        print(f"{plan_count} checked, {finding_count}")
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))
         formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout, columns)
@@ -549,7 +582,12 @@ def cmd_history(args) -> int:
 
     plan_touches = touches_module.load().get(target.id, [])
     if args.format != formats.TABLE:
-        formats.emit(history_module.as_records(target.id, plan_touches), args.format, sys.stdout, history_module.FIELDS)
+        formats.emit(
+            history_module.as_records(target.id, plan_touches),
+            args.format,
+            sys.stdout,
+            history_module.FIELDS,
+        )
         return 0
     if not plan_touches:
         print(history_module.EMPTY_MESSAGE.format(plan_id=target.id))

@@ -70,7 +70,9 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(touch.session, "some-plan-eager-bird")
         self.assertEqual(touch.tool, "Write")
         self.assertEqual(touch.at, "2026-09-01T00:00:00.000Z")
-        self.assertEqual(touches.authored(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch])
+        self.assertEqual(
+            touches.authored(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch]
+        )
         self.assertEqual(touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [])
 
     def test_read_from_a_later_differently_slugged_session_is_worked(self):
@@ -91,7 +93,9 @@ class LoadTests(unittest.TestCase):
         result = touches.load(self.directory)
         touch = result["some-plan-eager-bird"][0]
         self.assertEqual(touch.session, "implement-the-plan-later-fox")
-        self.assertEqual(touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch])
+        self.assertEqual(
+            touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch]
+        )
 
     def test_cursor_plan_suffix_resolves_to_the_bare_id(self):
         project_dir = self.directory / "-Users-kjiwa-example"
@@ -160,7 +164,9 @@ class LoadTests(unittest.TestCase):
                     cwd="/Users/kjiwa/example",
                     timestamp="2026-09-05T00:00:00.000Z",
                     tool="Task",
-                    input_={"prompt": "Execute the plan at /Users/kjiwa/.claude/plans/some-plan.md"},
+                    input_={
+                        "prompt": "Execute the plan at /Users/kjiwa/.claude/plans/some-plan.md"
+                    },
                 ),
             ],
         )
@@ -190,7 +196,10 @@ class LoadTests(unittest.TestCase):
             ],
         )
         result = touches.load(self.directory)
-        self.assertEqual([t.at for t in result["some-plan"]], ["2026-09-01T00:00:00.000Z", "2026-09-05T00:00:00.000Z"])
+        self.assertEqual(
+            [t.at for t in result["some-plan"]],
+            ["2026-09-01T00:00:00.000Z", "2026-09-05T00:00:00.000Z"],
+        )
 
     def test_malformed_json_lines_are_skipped(self):
         project_dir = self.directory / "-Users-kjiwa-example"

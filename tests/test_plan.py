@@ -176,8 +176,5 @@ class ByIdTests(unittest.TestCase):
         self.assertEqual(corpus.by_id([p1, p2], "login"), p2)
 
 
-
-
-
 if __name__ == "__main__":
     unittest.main()

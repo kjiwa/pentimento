@@ -24,11 +24,27 @@ Token = tuple[str, tuple[str, ...], bool]
 _FENCE_RE = re.compile(r"^(```|~~~)")
 _CHECKBOX_RE = re.compile(r"^(\s*)-\s*\[([ xX])\]\s*(.*)$")
 _BULLET_RE = re.compile(r"^(\s*)(?:[-*]|\d+\.)\s+(.*)$")
-_INLINE_RE = re.compile(r"\*\*(?P<bold>.+?)\*\*|`(?P<code>.+?)`|(?<!!)\[(?P<link>[^\]]+)\]\([^)]*\)")
+_INLINE_RE = re.compile(
+    r"\*\*(?P<bold>.+?)\*\*|`(?P<code>.+?)`|(?<!!)\[(?P<link>[^\]]+)\]\([^)]*\)"
+)
 _RULES = ("---", "***")
 
-GLYPHS_UNICODE = {"bullet": "•", "checked": "✓", "unchecked": "☐", "rule": "─", "ellipsis": "…", "dash": "—"}
-GLYPHS_ASCII = {"bullet": "-", "checked": "[x]", "unchecked": "[ ]", "rule": "-", "ellipsis": "...", "dash": "--"}
+GLYPHS_UNICODE = {
+    "bullet": "•",
+    "checked": "✓",
+    "unchecked": "☐",
+    "rule": "─",
+    "ellipsis": "…",
+    "dash": "—",
+}
+GLYPHS_ASCII = {
+    "bullet": "-",
+    "checked": "[x]",
+    "unchecked": "[ ]",
+    "rule": "-",
+    "ellipsis": "...",
+    "dash": "--",
+}
 
 
 def _glyphs(unicode_ok: bool) -> dict:
@@ -39,7 +55,10 @@ _Span = tuple[str, tuple[str, ...], int, int]  # (word, codes, start, end) in th
 
 
 def _plain_spans(text: str, start: int, end: int) -> list[_Span]:
-    return [(m.group(0), (), start + m.start(), start + m.end()) for m in re.finditer(r"\S+", text[start:end])]
+    return [
+        (m.group(0), (), start + m.start(), start + m.end())
+        for m in re.finditer(r"\S+", text[start:end])
+    ]
 
 
 def _tokenize_spans(text: str) -> list[_Span]:
@@ -64,7 +83,8 @@ def _tokenize_spans(text: str) -> list[_Span]:
             ]
         elif match.group("code") is not None:
             inner = [
-                (word, (style.CYAN,), start, end) for word, _, start, end in _plain_spans(text, *match.span("code"))
+                (word, (style.CYAN,), start, end)
+                for word, _, start, end in _plain_spans(text, *match.span("code"))
             ]
         else:
             offset = match.start("link")
@@ -154,7 +174,9 @@ def _pack(tokens: list[Token], first_width: int, rest_width: int) -> list[list[T
     return rows
 
 
-def _wrap(tokens: list[Token], width: int, indent: int, hanging: int, *, on_color: bool) -> list[str]:
+def _wrap(
+    tokens: list[Token], width: int, indent: int, hanging: int, *, on_color: bool
+) -> list[str]:
     if not tokens:
         return []
     rows = _pack(tokens, width - indent, width - hanging)
@@ -256,17 +278,25 @@ def _column_widths(rows: list[list[str]], width: int) -> list[int]:
     return widths
 
 
-def _table_cell_lines(text: str, col_width: int, *, bold: bool, on_color: bool) -> list[tuple[str, str]]:
+def _table_cell_lines(
+    text: str, col_width: int, *, bold: bool, on_color: bool
+) -> list[tuple[str, str]]:
     """(plain, painted) physical lines for one cell, wrapped to `col_width`."""
     tokens = _inline(text)
     if bold:
         tokens = [(word, (style.BOLD,) + codes, glued) for word, codes, glued in tokens]
     rows = _pack(tokens, col_width, col_width)
-    return [(_paint_tokens(row, on_color=False), _paint_tokens(row, on_color=on_color)) for row in rows]
+    return [
+        (_paint_tokens(row, on_color=False), _paint_tokens(row, on_color=on_color)) for row in rows
+    ]
 
 
-def _table_row_lines(cells: list[str], widths: list[int], aligns: list[str], *, bold: bool, on_color: bool) -> list[str]:
-    columns = [_table_cell_lines(cell, w, bold=bold, on_color=on_color) for cell, w in zip(cells, widths)]
+def _table_row_lines(
+    cells: list[str], widths: list[int], aligns: list[str], *, bold: bool, on_color: bool
+) -> list[str]:
+    columns = [
+        _table_cell_lines(cell, w, bold=bold, on_color=on_color) for cell, w in zip(cells, widths)
+    ]
     height = max((len(column) for column in columns), default=0) or 1
     gutter = " " * style.GUTTER
     lines = []
@@ -397,7 +427,9 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
 
         if stripped.startswith("|"):
             flush_paragraph()
-            table_lines, index = _table(lines, index, count, width, on_color=on_color, unicode_ok=unicode_ok)
+            table_lines, index = _table(
+                lines, index, count, width, on_color=on_color, unicode_ok=unicode_ok
+            )
             out.extend(table_lines)
             continue
 
@@ -413,7 +445,9 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
             prefix_width = style.display_width(plain_prefix)
             extra, index = _continuation(lines, index + 1, count, len(spaces))
             text = f"{text} {extra}" if extra else text
-            out.extend(_wrap_with_prefix(text, width, painted_prefix, prefix_width, on_color=on_color))
+            out.extend(
+                _wrap_with_prefix(text, width, painted_prefix, prefix_width, on_color=on_color)
+            )
             continue
 
         bullet_match = _BULLET_RE.match(line)
@@ -423,7 +457,11 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
             prefix = " " * len(spaces) + glyphs["bullet"] + " "
             extra, index = _continuation(lines, index + 1, count, len(spaces))
             text = f"{text} {extra}" if extra else text
-            out.extend(_wrap_with_prefix(text, width, prefix, style.display_width(prefix), on_color=on_color))
+            out.extend(
+                _wrap_with_prefix(
+                    text, width, prefix, style.display_width(prefix), on_color=on_color
+                )
+            )
             continue
 
         if stripped.startswith(">"):
@@ -453,7 +491,9 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
     return _squeeze(out)
 
 
-def _wrap_with_prefix(text: str, width: int, prefix: str, prefix_width: int, *, on_color: bool) -> list[str]:
+def _wrap_with_prefix(
+    text: str, width: int, prefix: str, prefix_width: int, *, on_color: bool
+) -> list[str]:
     """Wrap `text` with `prefix` (already painted) on the first line only.
 
     Continuation lines are indented to align under the text that follows
@@ -469,7 +509,9 @@ def _wrap_with_prefix(text: str, width: int, prefix: str, prefix_width: int, *, 
     return lines
 
 
-def clip(lines: list[str], limit: int | None, hint: str, *, on_color: bool, unicode_ok: bool) -> list[str]:
+def clip(
+    lines: list[str], limit: int | None, hint: str, *, on_color: bool, unicode_ok: bool
+) -> list[str]:
     if limit is None or len(lines) <= limit:
         return lines
     limit = max(limit, MIN_BODY_LINES)

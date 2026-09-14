@@ -26,7 +26,11 @@ def _preamble(body: str) -> str:
 
 
 def _referenced_ids(text: str, candidates) -> set[str]:
-    return {candidate.id for candidate in candidates if re.search(re.escape(candidate.id) + r"(\.plan)?\.md", text)}
+    return {
+        candidate.id
+        for candidate in candidates
+        if re.search(re.escape(candidate.id) + r"(\.plan)?\.md", text)
+    }
 
 
 def _eligible(plan, candidate_ids, candidates, project):

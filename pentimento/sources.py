@@ -27,7 +27,12 @@ class Source:
 
 def directory_source(directory: Path) -> Source:
     """A single Claude-style directory, overriding discovery entirely."""
-    return Source(name="claude", directories=[directory], suffix=plan_module.PLAN_SUFFIX, strip_suffix=plan_module.PLAN_SUFFIX)
+    return Source(
+        name="claude",
+        directories=[directory],
+        suffix=plan_module.PLAN_SUFFIX,
+        strip_suffix=plan_module.PLAN_SUFFIX,
+    )
 
 
 def claude_source() -> Source:
@@ -44,7 +49,12 @@ def cursor_source() -> Source:
             Path.home() / ".cursor" / "plans",
             Path.home() / "Library" / "Application Support" / "Cursor" / "User" / "plans",
         ]
-    return Source(name="cursor", directories=directories, suffix=plan_module.CURSOR_SUFFIX, strip_suffix=plan_module.CURSOR_SUFFIX)
+    return Source(
+        name="cursor",
+        directories=directories,
+        suffix=plan_module.CURSOR_SUFFIX,
+        strip_suffix=plan_module.CURSOR_SUFFIX,
+    )
 
 
 def all_sources() -> tuple[Source, ...]:

@@ -48,7 +48,10 @@ class LoadTests(unittest.TestCase):
                     "slug": "some-plan-eager-bird",
                     "cwd": "/Users/kjiwa/src/github/kjiwa/example",
                     "timestamp": "2026-09-01T00:00:00.000Z",
-                    "message": {"role": "user", "content": [{"type": "text", "text": "do the thing"}]},
+                    "message": {
+                        "role": "user",
+                        "content": [{"type": "text", "text": "do the thing"}],
+                    },
                 },
             ],
         )

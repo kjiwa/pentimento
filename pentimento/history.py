@@ -45,7 +45,9 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
         existing = groups.get(touch.session)
         if existing is None:
             what = "authored" if touch.session == plan_id else "worked"
-            groups[touch.session] = Group(session=touch.session, what=what, when=touch.at, touches=1)
+            groups[touch.session] = Group(
+                session=touch.session, what=what, when=touch.at, touches=1
+            )
             order.append(touch.session)
         else:
             existing.touches += 1
@@ -56,7 +58,9 @@ def as_records(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[d
     return [dataclasses.asdict(g) for g in group(plan_id, plan_touches)]
 
 
-def render(plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool, unicode_ok: bool = True) -> str:
+def render(
+    plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool, unicode_ok: bool = True
+) -> str:
     rows = []
     for g in group(plan_id, plan_touches):
         when = times.local_stamp(times.parse_iso(g.when)) or g.when

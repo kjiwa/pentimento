@@ -80,7 +80,8 @@ class BackfillTests(unittest.TestCase):
         backfill.run(plans, session_sessions)
 
         child = corpus.by_id(
-            corpus.load_all(self.directory, sessions=session_sessions), "resume-eager-bird-slow-otter"
+            corpus.load_all(self.directory, sessions=session_sessions),
+            "resume-eager-bird-slow-otter",
         )
         self.assertEqual(child.fields["parent"], "eager-bird")
 
@@ -101,7 +102,10 @@ class BackfillTests(unittest.TestCase):
         )
         session_sessions = {
             "earlier-plan": sessions.Session(
-                slug="earlier-plan", project="real-project", started="2026-09-01T00:00:00.000Z", prompt=""
+                slug="earlier-plan",
+                project="real-project",
+                started="2026-09-01T00:00:00.000Z",
+                prompt="",
             ),
             "later-plan": sessions.Session(
                 slug="later-plan",
@@ -122,17 +126,23 @@ class BackfillTests(unittest.TestCase):
             self.directory,
             "root-plan",
             "---\nstatus: not-started\nintent: active\nparent: stale-plan\n"
-            "project: stale-project\ncreated: 2020-01-01\n---\n\n# Root\n\n## Progress\n- [x] done\n",
+            "project: stale-project\ncreated: 2020-01-01\n---\n\n# Root\n\n## Progress\n"
+            "- [x] done\n",
         )
         session_sessions = {
             "root-plan": sessions.Session(
-                slug="root-plan", project="real-project", started="2026-09-01T00:00:00.000Z", prompt=""
+                slug="root-plan",
+                project="real-project",
+                started="2026-09-01T00:00:00.000Z",
+                prompt="",
             ),
         }
         plans = corpus.load_all(self.directory, sessions=session_sessions)
         backfill.run(plans, session_sessions, rederive=True)
 
-        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions=session_sessions), "root-plan")
+        reloaded = corpus.by_id(
+            corpus.load_all(self.directory, sessions=session_sessions), "root-plan"
+        )
         self.assertEqual(reloaded.fields["status"], "complete")
         self.assertEqual(reloaded.fields["project"], "real-project")
         self.assertEqual(reloaded.fields["intent"], "active")
@@ -170,7 +180,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -184,21 +195,27 @@ class BackfillTests(unittest.TestCase):
         )
         session_sessions = {
             "root-plan": sessions.Session(
-                slug="root-plan", project="real-project", started="2026-09-01T00:00:00.000Z", prompt=""
+                slug="root-plan",
+                project="real-project",
+                started="2026-09-01T00:00:00.000Z",
+                prompt="",
             ),
         }
         plans = corpus.load_all(self.directory, sessions=session_sessions)
         changed = backfill.run(plans, session_sessions)
         self.assertEqual(changed, ["root-plan"])
 
-        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions=session_sessions), "root-plan")
+        reloaded = corpus.by_id(
+            corpus.load_all(self.directory, sessions=session_sessions), "root-plan"
+        )
         self.assertEqual(reloaded.fields["project"], "real-project")
 
     def test_rederive_does_not_clear_a_project_that_no_longer_derives(self):
         _write(
             self.directory,
             "root-plan",
-            "---\nstatus: not-started\nintent: unset\nproject: kept-project\ncreated: 2026-09-01\n---\n\n# Root\n",
+            "---\nstatus: not-started\nintent: unset\nproject: kept-project\ncreated: 2026-09-01\n"
+            "---\n\n# Root\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         backfill.run(plans, {}, rederive=True)
@@ -220,7 +237,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\nstatus: partial\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] one\n- [x] two\n",
+            "---\nstatus: partial\nintent: unset\n---\n\n# Root\n\n## Progress\n"
+            "- [x] one\n- [x] two\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -245,7 +263,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] one\n- [ ] two\n",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n"
+            "- [x] one\n- [ ] two\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -258,7 +277,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n\n## Progress\n- [ ] todo\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -271,7 +291,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: partial\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+            "---\npentimento:\n  status: partial\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n\n## Progress\n- [ ] todo\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -284,7 +305,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [x] one\n- [ ] two\n",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n\n## Progress\n- [x] one\n- [ ] two\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans)
@@ -297,7 +319,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n\n## Progress\n- [ ] todo\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         changed = backfill.run(plans, rederive=True)
@@ -322,7 +345,8 @@ class BackfillTests(unittest.TestCase):
         _write(
             self.directory,
             "root-plan",
-            "---\npentimento:\n  status: not-started\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\nNot started.\n",
+            "---\npentimento:\n  status: not-started\n  intent: unset\n  created: 2026-09-01\n"
+            "---\n\n# Root\n\nNot started.\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
         first = corpus.by_id(plans, "root-plan")
@@ -376,7 +400,6 @@ class BackfillTests(unittest.TestCase):
         reloaded = {p.id: p for p in corpus.load_all(self.directory, sessions=session_sessions)}
         self.assertNotIn("parent", reloaded["plan-a"].fields)
         self.assertEqual(reloaded["plan-b"].fields["parent"], "plan-a")
-
 
     def test_only_restricts_writes_and_returned_changed(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")

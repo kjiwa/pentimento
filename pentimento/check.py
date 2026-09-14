@@ -110,7 +110,8 @@ def _status_behind_history(plans, touches):
             continue
         sessions_worked = len({t.session for t in worked})
         message = (
-            f"status {p.status!r} but {counts.plural(sessions_worked, 'later session')} worked this plan; "
+            f"status {p.status!r} but "
+            f"{counts.plural(sessions_worked, 'later session')} worked this plan; "
             f"see `pentimento history {p.id}`"
         )
         findings.append(Finding(p.id, "status-behind-history", message))

@@ -56,7 +56,9 @@ class CmdSetTests(unittest.TestCase):
         result = cli.cmd_set(args)
         self.assertEqual(result, 0)
 
-        reloaded = corpus.by_id(corpus.load_all(self.directory), "is-it-possible-to-abundant-rabbit")
+        reloaded = corpus.by_id(
+            corpus.load_all(self.directory), "is-it-possible-to-abundant-rabbit"
+        )
         self.assertEqual(reloaded.fields["status"], "complete")
 
     def test_accepts_parent_that_resolves_to_a_plan(self):
@@ -207,10 +209,14 @@ class CmdListTagFilterTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\ntags: [billing]\n---\n\n# Billing\n",
         )
 
-        both = json.loads(self._run_json(["list", "--tag", "auth", "--tag", "security", "--format", "json"]))
+        both = json.loads(
+            self._run_json(["list", "--tag", "auth", "--tag", "security", "--format", "json"])
+        )
         self.assertEqual([p["id"] for p in both], ["auth-plan"])
 
-        neither = json.loads(self._run_json(["list", "--tag", "auth", "--tag", "billing", "--format", "json"]))
+        neither = json.loads(
+            self._run_json(["list", "--tag", "auth", "--tag", "billing", "--format", "json"])
+        )
         self.assertEqual(neither, [])
 
     def test_tag_filter_is_case_insensitive(self):
@@ -250,7 +256,9 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
 
     def test_grep_matches_body(self):
         _write(self.directory, "root-plan", "# Root\n\nMentions authentication deep in the body.\n")
-        matched = json.loads(self._run_json(["list", "--grep", "authentication", "--format", "json"]))
+        matched = json.loads(
+            self._run_json(["list", "--grep", "authentication", "--format", "json"])
+        )
         self.assertEqual([p["id"] for p in matched], ["root-plan"])
 
     def test_grep_is_a_regex(self):
@@ -270,13 +278,17 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
 
     def test_project_dot_resolves_to_the_current_directory_name(self):
         _write(self.directory, "root-plan", "---\nproject: pentimento\n---\n\n# Root\n")
-        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")):
+        with mock.patch(
+            "pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")
+        ):
             matched = json.loads(self._run_json(["list", "--project", ".", "--format", "json"]))
         self.assertEqual([p["id"] for p in matched], ["root-plan"])
 
     def test_set_project_dot_writes_the_current_directory_name(self):
         _write(self.directory, "root-plan", "# Root\n")
-        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")):
+        with mock.patch(
+            "pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")
+        ):
             args = cli.build_parser().parse_args(["set", "root-plan", "--project", "."])
             self.assertEqual(cli.cmd_set(args), 0)
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
@@ -285,13 +297,21 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
     def test_limit_keeps_the_tail_under_ascending_order(self):
         for name in ("a-plan", "b-plan", "c-plan"):
             _write(self.directory, name, "# Plan\n")
-        matched = json.loads(self._run_json(["list", "--sort", "id", "--order", "asc", "-n", "2", "--format", "json"]))
+        matched = json.loads(
+            self._run_json(
+                ["list", "--sort", "id", "--order", "asc", "-n", "2", "--format", "json"]
+            )
+        )
         self.assertEqual([p["id"] for p in matched], ["b-plan", "c-plan"])
 
     def test_limit_keeps_the_head_under_descending_order(self):
         for name in ("a-plan", "b-plan", "c-plan"):
             _write(self.directory, name, "# Plan\n")
-        matched = json.loads(self._run_json(["list", "--sort", "id", "--order", "desc", "-n", "2", "--format", "json"]))
+        matched = json.loads(
+            self._run_json(
+                ["list", "--sort", "id", "--order", "desc", "-n", "2", "--format", "json"]
+            )
+        )
         self.assertEqual([p["id"] for p in matched], ["c-plan", "b-plan"])
 
     def test_limit_applies_before_the_table_footer_count(self):
@@ -695,18 +715,22 @@ class CmdFooterTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["index"])
         output = self._run(args)
         self.assertIn("1 plan indexed", output)
+
     def test_list_empty_filter_reports_summary(self):
         _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
-        args = cli.build_parser().parse_args(["list", "--status", "not-started", "--color", "never"])
+        args = cli.build_parser().parse_args(
+            ["list", "--status", "not-started", "--color", "never"]
+        )
         output = self._run(args)
         self.assertIn("0 of 1 plan", output)
 
     def test_tree_empty_filter_reports_summary(self):
         _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
-        args = cli.build_parser().parse_args(["tree", "--status", "not-started", "--color", "never"])
+        args = cli.build_parser().parse_args(
+            ["tree", "--status", "not-started", "--color", "never"]
+        )
         output = self._run(args)
         self.assertIn("0 of 1 plan", output)
-
 
 
 class CmdListSortTests(unittest.TestCase):
@@ -900,7 +924,9 @@ class CmdHookTests(unittest.TestCase):
         path = self.directory / "root-plan.md"
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
         with mock.patch.dict(os.environ, {"PENTIMENTO_DEBUG": "1"}):
-            with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
+            with mock.patch(
+                "pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")
+            ):
                 err = io.StringIO()
                 with contextlib.redirect_stderr(err):
                     result = self._run_hook(payload)
@@ -914,7 +940,9 @@ class CmdHookTests(unittest.TestCase):
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
         with mock.patch.dict(os.environ):
             os.environ.pop("PENTIMENTO_DEBUG", None)
-            with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
+            with mock.patch(
+                "pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")
+            ):
                 err = io.StringIO()
                 with contextlib.redirect_stderr(err):
                     result = self._run_hook(payload)

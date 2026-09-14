@@ -78,7 +78,14 @@ class RenderTests(unittest.TestCase):
 
     def test_render_grouped_drops_status_and_intent_when_uniform_across_the_whole_set(self):
         root = FakePlan(id="root", title="Root", project="p1", status="not-started", intent="unset")
-        child = FakePlan(id="child", title="Child", parent="root", project="p2", status="not-started", intent="unset")
+        child = FakePlan(
+            id="child",
+            title="Child",
+            parent="root",
+            project="p2",
+            status="not-started",
+            intent="unset",
+        )
         rendered = _with_width(120, lambda: tree.render_grouped([root, child]))
         self.assertNotIn("not-started", rendered)
         self.assertNotIn("unset", rendered)
@@ -104,7 +111,9 @@ class RenderTests(unittest.TestCase):
         root = FakePlan(id="root", title="Root")
         a = FakePlan(id="a", title="A", parent="root", mtime=100)
         b = FakePlan(id="b", title="B", parent="root", mtime=200)
-        rendered = _with_width(120, lambda: tree.render([root, a, b], key=lambda p: p.mtime, reverse=True))
+        rendered = _with_width(
+            120, lambda: tree.render([root, a, b], key=lambda p: p.mtime, reverse=True)
+        )
         self.assertLess(rendered.index("B"), rendered.index("A"))
 
     def test_meta_line_shows_tags_when_present(self):
@@ -132,7 +141,11 @@ class RenderTests(unittest.TestCase):
 
     def test_meta_line_field_order_is_id_status_intent_tags_created_age(self):
         root = FakePlan(
-            id="root", title="Root", tags=["auth"], fields={"created": "2026-01-01"}, mtime=1,
+            id="root",
+            title="Root",
+            tags=["auth"],
+            fields={"created": "2026-01-01"},
+            mtime=1,
         )
         lines = _with_width(
             120, lambda: tree.render([root], show_status=True, show_intent=True)
@@ -154,11 +167,15 @@ class RenderTests(unittest.TestCase):
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
         self.assertNotIn("2026-", lines[1])
 
-
     def test_narrow_width_with_color_fits_after_stripping_escapes_and_balances_them(self):
         root = FakePlan(
-            id="root", title="Root", status="complete", intent="active", tags=["auth", "security"],
-            fields={"created": "2026-01-01"}, mtime=1,
+            id="root",
+            title="Root",
+            status="complete",
+            intent="active",
+            tags=["auth", "security"],
+            fields={"created": "2026-01-01"},
+            mtime=1,
         )
         for width in range(20, 60):
             rendered = _with_width(width, lambda: tree.render([root], on_color=True))
@@ -170,7 +187,9 @@ class RenderTests(unittest.TestCase):
 
 class FitGuaranteeTests(unittest.TestCase):
     def _plans(self):
-        root = FakePlan(id="api-auth-redesign", title="Redesign the auth API", status="complete", mtime=1)
+        root = FakePlan(
+            id="api-auth-redesign", title="Redesign the auth API", status="complete", mtime=1
+        )
         child = FakePlan(
             id="api-auth-rollout",
             title="Roll out the new auth API",

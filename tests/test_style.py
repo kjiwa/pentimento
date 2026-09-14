@@ -144,7 +144,9 @@ class TruncateCellsTests(unittest.TestCase):
     def test_never_emits_a_partial_escape(self):
         cells = [("aaaaaaaaaa", (style.BOLD,)), ("bbbbbbbbbb", (style.GREEN,))]
         result = style.truncate_cells(cells, "  ", 8, unicode_ok=True, on_color=True)
-        self.assertEqual(result.count(style.RESET), result.count(style.BOLD) + result.count(style.GREEN))
+        self.assertEqual(
+            result.count(style.RESET), result.count(style.BOLD) + result.count(style.GREEN)
+        )
 
     def test_identical_to_plain_join_when_colour_is_off_and_it_fits(self):
         cells = [("a", (style.BOLD,)), ("b", (style.GREEN,))]

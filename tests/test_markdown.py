@@ -62,7 +62,7 @@ class WrapTests(unittest.TestCase):
 
 class ListItemContinuationTests(unittest.TestCase):
     def test_fenced_code_nested_under_a_bullet_is_not_folded_into_prose(self):
-        body = "- Sweep the tree:\n   ```sh\n   for d in a b; do echo \"$d\"; done\n   ```\n   Done."
+        body = '- Sweep the tree:\n   ```sh\n   for d in a b; do echo "$d"; done\n   ```\n   Done.'
         lines = _render(body, width=100)
         joined = "\n".join(lines)
         self.assertIn('for d in a b; do echo "$d"; done', joined)
@@ -165,7 +165,11 @@ class TableTests(unittest.TestCase):
         self.assertGreater(len(lines), 2)
 
     def test_narrow_width_hits_the_column_floor(self):
-        body = "| aa aa aa aa | bb bb bb bb | cc cc cc cc |\n| --- | --- | --- |\n| x x x x | y y y y | z z z z |"
+        body = (
+            "| aa aa aa aa | bb bb bb bb | cc cc cc cc |\n"
+            "| --- | --- | --- |\n"
+            "| x x x x | y y y y | z z z z |"
+        )
         lines = _render(body, width=10)
         self.assertGreater(len(lines), 2)
         for line in lines:
@@ -300,7 +304,9 @@ class ClipTests(unittest.TestCase):
 
     def test_over_limit_trims_and_appends_hint(self):
         lines = [str(n) for n in range(10)]
-        clipped = markdown.clip(lines, 5, "pentimento show foo --full", on_color=False, unicode_ok=True)
+        clipped = markdown.clip(
+            lines, 5, "pentimento show foo --full", on_color=False, unicode_ok=True
+        )
         self.assertEqual(len(clipped), markdown.MIN_BODY_LINES + 1)
         self.assertIn("more lines", clipped[-1])
         self.assertIn("pentimento show foo --full", clipped[-1])

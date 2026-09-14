@@ -86,12 +86,24 @@ class UnconditionalFitTests(unittest.TestCase):
             _column("UPDATED", align="right"),
         )
         rows = [
-            (("complete", ()), ("api-auth-redesign", ()), ("Redesign the auth API", ()), ("5w", ())),
-            (("partial", ()), ("api-auth-rollout", ()), ("Roll out the new auth API", ()), ("2w", ())),
+            (
+                ("complete", ()),
+                ("api-auth-redesign", ()),
+                ("Redesign the auth API", ()),
+                ("5w", ()),
+            ),
+            (
+                ("partial", ()),
+                ("api-auth-rollout", ()),
+                ("Roll out the new auth API", ()),
+                ("2w", ()),
+            ),
         ]
         for unicode_ok in (True, False):
             for width in range(10, 201):
-                rendered = table.render(columns, rows, on_color=False, unicode_ok=unicode_ok, width=width)
+                rendered = table.render(
+                    columns, rows, on_color=False, unicode_ok=unicode_ok, width=width
+                )
                 for line in rendered.split("\n"):
                     self.assertLessEqual(
                         style.display_width(line), width, f"width={width} overflowed: {line!r}"

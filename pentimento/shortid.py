@@ -18,9 +18,7 @@ MIN_SEGMENTS = 2
 def _candidates(plan_id: str) -> list[str]:
     """Trailing segment runs from shortest to longest, full id last."""
     segments = plan_id.split("-")
-    candidates = [
-        "-".join(segments[-count:]) for count in range(MIN_SEGMENTS, len(segments))
-    ]
+    candidates = ["-".join(segments[-count:]) for count in range(MIN_SEGMENTS, len(segments))]
     candidates.append(plan_id)
     return candidates
 

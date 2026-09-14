@@ -31,7 +31,13 @@ def _resolves_to_cycle(plan_id: str, parent_id: str, fields_by_id: dict[str, dic
 
 
 def derive_fields(
-    target, candidates, sessions, *, rederive: bool = False, recreate: bool = False, derive_status: bool = True
+    target,
+    candidates,
+    sessions,
+    *,
+    rederive: bool = False,
+    recreate: bool = False,
+    derive_status: bool = True,
 ) -> dict[str, str]:
     """Fields to backfill for `target`.
 
@@ -81,13 +87,17 @@ def derive_fields(
             fields["project"] = project
 
     if rederive:
-        parent_id = lineage.derive_parent(target, candidates, sessions, project=fields.get("project"))
+        parent_id = lineage.derive_parent(
+            target, candidates, sessions, project=fields.get("project")
+        )
         if parent_id:
             fields["parent"] = parent_id
         else:
             fields.pop("parent", None)
     elif "parent" not in fields:
-        parent_id = lineage.derive_parent(target, candidates, sessions, project=fields.get("project"))
+        parent_id = lineage.derive_parent(
+            target, candidates, sessions, project=fields.get("project")
+        )
         if parent_id:
             fields["parent"] = parent_id
 
@@ -113,7 +123,12 @@ def run(
     sessions = sessions or {}
     new_fields_by_id = {
         target.id: derive_fields(
-            target, plans, sessions, rederive=rederive, recreate=recreate, derive_status=derive_status
+            target,
+            plans,
+            sessions,
+            rederive=rederive,
+            recreate=recreate,
+            derive_status=derive_status,
         )
         for target in plans
     }

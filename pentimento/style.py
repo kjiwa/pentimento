@@ -134,7 +134,9 @@ def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[
     return plain, painted
 
 
-def truncate_cells(cells: list[Cell], separator: str, width: int, *, unicode_ok: bool, on_color: bool) -> str:
+def truncate_cells(
+    cells: list[Cell], separator: str, width: int, *, unicode_ok: bool, on_color: bool
+) -> str:
     """Join `cells` under a `width` column budget.
 
     Only the cell that straddles the limit is truncated, and its unpainted
@@ -157,7 +159,9 @@ def truncate_cells(cells: list[Cell], separator: str, width: int, *, unicode_ok:
         if remaining > 0:
             if gap:
                 parts.append(separator)
-            parts.append(paint(truncate(text, remaining, unicode_ok=unicode_ok), *codes, on=on_color))
+            parts.append(
+                paint(truncate(text, remaining, unicode_ok=unicode_ok), *codes, on=on_color)
+            )
         break
     return "".join(parts)
 

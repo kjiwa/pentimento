@@ -24,7 +24,9 @@ def render(plans: list[plan_module.Plan], base_dir: Path | None = None) -> str:
     for p in plans:
         by_status.setdefault(p.status, []).append(p)
 
-    remaining = sorted(status for status in by_status if status not in vocabulary_module.STATUS_ORDER)
+    remaining = sorted(
+        status for status in by_status if status not in vocabulary_module.STATUS_ORDER
+    )
     for status in (*vocabulary_module.STATUS_ORDER, *remaining):
         group = sorted(by_status.get(status, []), key=lambda p: p.id)
         if not group:

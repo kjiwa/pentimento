@@ -60,12 +60,18 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(fields, {"status": "complete", "foo": "bar"})
 
     def test_inline_comments_are_stripped(self):
-        text = "---\npentimento:\n  status: partial # in progress\n  parent: root-plan # omitted for roots\n---\nbody\n"
+        text = (
+            "---\npentimento:\n  status: partial # in progress\n"
+            "  parent: root-plan # omitted for roots\n---\nbody\n"
+        )
         fields, _ = frontmatter.parse(text)
         self.assertEqual(fields, {"status": "partial", "parent": "root-plan"})
 
     def test_full_line_comments_are_ignored(self):
-        text = "---\n# top-level comment\npentimento:\n  # indented comment\n  status: complete\n---\nbody\n"
+        text = (
+            "---\n# top-level comment\npentimento:\n  # indented comment\n"
+            "  status: complete\n---\nbody\n"
+        )
         fields, _ = frontmatter.parse(text)
         self.assertEqual(fields, {"status": "complete"})
 
@@ -92,7 +98,10 @@ class SerializeTests(unittest.TestCase):
         self.assertEqual(frontmatter.serialize({}, body), body)
 
     def test_round_trip_preserves_body_bytes_exactly(self):
-        text = "---\npentimento:\n  status: complete\n  parent: eager-bird\n---\n# Title\n\n---\nrule\n"
+        text = (
+            "---\npentimento:\n  status: complete\n  parent: eager-bird\n---\n"
+            "# Title\n\n---\nrule\n"
+        )
         fields, body = frontmatter.parse(text)
         self.assertEqual(frontmatter.serialize(fields, body), text)
 
@@ -108,7 +117,12 @@ class SerializeTests(unittest.TestCase):
         self.assertEqual(lines[5], "---")
 
     def test_tags_round_trip_in_canonical_position(self):
-        fields = {"status": "complete", "intent": "active", "tags": "[auth, security]", "parent": "root"}
+        fields = {
+            "status": "complete",
+            "intent": "active",
+            "tags": "[auth, security]",
+            "parent": "root",
+        }
         text = frontmatter.serialize(fields, "body\n")
         lines = text.split("\n")
         self.assertEqual(lines[2], "  status: complete")

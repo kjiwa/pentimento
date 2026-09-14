@@ -37,8 +37,11 @@ def _natural_widths(columns: tuple[Column, ...], rows: list[tuple[Cell, ...]]) -
     widths = {}
     for index, column in enumerate(columns):
         values = [row[index][0] for row in rows]
-        widths[column] = max(style.display_width(column.header), *(style.display_width(v) for v in values)) \
-            if values else style.display_width(column.header)
+        widths[column] = (
+            max(style.display_width(column.header), *(style.display_width(v) for v in values))
+            if values
+            else style.display_width(column.header)
+        )
     return widths
 
 
@@ -48,7 +51,9 @@ def _total(widths: dict[Column, int], active: list[Column]) -> int:
     return sum(widths[c] for c in active) + style.GUTTER * (len(active) - 1)
 
 
-def _shrink(widths: dict[Column, int], active: list[Column], attr: str, width: int) -> tuple[dict[Column, int], bool]:
+def _shrink(
+    widths: dict[Column, int], active: list[Column], attr: str, width: int
+) -> tuple[dict[Column, int], bool]:
     widths = dict(widths)
     for column in sorted((c for c in active if c.flex > 0), key=lambda c: c.flex):
         excess = _total(widths, active) - width
@@ -58,7 +63,9 @@ def _shrink(widths: dict[Column, int], active: list[Column], attr: str, width: i
     return widths, _total(widths, active) <= width
 
 
-def _fit(columns: tuple[Column, ...], natural: dict[Column, int], width: int) -> tuple[list[Column], dict[Column, int]]:
+def _fit(
+    columns: tuple[Column, ...], natural: dict[Column, int], width: int
+) -> tuple[list[Column], dict[Column, int]]:
     active = list(columns)
     while True:
         widths = {c: natural[c] for c in active}
@@ -83,7 +90,14 @@ def _pad(text: str, width: int, align: str) -> str:
     return text.rjust(width) if align == "right" else text.ljust(width)
 
 
-def _render_row(active: list[Column], widths: dict[Column, int], cells: list[Cell], width: int, unicode_ok: bool, on_color: bool) -> str:
+def _render_row(
+    active: list[Column],
+    widths: dict[Column, int],
+    cells: list[Cell],
+    width: int,
+    unicode_ok: bool,
+    on_color: bool,
+) -> str:
     parts = []
     used = 0
     for index, column in enumerate(active):

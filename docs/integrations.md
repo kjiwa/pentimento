@@ -34,13 +34,13 @@ re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
 outright, dropping an operator-set `intent` until the next sweep gap-fills it
 back to the default.
 
-A slash command wrapping `pentimento list --starred`, so you can pull up
-your active/queued plans mid-session. Copy
+A `/plans` slash command that passes `$ARGUMENTS` straight through to
+`pentimento` -- `/plans` alone runs `pentimento list`, and `/plans tree
+--project fankado`, `/plans show <id>`, or `/plans set <id> --intent active`
+run verbatim. It doesn't reimplement any of pentimento's logic; if
+`pentimento` isn't on `$PATH` it reports that and stops. Copy
 [integrations/claude/commands/plans.md](../integrations/claude/commands/plans.md)
 to `~/.claude/commands/plans.md`.
-
-`allowed-tools` pre-approves the exact command so Claude doesn't prompt for
-permission when the command runs it.
 
 ## Cursor
 

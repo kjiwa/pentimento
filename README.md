@@ -130,9 +130,10 @@ platform
 ```
 # Roll out the new auth API
 
-id: api-auth-rollout  status: partial  intent: active  tags: [auth, security]
-parent: api-auth-redesign  project: platform  created: 2026-08-25  source: claude
-modified: 2026-08-25 09:45
+id: api-auth-rollout
+status: partial   intent: active   tags: [auth, security]
+parent: api-auth-redesign   project: platform
+created: 2026-08-25   source: claude   modified: 2026-08-25 12:30
 
 Progress
 
@@ -193,8 +194,8 @@ on this machine, never a claim the plan wasn't worked.
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-30 09:45  authored  api-auth-cleanup                             1
-2026-09-11 09:45  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-08-30 12:30  authored  api-auth-cleanup                             1
+2026-09-11 12:30  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 

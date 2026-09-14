@@ -249,43 +249,61 @@ def cmd_tree(args) -> int:
     return 0
 
 
-def _show_field_values(target):
-    """(key, value, codes) in header display order: id, frontmatter fields, source, modified."""
-    yield "id", target.id, ()
-    ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
-    remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
-    for key in ordered + remaining:
-        value = target.fields[key]
-        if key == "status":
-            codes = style.STATUS_CODES.get(value, ())
-        elif key == "intent":
-            codes = style.INTENT_CODES.get(value, ())
-        else:
-            codes = ()
-        yield key, value, codes
-    yield "source", target.source, ()
-    yield "modified", times_module.local_stamp(target.modified), ()
+FIELD_GUTTER = 3
+
+_HEADER_GROUPS = (
+    ("identity", ("id",)),
+    ("state", ("status", "intent", "tags")),
+    ("lineage", ("parent", "project")),
+    ("provenance", ("created", "source", "modified")),
+)
+
+
+def _show_field_groups(target):
+    """Lists of (key, value, codes) per semantic group, skipping empty groups."""
+    values = dict(target.fields)
+    values["id"] = target.id
+    values["source"] = target.source
+    values["modified"] = times_module.local_stamp(target.modified)
+    grouped_keys = {key for _, keys in _HEADER_GROUPS for key in keys}
+    for _, keys in _HEADER_GROUPS:
+        group = []
+        for key in keys:
+            if key not in values:
+                continue
+            value = values[key]
+            if key == "status":
+                codes = style.STATUS_CODES.get(value, ())
+            elif key == "intent":
+                codes = style.INTENT_CODES.get(value, ())
+            else:
+                codes = ()
+            group.append((key, value, codes))
+        if group:
+            yield group
+    extra = [key for key in target.fields if key not in grouped_keys]
+    if extra:
+        yield [(key, values[key], ()) for key in extra]
 
 
 def _flow_pairs(pairs: list[tuple[str, str]], width: int) -> list[str]:
-    """Greedy-pack (plain, painted) `pairs` onto lines, joined by `style.GUTTER` spaces.
+    """Greedy-pack (plain, painted) `pairs` from one group onto lines.
 
-    A pair wider than `width` gets its own line and is never truncated -- the
-    `id` and `parent` values must stay copy-pasteable.
+    Pairs are joined by `FIELD_GUTTER` spaces. A pair wider than `width` gets
+    its own line and is never truncated -- the `id` and `parent` values must
+    stay copy-pasteable.
     """
     lines: list[str] = []
-    line_plain: list[str] = []
     line_painted: list[str] = []
     line_width = 0
-    gutter = " " * style.GUTTER
+    gutter = " " * FIELD_GUTTER
     for plain, painted in pairs:
         cell_width = style.display_width(plain)
-        if line_painted and line_width + style.GUTTER + cell_width > width:
+        if line_painted and line_width + FIELD_GUTTER + cell_width > width:
             lines.append(gutter.join(line_painted))
-            line_plain, line_painted, line_width = [], [], 0
+            line_painted, line_width = [], 0
         if line_painted:
-            line_width += style.GUTTER
-        line_plain.append(plain)
+            line_width += FIELD_GUTTER
         line_painted.append(painted)
         line_width += cell_width
     if line_painted:
@@ -313,12 +331,13 @@ def cmd_show(args) -> int:
 
         emit(style.paint(f"# {target.title}", style.BOLD, on=on_color))
         emit()
-        pairs = [
-            style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
-            for key, value, codes in _show_field_values(target)
-        ]
-        for line in _flow_pairs(pairs, width):
-            emit(line)
+        for group in _show_field_groups(target):
+            pairs = [
+                style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
+                for key, value, codes in group
+            ]
+            for line in _flow_pairs(pairs, width):
+                emit(line)
         emit()
 
         body = plan_module.body_below_title(target.body)

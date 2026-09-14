@@ -392,6 +392,63 @@ class CmdShowTests(unittest.TestCase):
         full = self._run_json(["show", "root-plan", "--full", "--format", "json"])
         self.assertEqual(plain, full)
 
+    def test_header_groups_share_lines_by_semantic_field(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\nintent: unset\nparent: none\nproject: example\n"
+            "created: 2026-09-14\n---\n\n# Root\n",
+        )
+        with _EnvGuard(COLUMNS="100"):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", "root-plan"])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        header = _header_block(out.getvalue().splitlines())
+        id_line = next(line for line in header if "id:" in line)
+        state_line = next(line for line in header if "status:" in line)
+        lineage_line = next(line for line in header if "project:" in line)
+        provenance_line = next(line for line in header if "created:" in line)
+        self.assertNotIn("status:", id_line)
+        self.assertIn("intent:", state_line)
+        self.assertIn("parent:", lineage_line)
+        self.assertIn("source:", provenance_line)
+        self.assertIn("modified:", provenance_line)
+
+    def test_status_column_is_stable_regardless_of_id_length(self):
+        short_id = "short-plan"
+        long_id = short_id + "x" * 40
+        for plan_id in (short_id, long_id):
+            _write(self.directory, plan_id, "---\nstatus: complete\nintent: unset\n---\n\n# Root\n")
+        columns = {}
+        for plan_id in (short_id, long_id):
+            with _EnvGuard(COLUMNS="100"):
+                out = io.StringIO()
+                args = cli.build_parser().parse_args(["show", plan_id])
+                with contextlib.redirect_stdout(out):
+                    cli.cmd_show(args)
+            header = _header_block(out.getvalue().splitlines())
+            state_line = next(line for line in header if "status:" in line)
+            columns[plan_id] = state_line.index("status:")
+        self.assertEqual(columns[short_id], columns[long_id])
+
+    def test_unknown_frontmatter_key_lands_on_its_own_trailing_line(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\nintent: unset\nmystery: field\n---\n\n# Root\n",
+        )
+        with _EnvGuard(COLUMNS="100"):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", "root-plan"])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        header = _header_block(out.getvalue().splitlines())
+        mystery_index = next(i for i, line in enumerate(header) if "mystery:" in line)
+        modified_index = next(i for i, line in enumerate(header) if "modified:" in line)
+        self.assertGreater(mystery_index, modified_index)
+        self.assertNotIn("modified:", header[mystery_index])
+
     def _run_json(self, argv):
         out = io.StringIO()
         args = cli.build_parser().parse_args(argv)

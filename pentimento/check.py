@@ -58,7 +58,7 @@ def _cycle_members(plans, by_id):
     return [p for p in plans if p.parent and _in_cycle(p, by_id)]
 
 
-def _duplicate_ids(plans):
+def duplicate_ids(plans):
     seen = set()
     duplicates = []
     for p in plans:
@@ -142,7 +142,7 @@ def run(plans, sessions=None, touches=None) -> list[Finding]:
     for p in _cycle_members(plans, by_id):
         message = "parent chain cycles back to itself"
         findings.append(Finding(p.id, "cycle", message))
-    for p in _duplicate_ids(plans):
+    for p in duplicate_ids(plans):
         message = f"duplicate id across sources (second occurrence from {p.source})"
         findings.append(Finding(p.id, "duplicate-id", message))
     for p in _off_vocabulary_status(plans):

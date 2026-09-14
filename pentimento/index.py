@@ -43,4 +43,4 @@ def render(plans: list[plan_module.Plan], base_dir: Path | None = None) -> str:
 
 def write(plans: list[plan_module.Plan], directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "INDEX.md").write_text(render(plans, base_dir=directory), encoding="utf-8")
+    plan_module.atomic_write(directory / "INDEX.md", render(plans, base_dir=directory))

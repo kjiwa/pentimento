@@ -3,7 +3,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from pentimento import frontmatter
 from pentimento import plan as plan_module
 
 
@@ -97,6 +99,32 @@ class SaveTests(unittest.TestCase):
         plan_module.save(target)
 
         self.assertNotEqual(path.stat().st_mtime, 1000)
+
+    def test_save_leaves_original_intact_when_serializer_raises_mid_save(self):
+        path = self.directory / "root-plan.md"
+        original = "# Root\n"
+        path.write_text(original)
+
+        target = plan_module.load(path, sessions={})
+        target.fields = {"status": "complete"}
+        with mock.patch.object(frontmatter, "serialize", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                plan_module.save(target)
+
+        self.assertEqual(path.read_text(), original)
+        tmp_files = [p for p in self.directory.iterdir() if p.name != "root-plan.md"]
+        self.assertEqual(tmp_files, [])
+
+    def test_save_preserves_permission_bits(self):
+        path = self.directory / "root-plan.md"
+        path.write_text("# Root\n")
+        os.chmod(path, 0o640)
+
+        target = plan_module.load(path, sessions={})
+        target.fields = {"status": "complete"}
+        plan_module.save(target)
+
+        self.assertEqual(path.stat().st_mode & 0o777, 0o640)
 
     def test_load_cursor_plan_id_resolution(self):
         path = self.directory / "refactor-auth.plan.md"

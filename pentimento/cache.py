@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 
 VERSION = 1
@@ -44,8 +45,13 @@ def write(namespace: str, entries: dict) -> None:
     directory = cache_dir()
     try:
         directory.mkdir(parents=True, exist_ok=True)
-        tmp_path = directory / f".{namespace}.json.tmp"
-        tmp_path.write_text(json.dumps({"version": VERSION, "entries": entries}), encoding="utf-8")
-        os.replace(tmp_path, directory / f"{namespace}.json")
+        fd, tmp_name = tempfile.mkstemp(dir=directory, prefix=f".{namespace}.", suffix=".json.tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps({"version": VERSION, "entries": entries}))
+            os.replace(tmp_name, directory / f"{namespace}.json")
+        except OSError:
+            os.unlink(tmp_name)
+            raise
     except OSError:
         pass

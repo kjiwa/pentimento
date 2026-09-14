@@ -630,7 +630,24 @@ def cmd_hook(_args) -> int:
 
 
 def cmd_backfill(args) -> int:
-    changed = _backfill(dry_run=args.dry_run, rederive=args.rederive, recreate=args.recreate)
+    sessions = sessions_module.load()
+    plans = corpus.load_all(sessions=sessions)
+    duplicates = sorted({p.id for p in check_module.duplicate_ids(plans)})
+    if duplicates:
+        print(
+            f"pentimento: duplicate plan id(s): {', '.join(duplicates)} -- "
+            "run `pentimento check` and resolve before backfilling",
+            file=sys.stderr,
+        )
+        return 1
+
+    changed = _backfill(
+        dry_run=args.dry_run,
+        rederive=args.rederive,
+        recreate=args.recreate,
+        sessions=sessions,
+        plans=plans,
+    )
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import os
+import tempfile
 from pathlib import Path
 
 from pentimento import frontmatter, tags, times
@@ -131,15 +132,37 @@ def _file_started(path: Path) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
 
+def atomic_write(path: Path, text: str, *, keep_mtime: bool = False) -> None:
+    """Write `text` to `path` via same-directory tmp file + `os.replace`.
+
+    Resolves symlinks first, so a `*.md` symlink's target is written
+    explicitly rather than silently followed. Preserves the original file's
+    permission bits, since `os.replace` otherwise carries over `mkstemp`'s
+    0600, and uses a unique tmp name so concurrent writers cannot collide.
+    """
+    target = path.resolve()
+    try:
+        stat = target.stat()
+    except FileNotFoundError:
+        stat = None
+    fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        if stat is not None:
+            os.chmod(tmp_name, stat.st_mode)
+        os.replace(tmp_name, target)
+    except BaseException:
+        os.unlink(tmp_name)
+        raise
+    if keep_mtime and stat is not None:
+        os.utime(target, (stat.st_atime, stat.st_mtime))
+
+
 def save(plan: Plan, *, keep_mtime: bool = False) -> None:
     text = frontmatter.serialize(plan.fields, plan.body, plan.extras)
     plan.text = text
-    if keep_mtime:
-        stat = plan.path.stat()
-        plan.path.write_text(text, encoding="utf-8")
-        os.utime(plan.path, (stat.st_atime, stat.st_mtime))
-    else:
-        plan.path.write_text(text, encoding="utf-8")
+    atomic_write(plan.path, text, keep_mtime=keep_mtime)
 
 
 def is_plan_file(path: Path) -> bool:

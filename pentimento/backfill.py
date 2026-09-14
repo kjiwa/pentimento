@@ -121,8 +121,8 @@ def run(
     corpus and `_resolves_to_cycle` needs every plan's new fields.
     """
     sessions = sessions or {}
-    new_fields_by_id = {
-        target.id: derive_fields(
+    new_fields_by_path = {
+        target.path: derive_fields(
             target,
             plans,
             sessions,
@@ -132,9 +132,15 @@ def run(
         )
         for target in plans
     }
+    # Cycle traversal walks `parent` id references, so it needs an id-keyed view.
+    # A shared id makes the choice of which plan's fields represent that id
+    # arbitrary here, but that ambiguity is inherent to duplicate ids, not
+    # introduced by this map -- it does not affect which plan's fields get
+    # written, which is keyed by path above.
+    new_fields_by_id = {target.id: new_fields_by_path[target.path] for target in plans}
 
     for target in plans:
-        new_fields = new_fields_by_id[target.id]
+        new_fields = new_fields_by_path[target.path]
         parent_id = new_fields.get("parent")
         if parent_id and _resolves_to_cycle(target.id, parent_id, new_fields_by_id):
             new_fields.pop("parent", None)
@@ -143,7 +149,7 @@ def run(
     for target in plans:
         if only is not None and target.id not in only:
             continue
-        new_fields = new_fields_by_id[target.id]
+        new_fields = new_fields_by_path[target.path]
         if frontmatter.serialize(new_fields, target.body, target.extras) == target.text:
             continue
         changed.append(target.id)

@@ -442,6 +442,27 @@ class BackfillTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["status"], "not-started")
 
+    def test_colliding_claude_and_cursor_ids_keep_their_own_derived_status(self):
+        # foo.md (Claude) and foo.plan.md (Cursor) collide on id "foo". Before
+        # P0-1, derived fields were keyed by id, so the last plan derived in
+        # each pass overwrote the field written to every plan sharing that id.
+        claude_path = self.directory / "foo.md"
+        claude_path.write_text("# Claude\n\n## Progress\n- [ ] todo\n")
+        cursor_path = self.directory / "foo.plan.md"
+        cursor_path.write_text("# Cursor\n\n## Progress\n- [x] done\n")
+
+        claude_plan = plan_module.load(claude_path, sessions={}, source="claude")
+        cursor_plan = plan_module.load(cursor_path, sessions={}, source="cursor")
+        self.assertEqual(claude_plan.id, cursor_plan.id)
+
+        plans = [claude_plan, cursor_plan]
+        backfill.run(plans)
+
+        reloaded_claude = plan_module.load(claude_path, sessions={}, source="claude")
+        reloaded_cursor = plan_module.load(cursor_path, sessions={}, source="cursor")
+        self.assertEqual(reloaded_claude.fields["status"], "not-started")
+        self.assertEqual(reloaded_cursor.fields["status"], "complete")
+
     def test_derive_status_false_is_idempotent(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         plans = corpus.load_all(self.directory, sessions={})

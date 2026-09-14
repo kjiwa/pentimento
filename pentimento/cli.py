@@ -22,6 +22,7 @@ from pentimento import (
     table,
 )
 from pentimento import history as history_module
+from pentimento import hook as hook_module
 from pentimento import index as index_module
 from pentimento import plan as plan_module
 from pentimento import record as record_module
@@ -164,6 +165,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
     p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
     p_backfill.add_argument("--recreate", action="store_true", help="recompute created from local time too")
+
+    sub.add_parser("hook", help="run as a Claude Code PostToolUse hook; reads the payload on stdin")
 
     sub.add_parser("index", help="write INDEX.md into the plans directory")
 
@@ -392,12 +395,43 @@ def cmd_set(args) -> int:
     return 0
 
 
-def cmd_backfill(args) -> int:
+def _backfill(
+    *, dry_run: bool = False, rederive: bool = False, recreate: bool = False, derive_status: bool = True, only=None
+) -> list[str]:
     sessions = sessions_module.load()
     plans = corpus.load_all(sessions=sessions)
-    changed = backfill_module.run(
-        plans, sessions, dry_run=args.dry_run, rederive=args.rederive, recreate=args.recreate
+    return backfill_module.run(
+        plans,
+        sessions,
+        dry_run=dry_run,
+        rederive=rederive,
+        recreate=recreate,
+        derive_status=derive_status,
+        only=only,
     )
+
+
+def cmd_hook(_args) -> int:
+    # PostToolUse treats exit 2 as blocking and surfaces other non-zero exits, so a
+    # crash here would visibly interrupt every session -- fail closed instead.
+    try:
+        path = hook_module.touched_plan_path(sys.stdin.read())
+        if path is None:
+            return 0
+        plans = corpus.load_all(sessions=sessions_module.load())
+        target = corpus.by_id(plans, path.name)
+        if target is None:
+            return 0
+        changed = _backfill(only={target.id}, derive_status=False)
+        for plan_id in changed:
+            print(plan_id)
+    except Exception:  # noqa: BLE001, S110
+        pass
+    return 0
+
+
+def cmd_backfill(args) -> int:
+    changed = _backfill(dry_run=args.dry_run, rederive=args.rederive, recreate=args.recreate)
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)
@@ -471,6 +505,7 @@ COMMANDS = {
     "show": cmd_show,
     "set": cmd_set,
     "backfill": cmd_backfill,
+    "hook": cmd_hook,
     "index": cmd_index,
     "check": cmd_check,
     "history": cmd_history,

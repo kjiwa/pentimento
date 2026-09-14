@@ -2,9 +2,11 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from pentimento import cli, corpus
 
@@ -733,6 +735,65 @@ class BackfillFooterTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             cli.cmd_backfill(args)
         self.assertEqual(out.getvalue(), "")
+
+
+class CmdHookTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _run_hook(self, payload: str) -> int:
+        with mock.patch.object(sys, "stdin", io.StringIO(payload)):
+            return cli.cmd_hook(None)
+
+    def test_scoping_leaves_a_second_plan_byte_identical(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        other_text = "# Other\n\n## Progress\n- [x] done\n"
+        _write(self.directory, "other-plan", other_text)
+
+        path = self.directory / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        self.assertEqual(self._run_hook(payload), 0)
+
+        self.assertEqual((self.directory / "other-plan.md").read_text(), other_text)
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["intent"], "unset")
+
+    def test_status_safety_no_status_key_for_all_checked_progress(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        path = self.directory / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        self.assertEqual(self._run_hook(payload), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertNotIn("status", reloaded.fields)
+
+    def test_mtime_preserved_across_the_hook_write(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        path = self.directory / "root-plan.md"
+        before = path.stat().st_mtime
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        self.assertEqual(self._run_hook(payload), 0)
+        after = path.stat().st_mtime
+        self.assertEqual(before, after)
+
+    def test_non_plan_path_exits_zero_writing_nothing(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        path = self.directory / "elsewhere" / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        self.assertEqual(self._run_hook(payload), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields, {})
+
+    def test_garbage_stdin_exits_zero_writing_nothing(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        self.assertEqual(self._run_hook("garbage"), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields, {})
 
 
 if __name__ == "__main__":

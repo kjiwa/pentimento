@@ -255,6 +255,79 @@ class CmdListTagFilterTests(unittest.TestCase):
         self.assertEqual(json.loads(output), [])
 
 
+class CmdGrepProjectLimitTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _run_json(self, argv):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            cli.COMMANDS[args.command](args)
+        return out.getvalue()
+
+    def test_grep_matches_title_case_insensitively(self):
+        _write(self.directory, "auth-plan", "# Auth Redesign\n")
+        _write(self.directory, "billing-plan", "# Billing\n")
+        matched = json.loads(self._run_json(["list", "--grep", "AUTH", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["auth-plan"])
+
+    def test_grep_matches_body(self):
+        _write(self.directory, "root-plan", "# Root\n\nMentions authentication deep in the body.\n")
+        matched = json.loads(self._run_json(["list", "--grep", "authentication", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["root-plan"])
+
+    def test_grep_is_a_regex(self):
+        _write(self.directory, "root-plan", "# Root\n\nauth-123\n")
+        matched = json.loads(self._run_json(["list", "--grep", r"auth-\d+", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["root-plan"])
+
+    def test_invalid_grep_pattern_exits_one_with_re_error_on_stderr(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["list", "--grep", "(unclosed"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit) as ctx:
+                cli.cmd_list(args)
+        self.assertEqual(ctx.exception.code, 1)
+        self.assertTrue(err.getvalue())
+
+    def test_project_dot_resolves_to_the_current_directory_name(self):
+        _write(self.directory, "root-plan", "---\nproject: pentimento\n---\n\n# Root\n")
+        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")):
+            matched = json.loads(self._run_json(["list", "--project", ".", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["root-plan"])
+
+    def test_set_project_dot_writes_the_current_directory_name(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")):
+            args = cli.build_parser().parse_args(["set", "root-plan", "--project", "."])
+            self.assertEqual(cli.cmd_set(args), 0)
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["project"], "pentimento")
+
+    def test_limit_keeps_the_tail_under_ascending_order(self):
+        for name in ("a-plan", "b-plan", "c-plan"):
+            _write(self.directory, name, "# Plan\n")
+        matched = json.loads(self._run_json(["list", "--sort", "id", "--order", "asc", "-n", "2", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["b-plan", "c-plan"])
+
+    def test_limit_keeps_the_head_under_descending_order(self):
+        for name in ("a-plan", "b-plan", "c-plan"):
+            _write(self.directory, name, "# Plan\n")
+        matched = json.loads(self._run_json(["list", "--sort", "id", "--order", "desc", "-n", "2", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["c-plan", "b-plan"])
+
+    def test_limit_applies_before_the_table_footer_count(self):
+        for name in ("a-plan", "b-plan", "c-plan"):
+            _write(self.directory, name, "# Plan\n")
+        out = self._run_json(["list", "--sort", "id", "-n", "2"])
+        self.assertIn("2 of 3 plans", out)
+
+
 class CmdShowTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

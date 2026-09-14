@@ -7,8 +7,10 @@ import dataclasses
 import datetime
 import importlib.metadata
 import os
+import re
 import sys
 import traceback
+from pathlib import Path
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
@@ -64,12 +66,13 @@ ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 def _add_filter_args(parser):
     parser.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
     parser.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent")
-    parser.add_argument("--project", help="filter by project")
+    parser.add_argument("--project", help="filter by project; '.' resolves to the current directory's name")
     parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     parser.add_argument("--starred", action="store_true", help="only active/queued intent")
     parser.add_argument(
         "--tag", action="append", help="filter by tag; repeatable, every given tag must be present"
     )
+    parser.add_argument("--grep", help="filter by a case-insensitive regex over title and body")
 
 
 def _add_sort_args(parser):
@@ -107,13 +110,19 @@ def _add_format_args(parser):
     )
 
 
+def _resolve_project(value: str) -> str:
+    """`.` resolves to the current directory's name -- exactly how `backfill` derives `project` from a session's `cwd`."""
+    return Path.cwd().name if value == "." else value
+
+
 def _apply_filters(plans, args):
     if args.status:
         plans = [p for p in plans if p.status == args.status]
     if args.intent:
         plans = [p for p in plans if p.intent == args.intent]
     if args.project:
-        plans = [p for p in plans if p.project == args.project]
+        project = _resolve_project(args.project)
+        plans = [p for p in plans if p.project == project]
     if args.source:
         plans = [p for p in plans if p.source == args.source]
     if args.starred:
@@ -121,6 +130,13 @@ def _apply_filters(plans, args):
     if args.tag:
         wanted = {tags_module.normalize(t) for t in args.tag}
         plans = [p for p in plans if wanted <= {tags_module.normalize(t) for t in p.tags}]
+    if args.grep:
+        try:
+            pattern = re.compile(args.grep, re.IGNORECASE)
+        except re.error as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+        plans = [p for p in plans if pattern.search(p.title + p.body)]
     return plans
 
 
@@ -140,6 +156,9 @@ def build_parser() -> argparse.ArgumentParser:
     _add_filter_args(p_list)
     _add_format_args(p_list)
     _add_sort_args(p_list)
+    p_list.add_argument(
+        "-n", "--limit", type=int, help="keep only the N rows nearest the prompt (before rendering or emitting)"
+    )
 
     p_tree = sub.add_parser("tree", help="lineage tree, grouped by project")
     _add_filter_args(p_tree)
@@ -200,9 +219,17 @@ def _empty_corpus_hint() -> str:
     return "no plans found; searched: " + ", ".join(directories)
 
 
+def _apply_limit(plans, args):
+    """Keep the N rows nearest the prompt: the tail under `--order asc`, the head under `desc`."""
+    if args.limit is None:
+        return plans
+    return plans[:args.limit] if _sort_descending(args) else plans[-args.limit:]
+
+
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
     plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
+    plans = _apply_limit(plans, args)
     if args.format != formats.TABLE:
         formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS)
         return 0
@@ -407,6 +434,8 @@ def cmd_set(args) -> int:
         if value is not None:
             if value == "" and field == "project":
                 target.fields.pop(field, None)
+            elif field == "project":
+                target.fields[field] = _resolve_project(value)
             else:
                 target.fields[field] = value
 

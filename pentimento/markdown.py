@@ -169,10 +169,10 @@ def _verbatim(line: str, width: int, *, unicode_ok: bool) -> str:
     return style.truncate("    " + line, width, unicode_ok=unicode_ok)
 
 
-def _heading(text: str, level: int, *, on_color: bool) -> list[str]:
-    indent = " " * (max(level - 2, 0) * 2)
-    plain = " ".join(word for word, _, _ in _inline(text))
-    return ["", style.paint(indent + plain, style.BOLD, on=on_color)]
+def _heading(text: str, level: int, width: int, *, on_color: bool) -> list[str]:
+    indent = max(level - 2, 0) * 2
+    tokens = [(word, (style.BOLD,) + codes, glued) for word, codes, glued in _inline(text)]
+    return [""] + _wrap(tokens, width, indent, indent, on_color=on_color)
 
 
 def _starts_a_block(stripped: str) -> bool:
@@ -386,7 +386,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
         if heading_match:
             flush_paragraph()
             marks = heading_match.group(1)
-            out.extend(_heading(heading_match.group(2), len(marks), on_color=on_color))
+            out.extend(_heading(heading_match.group(2), len(marks), width, on_color=on_color))
             index += 1
             continue
 

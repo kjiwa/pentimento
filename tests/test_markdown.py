@@ -99,6 +99,17 @@ class GlyphTests(unittest.TestCase):
         self.assertIn(style.GREEN, lines[0])
 
 
+class HeadingTests(unittest.TestCase):
+    def test_a_long_heading_wraps_with_its_indent_preserved(self):
+        body = "### " + "word " * 20
+        lines = _render(body, width=20)
+        heading_lines = [line for line in lines if line.strip()]
+        self.assertGreater(len(heading_lines), 1)
+        for line in heading_lines:
+            self.assertLessEqual(style.display_width(line), 20)
+            self.assertTrue(line.startswith("  "))
+
+
 class FencedCodeTests(unittest.TestCase):
     def test_fenced_code_is_indented_and_truncated(self):
         body = "```sh\ndocker exec -w /app foo php test.php\n```"

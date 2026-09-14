@@ -17,12 +17,17 @@ set -eu
 
 # Emits touch -t stamp, local created date, and UTC session timestamp, all
 # for the same instant, so a plan's mtime and its authoring session's
-# timestamp agree exactly.
+# timestamp agree exactly. Time-of-day is pinned (only the date moves with
+# `now`): capture.sh commits this output literally and CI's readme-samples
+# job regenerates and diffs it, so a real wall-clock time-of-day would drift
+# the sample every time it's rerun at a different minute.
 _stamp_days_ago() {
   _fixture_days=$1
   python3 -c '
 import datetime, sys
-d = (datetime.datetime.now() - datetime.timedelta(days=int(sys.argv[1]))).replace(microsecond=0)
+d = (datetime.datetime.now() - datetime.timedelta(days=int(sys.argv[1]))).replace(
+    hour=12, minute=30, second=0, microsecond=0
+)
 utc = d.astimezone().astimezone(datetime.timezone.utc)
 print(d.strftime("%Y%m%d%H%M.%S"))
 print(d.strftime("%Y-%m-%d"))

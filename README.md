@@ -145,7 +145,7 @@ platform
 id: api-auth-rollout
 status: partial   intent: active   tags: [auth, security]
 parent: api-auth-redesign   project: platform
-created: 2026-08-25   source: claude   modified: 2026-08-25 14:49
+created: 2026-08-25   source: claude   modified: 2026-08-25 12:30
 
 Progress
 
@@ -208,8 +208,8 @@ on this machine, never a claim the plan wasn't worked.
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-30 14:49  authored  api-auth-cleanup                             1
-2026-09-11 14:49  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-08-30 12:30  authored  api-auth-cleanup                             1
+2026-09-11 12:30  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 

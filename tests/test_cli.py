@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import shlex
 import sys
 import tempfile
 import unittest
@@ -9,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from pentimento import cli, corpus
-from tests import _header_block
+from tests import _header_block, _subparsers_action
 
 
 def _write(directory: Path, name: str, text: str) -> None:
@@ -951,6 +952,44 @@ class CmdHookTests(unittest.TestCase):
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields, {})
+
+
+class HelpTextTests(unittest.TestCase):
+    def setUp(self):
+        self.parser = cli.build_parser()
+        self.subparsers = _subparsers_action(self.parser).choices
+
+    def test_top_level_has_description_and_epilog(self):
+        self.assertTrue(self.parser.description)
+        self.assertTrue(self.parser.epilog)
+
+    def test_every_subcommand_has_description_and_help(self):
+        action = _subparsers_action(self.parser)
+        help_by_name = {choice.dest: choice.help for choice in action._choices_actions}
+        for name, subparser in self.subparsers.items():
+            self.assertTrue(subparser.description, msg=name)
+            self.assertTrue(help_by_name.get(name), msg=name)
+
+    def test_epilog_examples_parse(self):
+        for name, subparser in self.subparsers.items():
+            if not subparser.epilog:
+                continue
+            lines = subparser.epilog.splitlines()
+            examples = [line.strip() for line in lines if line.strip().startswith("pentimento ")]
+            for example in examples:
+                tokens = shlex.split(example)[1:]
+                if tokens and tokens[0] == name:
+                    tokens = tokens[1:]
+                try:
+                    subparser.parse_args(tokens)
+                except SystemExit:
+                    self.fail(f"epilog example failed to parse: {example}")
+
+    def test_help_exits_zero_for_top_level_and_every_subcommand(self):
+        for argv in [["--help"]] + [[name, "--help"] for name in self.subparsers]:
+            with self.assertRaises(SystemExit) as cm, contextlib.redirect_stdout(io.StringIO()):
+                self.parser.parse_args(argv)
+            self.assertEqual(cm.exception.code, 0)
 
 
 if __name__ == "__main__":

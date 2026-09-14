@@ -10,6 +10,14 @@ Set Height 800
 Set Theme "Builtin Dark"
 Set TypingSpeed 40ms
 
+Type "pentimento --help"
+Enter
+Sleep 3500ms
+
+Type "clear"
+Enter
+Sleep 500ms
+
 Type "pentimento backfill"
 Enter
 Sleep 1500ms

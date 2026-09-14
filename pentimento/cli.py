@@ -64,31 +64,36 @@ ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 
 def _add_filter_args(parser):
-    parser.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
-    parser.add_argument(
-        "--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent"
-    )
-    parser.add_argument(
+    group = parser.add_argument_group("filters")
+    group.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
+    group.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent")
+    group.add_argument(
         "--project", help="filter by project; '.' resolves to the current directory's name"
     )
-    parser.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
-    parser.add_argument("--starred", action="store_true", help="only active/queued intent")
-    parser.add_argument(
+    group.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
+    group.add_argument("--starred", action="store_true", help="only active/queued intent")
+    group.add_argument(
         "--tag", action="append", help="filter by tag; repeatable, every given tag must be present"
     )
-    parser.add_argument("--grep", help="filter by a case-insensitive regex over title and body")
+    group.add_argument(
+        "--grep",
+        metavar="PATTERN",
+        help="filter by a case-insensitive regex over title and body",
+    )
 
 
 def _add_sort_args(parser):
-    parser.add_argument(
+    group = parser.add_argument_group("sorting")
+    group.add_argument(
         "--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)"
     )
-    parser.add_argument(
+    group.add_argument(
         "--order",
         choices=ORDER_CHOICES,
         default=_ORDER_ASC,
         help=f"sort direction (default: {_ORDER_ASC})",
     )
+    return group
 
 
 def _sort_key(args):
@@ -100,19 +105,20 @@ def _sort_descending(args) -> bool:
 
 
 def _add_format_args(parser):
-    parser.add_argument(
+    group = parser.add_argument_group("output")
+    group.add_argument(
         "--format",
         choices=formats.CHOICES,
         default=formats.TABLE,
         help=f"output format (default: {formats.TABLE})",
     )
-    parser.add_argument(
+    group.add_argument(
         "--color",
         choices=style.COLOR_CHOICES,
         default="auto",
         help="colour policy (default: auto)",
     )
-    parser.add_argument(
+    group.add_argument(
         "--ascii",
         action="store_true",
         help="force ASCII box-drawing glyphs, even on a UTF-8 terminal",
@@ -157,44 +163,116 @@ def _version() -> str:
         return "unknown"
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pentimento")
-    parser.add_argument("--version", action="version", version=f"pentimento {_version()}")
-    sub = parser.add_subparsers(dest="command", required=True)
+def _add_command(sub, name, help, description=None, epilog=None):
+    return sub.add_parser(
+        name,
+        help=help,
+        description=description or help,
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
-    p_list = sub.add_parser("list", help="flat table of plans")
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="pentimento",
+        description="Status, intent, and lineage over agent plan files.",
+        epilog=(
+            "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans).\n"
+            "Run `pentimento <command> --help` for a command's flags."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--version", action="version", version=f"pentimento {_version()}")
+    sub = parser.add_subparsers(
+        dest="command", required=True, title="commands", metavar="<command>"
+    )
+
+    p_list = _add_command(
+        sub,
+        "list",
+        "flat table of plans",
+        description=(
+            "One line per plan. A column appears only when the corpus has more than "
+            "one value for it; the row nearest the prompt is the most recent."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  pentimento list --starred\n"
+            "  pentimento list --project . --status partial\n"
+            "  pentimento list --grep auth -n 3"
+        ),
+    )
     _add_filter_args(p_list)
     _add_format_args(p_list)
-    _add_sort_args(p_list)
-    p_list.add_argument(
+    sort_group = _add_sort_args(p_list)
+    sort_group.add_argument(
         "-n",
         "--limit",
         type=int,
         help="keep only the N rows nearest the prompt (before rendering or emitting)",
     )
 
-    p_tree = sub.add_parser("tree", help="lineage tree, grouped by project")
+    p_tree = _add_command(
+        sub,
+        "tree",
+        "lineage tree, grouped by project",
+        description="Plans nested under their parents, grouped by project.",
+        epilog=("Examples:\n  pentimento tree --project .\n  pentimento tree --starred --ascii"),
+    )
     _add_filter_args(p_tree)
     _add_format_args(p_tree)
     _add_sort_args(p_tree)
 
-    p_show = sub.add_parser("show", help="H1, frontmatter, and the rendered body")
+    p_show = _add_command(
+        sub,
+        "show",
+        "H1, frontmatter, and the rendered body",
+        description=(
+            "One plan's H1, frontmatter, and body. On a tty the body clips to the "
+            "terminal height; --full prints it whole."
+        ),
+        epilog="Examples:\n  pentimento show api-auth-rollout --full",
+    )
     p_show.add_argument("id", help="plan id (filename stem)")
     p_show.add_argument("--full", action="store_true", help="print the whole body, unclipped")
     _add_format_args(p_show)
 
-    p_set = sub.add_parser("set", help="rewrite frontmatter in place")
+    p_set = _add_command(
+        sub,
+        "set",
+        "rewrite frontmatter in place",
+        description=("Rewrite one plan's frontmatter in place. Only the fields you name change."),
+        epilog=(
+            "Examples:\n"
+            "  pentimento set api-auth-rollout --intent active\n"
+            "  pentimento set api-auth-rollout --status complete --add-tag auth\n"
+            "  pentimento set api-auth-rollout --clear-parent"
+        ),
+    )
     p_set.add_argument("id", help="plan id (filename stem)")
     p_set.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="new status")
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
-    p_set.add_argument("--parent", help="new parent plan id")
+    p_set.add_argument("--parent", metavar="ID", help="new parent plan id")
     p_set.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
     p_set.add_argument("--project", help="new project")
-    p_set.add_argument("--add-tag", action="append", help="add a tag; repeatable")
-    p_set.add_argument("--remove-tag", action="append", help="remove a tag; repeatable")
+    p_set.add_argument("--add-tag", metavar="TAG", action="append", help="add a tag; repeatable")
+    p_set.add_argument(
+        "--remove-tag", metavar="TAG", action="append", help="remove a tag; repeatable"
+    )
     p_set.add_argument("--clear-tags", action="store_true", help="remove all tags")
 
-    p_backfill = sub.add_parser("backfill", help="derive and write missing frontmatter")
+    p_backfill = _add_command(
+        sub,
+        "backfill",
+        "derive and write missing frontmatter",
+        description=(
+            "Derive status, intent, created, parent, and project for plans missing "
+            "them, and write the frontmatter block. Rerunnable: existing fields are "
+            "kept unless --rederive."
+        ),
+        epilog="Examples:\n  pentimento backfill --dry-run",
+    )
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
     p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
     p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
@@ -202,16 +280,43 @@ def build_parser() -> argparse.ArgumentParser:
         "--recreate", action="store_true", help="recompute created from local time too"
     )
 
-    sub.add_parser("hook", help="run as a Claude Code PostToolUse hook; reads the payload on stdin")
+    _add_command(
+        sub,
+        "hook",
+        "run as a Claude Code PostToolUse hook; reads the payload on stdin",
+        description=(
+            "Read a Claude Code PostToolUse payload on stdin and record the session "
+            "touch. Wiring is in docs/integrations.md."
+        ),
+    )
 
-    sub.add_parser("index", help="write INDEX.md into the plans directory")
+    _add_command(
+        sub,
+        "index",
+        "write INDEX.md into the plans directory",
+        description=(
+            "Write INDEX.md into the plans directory: one linked row per plan, grouped by status."
+        ),
+    )
 
-    p_check = sub.add_parser(
-        "check", help="validate lineage and vocabulary; exits 1 on any finding"
+    p_check = _add_command(
+        sub,
+        "check",
+        "validate lineage and vocabulary; exits 1 on any finding",
+        description=(
+            "Validate lineage and vocabulary across the corpus. Exits 1 when "
+            "anything is found; finding codes are in docs/troubleshooting.md."
+        ),
     )
     _add_format_args(p_check)
 
-    p_history = sub.add_parser("history", help="session-touch history for a plan")
+    p_history = _add_command(
+        sub,
+        "history",
+        "session-touch history for a plan",
+        description="Every session that touched one plan, oldest first.",
+        epilog="Examples:\n  pentimento history api-auth-cleanup --format json",
+    )
     p_history.add_argument("id", help="plan id (filename stem)")
     _add_format_args(p_history)
 

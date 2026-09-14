@@ -49,6 +49,8 @@ pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [-
 pentimento --version
 ```
 
+Run `pentimento <command> --help` for flags.
+
 `--format` defaults to `table` (human-readable); `json` and `tsv` are for
 scripting. `--color` defaults to `auto` -- ANSI colour on a tty, off when
 piped, `NO_COLOR` is set, or `TERM=dumb`. `--ascii` forces `+- `/`` `- ``/`|  `

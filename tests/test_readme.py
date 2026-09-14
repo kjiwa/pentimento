@@ -1,7 +1,23 @@
+import re
 import unittest
 from pathlib import Path
 
-from tests import _header_block
+from pentimento import cli
+from tests import _header_block, _subparsers_action
+
+_FLAG_RE = re.compile(r"(-{1,2}[a-zA-Z][\w-]*)(?:\s+([A-Za-z0-9_|]+))?")
+
+
+def _extract_commands_block(readme_text: str) -> list[str]:
+    start = readme_text.index("## Commands")
+    fence_start = readme_text.index("```", start) + 3
+    fence_end = readme_text.index("```", fence_start)
+    lines = readme_text[fence_start:fence_end].strip("\n").splitlines()
+    return [
+        line
+        for line in lines
+        if line.startswith("pentimento ") and not line.split()[1].startswith("-")
+    ]
 
 
 def _extract_sample(readme_text: str, name: str) -> list[str]:
@@ -37,6 +53,54 @@ class ReadmeShowSampleTests(unittest.TestCase):
         provenance_line = next(line for line in self.header if "created:" in line)
         self.assertIn("source:", provenance_line)
         self.assertIn("modified:", provenance_line)
+
+
+class ReadmeCommandsTests(unittest.TestCase):
+    """The `## Commands` block's flags must match the parser exactly."""
+
+    def setUp(self):
+        readme_path = Path(__file__).parent.parent / "README.md"
+        self.lines = _extract_commands_block(readme_path.read_text())
+        parser = cli.build_parser()
+        subparsers_action = _subparsers_action(parser)
+        self.subparsers = subparsers_action.choices
+
+    def test_every_subcommand_is_listed(self):
+        listed = {line.split()[1] for line in self.lines}
+        self.assertEqual(listed, set(self.subparsers))
+
+    def _canonical_options(self, subparser):
+        """The option string argparse itself would show in a usage line: the
+        first one registered for each action, skipping `-h/--help`."""
+        seen = set()
+        options = {}
+        for action in subparser._option_string_actions.values():
+            if action.dest == "help" or action in seen:
+                continue
+            seen.add(action)
+            options[action.option_strings[0]] = action
+        return options
+
+    def test_flags_match_in_both_directions(self):
+        for line in self.lines:
+            name = line.split()[1]
+            expected = set(self._canonical_options(self.subparsers[name]))
+            found = {flag for flag, _ in _FLAG_RE.findall(line)}
+            self.assertEqual(found, expected, msg=name)
+
+    def test_choices_and_metavars_match(self):
+        for line in self.lines:
+            name = line.split()[1]
+            options = self._canonical_options(self.subparsers[name])
+            for flag, value in _FLAG_RE.findall(line):
+                action = options[flag]
+                if not value:
+                    continue
+                if "|" in value:
+                    self.assertEqual(set(value.split("|")), set(action.choices), msg=flag)
+                else:
+                    metavar = action.metavar or action.dest.upper()
+                    self.assertEqual(value, metavar, msg=flag)
 
 
 if __name__ == "__main__":

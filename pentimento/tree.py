@@ -52,7 +52,7 @@ def _roots(plans, children_by_parent, key=_id_key, reverse=False):
 
 def _render_node(
     plan, children_by_parent, prefix, is_last, lines, visited, on_color, glyphs, unicode_ok, width, short_ids,
-    root_annotation=None,
+    show_status, show_intent, root_annotation=None,
 ):
     connector = glyphs["last"] if is_last else glyphs["branch"]
     annotation_text = f"({root_annotation})" if root_annotation else ""
@@ -66,11 +66,11 @@ def _render_node(
 
     child_prefix = prefix + (glyphs["space"] if is_last else glyphs["vertical"])
     is_repeat = plan.id in visited
-    cells: list[style.Cell] = [
-        (short_ids[plan.id], ()),
-        (plan.status, style.STATUS_CODES.get(plan.status, ())),
-        (plan.intent, style.INTENT_CODES.get(plan.intent, ())),
-    ]
+    cells: list[style.Cell] = [(short_ids[plan.id], ())]
+    if show_status:
+        cells.append((plan.status, style.STATUS_CODES.get(plan.status, ())))
+    if show_intent:
+        cells.append((plan.intent, style.INTENT_CODES.get(plan.intent, ())))
     if plan.tags:
         cells.append((tags_module.render(plan.tags), ()))
     created = plan.fields.get("created")
@@ -92,19 +92,29 @@ def _render_node(
     for index, child in enumerate(kids):
         _render_node(
             child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color, glyphs,
-            unicode_ok, width, short_ids,
+            unicode_ok, width, short_ids, show_status, show_intent,
         )
 
 
 def render(
     plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False,
-    short_ids=None,
+    short_ids=None, show_status=None, show_intent=None,
 ) -> str:
-    """Tree for one project's worth of plans (roots and descendants)."""
+    """Tree for one project's worth of plans (roots and descendants).
+
+    `show_status`/`show_intent`, when given, override the per-column
+    constancy check -- `render_grouped` computes them once over the whole
+    filtered set, the same set `listing.render` measures, so the two
+    commands never disagree about what is worth printing.
+    """
     glyphs = glyphs or style.GLYPHS_ASCII
     width = style.terminal_width()
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
+    if show_status is None:
+        show_status = len({p.status for p in plans}) > 1
+    if show_intent is None:
+        show_intent = len({p.intent for p in plans}) > 1
     children_by_parent = _children_by_parent(plans, key, reverse)
     roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
@@ -114,7 +124,7 @@ def render(
         annotation = f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
         _render_node(
             root, children_by_parent, "", index == len(roots) - 1, lines, visited, on_color, glyphs, unicode_ok,
-            width, short_ids, annotation,
+            width, short_ids, show_status, show_intent, annotation,
         )
     return "\n".join(lines)
 
@@ -126,6 +136,8 @@ def render_grouped(
     """Group plans by project, then render each group's tree."""
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
+    show_status = len({p.status for p in plans}) > 1
+    show_intent = len({p.intent for p in plans}) > 1
     groups: dict[str, list] = {}
     for p in plans:
         groups.setdefault(p.project or "(no project)", []).append(p)
@@ -134,7 +146,9 @@ def render_grouped(
     for project in sorted(groups):
         heading = style.paint(project, style.BOLD, on=on_color)
         blocks.append(
-            heading + "\n" + render(groups[project], on_color, key, reverse, glyphs, unicode_ok, short_ids)
+            heading
+            + "\n"
+            + render(groups[project], on_color, key, reverse, glyphs, unicode_ok, short_ids, show_status, show_intent)
         )
     return "\n\n".join(blocks)
 

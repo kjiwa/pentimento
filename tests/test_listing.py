@@ -35,7 +35,7 @@ class RenderTests(unittest.TestCase):
     def test_header_row_lists_columns(self):
         plans = [FakePlan(id="a", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertEqual(header.split(), ["STATUS", "INTENT", "PLAN", "TITLE", "UPDATED"])
+        self.assertEqual(header.split(), ["PLAN", "TITLE", "UPDATED"])
 
     def test_plan_column_holds_the_id(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
@@ -69,13 +69,39 @@ class RenderTests(unittest.TestCase):
     def test_title_column_blank_when_plan_has_no_title(self):
         plans = [FakePlan(id="a-plan", title="a-plan", has_title=False)]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
-        # Only STATUS, INTENT, PLAN, and UPDATED tokens should appear -- TITLE is blank.
-        self.assertEqual(len(record_line.split()), 4)
+        # Only PLAN and UPDATED tokens should appear -- TITLE is blank, STATUS/INTENT dropped as uniform.
+        self.assertEqual(len(record_line.split()), 2)
 
     def test_relative_age_column_is_rightmost(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
         self.assertTrue(record_line.rstrip().endswith("y") or "just now" in record_line)
+
+    def test_status_column_dropped_when_uniform(self):
+        plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertNotIn("STATUS", header)
+
+    def test_status_column_shown_when_mixed(self):
+        plans = [
+            FakePlan(id="a", title="Alpha", status="complete"),
+            FakePlan(id="b", title="Beta", status="not-started"),
+        ]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertIn("STATUS", header)
+
+    def test_intent_column_dropped_when_uniform(self):
+        plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertNotIn("INTENT", header)
+
+    def test_intent_column_shown_when_mixed(self):
+        plans = [
+            FakePlan(id="a", title="Alpha", intent="active"),
+            FakePlan(id="b", title="Beta", intent="unset"),
+        ]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertIn("INTENT", header)
 
     def test_project_column_dropped_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
@@ -198,6 +224,7 @@ class FitGuaranteeTests(unittest.TestCase):
         narrow_header = _with_width(60, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("CREATED", narrow_header)
         self.assertNotIn("TAGS", narrow_header)
+        self.assertIn("PLAN", narrow_header)  # the only addressable handle on a row -- drops last
 
         narrower_header = _with_width(40, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("TITLE", narrower_header)

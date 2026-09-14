@@ -76,6 +76,23 @@ class RenderTests(unittest.TestCase):
         rendered = _with_width(120, lambda: tree.render([a, b]))
         self.assertIn("(cycle)", rendered)
 
+    def test_render_grouped_drops_status_and_intent_when_uniform_across_the_whole_set(self):
+        root = FakePlan(id="root", title="Root", project="p1", status="not-started", intent="unset")
+        child = FakePlan(id="child", title="Child", parent="root", project="p2", status="not-started", intent="unset")
+        rendered = _with_width(120, lambda: tree.render_grouped([root, child]))
+        self.assertNotIn("not-started", rendered)
+        self.assertNotIn("unset", rendered)
+
+    def test_render_grouped_keeps_status_when_mixed_in_another_group(self):
+        # A single project group is internally uniform, but the whole filtered set is
+        # not -- render_grouped must compute constancy once, over the whole set, not
+        # per project, so the two groups agree on what's worth printing.
+        p1 = FakePlan(id="p1a", title="P1A", project="p1", status="not-started")
+        p2 = FakePlan(id="p2a", title="P2A", project="p2", status="complete")
+        rendered = _with_width(120, lambda: tree.render_grouped([p1, p2]))
+        self.assertIn("not-started", rendered)
+        self.assertIn("complete", rendered)
+
     def test_render_grouped_headings_are_sorted_with_blank_line_between(self):
         p1 = FakePlan(id="p1", title="P1", project="zeta")
         p2 = FakePlan(id="p2", title="P2", project="alpha")
@@ -102,7 +119,9 @@ class RenderTests(unittest.TestCase):
 
     def test_status_and_intent_are_painted_when_color_on(self):
         root = FakePlan(id="root", title="Root", status="complete", intent="active")
-        lines = _with_width(120, lambda: tree.render([root], on_color=True)).split("\n")
+        lines = _with_width(
+            120, lambda: tree.render([root], on_color=True, show_status=True, show_intent=True)
+        ).split("\n")
         self.assertIn(style.GREEN, lines[1])
         self.assertIn(style.MAGENTA, lines[1])
 
@@ -115,7 +134,9 @@ class RenderTests(unittest.TestCase):
         root = FakePlan(
             id="root", title="Root", tags=["auth"], fields={"created": "2026-01-01"}, mtime=1,
         )
-        lines = _with_width(120, lambda: tree.render([root])).split("\n")
+        lines = _with_width(
+            120, lambda: tree.render([root], show_status=True, show_intent=True)
+        ).split("\n")
         meta = lines[1]
         self.assertLess(meta.index("root"), meta.index("not-started"))
         self.assertLess(meta.index("not-started"), meta.index("unset"))

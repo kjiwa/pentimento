@@ -16,13 +16,13 @@ from pentimento import shortid, style, table, times
 # (Column, include(plans) -> bool, cell(plan, short_ids) -> table.Cell), one spelling per column.
 _SPECS = (
     (
-        table.Column("STATUS", drop=7),
-        lambda plans: True,
+        table.Column("STATUS", drop=6),
+        lambda plans: len({p.status for p in plans}) > 1,
         lambda p, short_ids: (p.status, style.STATUS_CODES.get(p.status, ())),
     ),
     (
-        table.Column("INTENT", drop=6),
-        lambda plans: True,
+        table.Column("INTENT", drop=5),
+        lambda plans: len({p.intent for p in plans}) > 1,
         lambda p, short_ids: (p.intent, style.INTENT_CODES.get(p.intent, ())),
     ),
     (
@@ -36,7 +36,7 @@ _SPECS = (
         lambda p, short_ids: (p.source, style.SOURCE_CODES.get(p.source, ())),
     ),
     (
-        table.Column("PLAN", drop=5),
+        table.Column("PLAN", drop=7),
         lambda plans: True,
         lambda p, short_ids: (short_ids[p.id], ()),
     ),

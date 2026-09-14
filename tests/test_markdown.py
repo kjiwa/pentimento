@@ -145,6 +145,25 @@ class BlockquoteTests(unittest.TestCase):
         self.assertIn("  a quote", lines[0])
 
 
+class SqueezeTests(unittest.TestCase):
+    def test_leading_blanks_are_dropped(self):
+        self.assertEqual(markdown._squeeze(["", "", "a", "b"]), ["a", "b"])
+
+    def test_trailing_blanks_are_dropped(self):
+        self.assertEqual(markdown._squeeze(["a", "b", "", ""]), ["a", "b"])
+
+    def test_interior_runs_collapse_to_one(self):
+        self.assertEqual(markdown._squeeze(["a", "", "", "", "b"]), ["a", "", "b"])
+
+    def test_render_has_no_doubled_blank_before_a_heading(self):
+        lines = _render("intro\n\n## Heading\n\nbody", width=40)
+        self.assertEqual(lines, ["intro", "", "Heading", "", "body"])
+
+    def test_render_has_no_trailing_blank(self):
+        lines = _render("## Heading\n\n", width=40)
+        self.assertNotEqual(lines[-1], "")
+
+
 class ClipTests(unittest.TestCase):
     def test_under_limit_is_unchanged(self):
         lines = ["a", "b", "c"]

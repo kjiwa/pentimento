@@ -103,21 +103,21 @@ unknown      unset                onboarding-checklist  Write the onboarding che
 
 billing
 ├─ Rewrite dunning email copy
-│    dunning-copy  complete  someday  [billing]  2026-08-19  3w
+│    dunning-copy  complete  someday  [billing]  2026-08-20  3w
 ├─ Retry failed invoice charges (parent elided: no-such-plan)
-│    invoice-retry  unknown  unset  [billing]  2026-09-03  1w
+│    invoice-retry  unknown  unset  [billing]  2026-09-04  1w
 └─ Tune search relevance
-     relevance-tuning  not-started  active  [search]  2026-09-08  5d
+     relevance-tuning  not-started  active  [search]  2026-09-09  5d
 
 platform
 ├─ Write a docs style guide
-│    style-guide  superseded  abandoned  2026-07-30  6w
+│    style-guide  superseded  abandoned  2026-07-31  6w
 └─ Redesign the auth API
-     auth-redesign  complete  abandoned  [auth, security]  2026-08-04  5w
+     auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
    └─ Roll out the new auth API
-        auth-rollout  partial  active  [auth, security]  2026-08-24  2w
+        auth-rollout  partial  active  [auth, security]  2026-08-25  2w
       └─ Remove the old auth API
-           auth-cleanup  not-started  queued  [auth, security]  2026-08-29  2w
+           auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
 
 8 plans
 ```
@@ -135,22 +135,19 @@ intent: active
 tags: [auth, security]
 parent: api-auth-redesign
 project: platform
-created: 2026-08-24
+created: 2026-08-25
 source: claude
-modified: 2026-08-24 22:26
-
+modified: 2026-08-25 09:36
 
 Progress
 
 ✓ Ship behind a feature flag
 ☐ Flip the flag for all tenants
 
-
 Context
 
 Tenants opt in via the auth_v2 flag in tenant_settings. Watch error rates before flipping the
 remaining cohort.
-
 ```
 <!-- /sample -->
 
@@ -193,8 +190,8 @@ on this machine, never a claim the plan wasn't worked.
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-29 22:26  authored  api-auth-cleanup                             1
-2026-09-10 22:26  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-08-30 09:36  authored  api-auth-cleanup                             1
+2026-09-11 09:36  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 

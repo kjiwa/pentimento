@@ -186,6 +186,20 @@ def _continuation(lines: list[str], index: int, count: int, indent: int) -> tupl
     return " ".join(parts), index
 
 
+def _squeeze(lines: list[str]) -> list[str]:
+    """Drop leading/trailing blank lines and collapse interior runs to one."""
+    out: list[str] = []
+    for line in lines:
+        if line == "" and out and out[-1] == "":
+            continue
+        out.append(line)
+    while out and out[0] == "":
+        out.pop(0)
+    while out and out[-1] == "":
+        out.pop()
+    return out
+
+
 def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[str]:
     glyphs = _glyphs(unicode_ok)
     lines = body.split("\n")
@@ -292,7 +306,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
         index += 1
 
     flush_paragraph()
-    return out
+    return _squeeze(out)
 
 
 def _wrap_with_prefix(text: str, width: int, prefix: str, prefix_width: int, *, on_color: bool) -> list[str]:

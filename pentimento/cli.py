@@ -241,6 +241,50 @@ def cmd_tree(args) -> int:
     return 0
 
 
+def _show_field_values(target):
+    """(key, value, codes) in header display order: id, frontmatter fields, source, modified."""
+    yield "id", target.id, ()
+    ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
+    remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
+    for key in ordered + remaining:
+        value = target.fields[key]
+        if key == "status":
+            codes = style.STATUS_CODES.get(value, ())
+        elif key == "intent":
+            codes = style.INTENT_CODES.get(value, ())
+        else:
+            codes = ()
+        yield key, value, codes
+    yield "source", target.source, ()
+    yield "modified", times_module.local_stamp(target.modified), ()
+
+
+def _flow_pairs(pairs: list[tuple[str, str]], width: int) -> list[str]:
+    """Greedy-pack (plain, painted) `pairs` onto lines, joined by `style.GUTTER` spaces.
+
+    A pair wider than `width` gets its own line and is never truncated -- the
+    `id` and `parent` values must stay copy-pasteable.
+    """
+    lines: list[str] = []
+    line_plain: list[str] = []
+    line_painted: list[str] = []
+    line_width = 0
+    gutter = " " * style.GUTTER
+    for plain, painted in pairs:
+        cell_width = style.display_width(plain)
+        if line_painted and line_width + style.GUTTER + cell_width > width:
+            lines.append(gutter.join(line_painted))
+            line_plain, line_painted, line_width = [], [], 0
+        if line_painted:
+            line_width += style.GUTTER
+        line_plain.append(plain)
+        line_painted.append(painted)
+        line_width += cell_width
+    if line_painted:
+        lines.append(gutter.join(line_painted))
+    return lines
+
+
 def cmd_show(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
@@ -257,23 +301,18 @@ def cmd_show(args) -> int:
             print(text)
             header_lines += 1
 
+        width = min(style.terminal_width(), markdown.MAX_WIDTH)
+
         emit(style.paint(f"# {target.title}", style.BOLD, on=on_color))
         emit()
-        emit(f"{style.paint('id:', style.DIM, on=on_color)} {target.id}")
-        ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
-        remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
-        for key in ordered + remaining:
-            value = target.fields[key]
-            if key == "status":
-                value = style.paint(value, *style.STATUS_CODES.get(value, ()), on=on_color)
-            elif key == "intent":
-                value = style.paint(value, *style.INTENT_CODES.get(value, ()), on=on_color)
-            emit(f"{style.paint(f'{key}:', style.DIM, on=on_color)} {value}")
-        emit(f"{style.paint('source:', style.DIM, on=on_color)} {target.source}")
-        emit(f"{style.paint('modified:', style.DIM, on=on_color)} {times_module.local_stamp(target.modified)}")
+        pairs = [
+            style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
+            for key, value, codes in _show_field_values(target)
+        ]
+        for line in _flow_pairs(pairs, width):
+            emit(line)
         emit()
 
-        width = min(style.terminal_width(), markdown.MAX_WIDTH)
         body = plan_module.body_below_title(target.body)
         lines = markdown.render(body, on_color=on_color, unicode_ok=unicode_ok, width=width)
         limit = None

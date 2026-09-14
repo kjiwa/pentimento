@@ -13,6 +13,34 @@ def _write(directory: Path, name: str, text: str) -> None:
     (directory / f"{name}.md").write_text(text)
 
 
+class _EnvGuard:
+    def __init__(self, **overrides):
+        self._overrides = overrides
+        self._previous = {}
+
+    def __enter__(self):
+        for key, value in self._overrides.items():
+            self._previous[key] = os.environ.get(key)
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        return self
+
+    def __exit__(self, *exc_info):
+        for key, value in self._previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _header_block(lines: list[str]) -> list[str]:
+    """The flowed frontmatter lines: after the title and its blank line, up to the next blank."""
+    body_start = lines.index("", 2)
+    return lines[2:body_start]
+
+
 def _restore_env(key, previous):
     if previous is None:
         os.environ.pop(key, None)
@@ -243,10 +271,11 @@ class CmdShowTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             cli.cmd_show(args)
         lines = out.getvalue().splitlines()
-        id_index = next(i for i, line in enumerate(lines) if line.startswith("id:"))
-        status_index = next(i for i, line in enumerate(lines) if line.startswith("status:"))
-        intent_index = next(i for i, line in enumerate(lines) if line.startswith("intent:"))
-        project_index = next(i for i, line in enumerate(lines) if line.startswith("project:"))
+        header = " ".join(_header_block(lines))
+        id_index = header.index("id:")
+        status_index = header.index("status:")
+        intent_index = header.index("intent:")
+        project_index = header.index("project:")
         self.assertLess(id_index, status_index)
         self.assertLess(status_index, intent_index)
         self.assertLess(intent_index, project_index)
@@ -257,9 +286,8 @@ class CmdShowTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["show", "root-plan"])
         with contextlib.redirect_stdout(out):
             cli.cmd_show(args)
-        lines = out.getvalue().splitlines()
-        id_line = next(line for line in lines if line.startswith("id:"))
-        self.assertIn("root-plan", id_line)
+        header = " ".join(_header_block(out.getvalue().splitlines()))
+        self.assertIn("id: root-plan", header)
 
     def test_resolves_a_short_id(self):
         _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
@@ -268,8 +296,56 @@ class CmdShowTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             result = cli.cmd_show(args)
         self.assertEqual(result, 0)
-        id_line = next(line for line in out.getvalue().splitlines() if line.startswith("id:"))
-        self.assertIn("is-it-possible-to-abundant-rabbit", id_line)
+        header = " ".join(_header_block(out.getvalue().splitlines()))
+        self.assertIn("id: is-it-possible-to-abundant-rabbit", header)
+
+    def test_header_flows_onto_few_lines_at_a_wide_width(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nproject: example\nstatus: complete\nintent: active\n---\n\n# Root\n",
+        )
+        with _EnvGuard(COLUMNS="100"):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", "root-plan"])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        header = _header_block(out.getvalue().splitlines())
+        self.assertLessEqual(len(header), 4)
+
+    def test_header_flows_onto_more_lines_at_a_narrow_width(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nproject: example\nstatus: complete\nintent: active\n---\n\n# Root\n",
+        )
+        with _EnvGuard(COLUMNS="100"):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", "root-plan"])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        wide_header = _header_block(out.getvalue().splitlines())
+
+        with _EnvGuard(COLUMNS="20"):
+            narrow_out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", "root-plan"])
+            with contextlib.redirect_stdout(narrow_out):
+                cli.cmd_show(args)
+        narrow_header = _header_block(narrow_out.getvalue().splitlines())
+        self.assertGreater(len(narrow_header), len(wide_header))
+
+    def test_an_over_long_id_gets_its_own_line_intact(self):
+        long_id = "a-very-long-plan-id-that-should-never-be-truncated-no-matter-what"
+        _write(self.directory, long_id, "# Root\n")
+        with _EnvGuard(COLUMNS="20"):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", long_id])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        header = _header_block(out.getvalue().splitlines())
+        id_line = next(line for line in header if line.startswith("id:"))
+        self.assertIn(long_id, id_line)
+        self.assertNotIn("…", id_line)
 
     def test_body_sections_beyond_progress_appear(self):
         _write(

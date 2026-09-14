@@ -8,6 +8,8 @@ as a delimiter would silently corrupt those files.
 
 from __future__ import annotations
 
+import dataclasses
+
 DELIMITER = "---"
 
 NAMESPACE = "pentimento"
@@ -16,28 +18,65 @@ INDENT = "  "
 # Canonical field order for serialization; the reader accepts any order.
 FIELD_ORDER = ("status", "intent", "tags", "parent", "project", "created")
 
+# Sentinel marking, within `Extras.lines`, where the pentimento block goes.
+# Everything else in `Extras.lines` is foreign raw text re-emitted verbatim.
+_MARKER = "\x00pentimento-block\x00"
 
-def parse(text: str) -> tuple[dict[str, str], str]:
-    """Split text into (frontmatter fields, body).
 
-    Returns an empty dict and the whole text unchanged if text does not
-    begin with a frontmatter block at byte 0.
+@dataclasses.dataclass
+class Extras:
+    """Everything in a frontmatter block that isn't a pentimento field.
+
+    `lines` holds the block's raw lines -- foreign top-level blocks (with
+    their indented children), comments, and blank lines -- in their original
+    order, with `_MARKER` standing in for where the pentimento block goes.
+    `newline` is the line ending the source file used, so re-emitting it
+    doesn't silently normalize CRLF to LF (or the reverse).
+    """
+
+    lines: list[str]
+    newline: str = "\n"
+
+
+def is_valid_value(value: str) -> bool:
+    """A value survives round-tripping through a `key: value` line.
+
+    Leading/trailing whitespace, `#` (starts a comment), `: ` (looks like a
+    nested key), and newlines would all corrupt a re-emitted line or let a
+    hand-edited value inject one. Same shape of guard as `tags.is_valid`.
+    """
+    if value != value.strip():
+        return False
+    return not any(bad in value for bad in ("\n", "\r", "#", ": "))
+
+
+def _validate_values(fields: dict[str, str]) -> None:
+    for key, value in fields.items():
+        if not is_valid_value(value):
+            raise ValueError(f"invalid frontmatter value for {key!r}: {value!r}")
+
+
+def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
+    """Split text into (frontmatter fields, body, extras).
+
+    Returns an empty dict, the whole text unchanged, and no extras if text
+    does not begin with a frontmatter block at byte 0.
     """
     if text.startswith(DELIMITER + "\r\n"):
         nl = "\r\n"
     elif text.startswith(DELIMITER + "\n"):
         nl = "\n"
     else:
-        return {}, text
+        return {}, text, None
 
     lines = text.split(nl)
     closing_index = _find_closing_delimiter(lines)
     if closing_index is None:
-        return {}, text
+        return {}, text, None
 
-    fields = _parse_fields(lines[1:closing_index])
+    fields, raw_lines = _parse_block(lines[1:closing_index])
     body = nl.join(lines[closing_index + 1 :])
-    return fields, body
+    return fields, body, Extras(lines=raw_lines, newline=nl)
 
 
 def _find_closing_delimiter(lines: list[str]) -> int | None:
@@ -64,14 +103,28 @@ def _clean_value(raw: str) -> str:
     return value.split("#", 1)[0].strip()
 
 
-def _parse_fields(lines: list[str]) -> dict[str, str]:
-    fields = {}
+def _parse_block(lines: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Parse pentimento fields while capturing everything else verbatim.
+
+    A comment or blank line inside the pentimento block is dropped (there is
+    nowhere to re-anchor it once fields are re-emitted in canonical order).
+    Everywhere else -- outside the block, or inside a foreign sibling block
+    -- comments, blank lines, and unrecognized content are preserved in
+    `extras` so they survive a re-emit unchanged.
+    """
+    fields: dict[str, str] = {}
+    extras: list[str] = []
     in_namespace = False
+    marker_inserted = False
     for line in lines:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
+            if not in_namespace:
+                extras.append(line)
             continue
         if ":" not in line:
+            if not in_namespace:
+                extras.append(line)
             continue
         indented = line[:1] in (" ", "\t")
         key, _, raw_value = line.partition(":")
@@ -79,38 +132,67 @@ def _parse_fields(lines: list[str]) -> dict[str, str]:
         value = _clean_value(raw_value)
         if not indented and key == NAMESPACE and not value:
             in_namespace = True
+            if not marker_inserted:
+                extras.append(_MARKER)
+                marker_inserted = True
             continue
         if not indented:
             in_namespace = False
         if indented and not in_namespace:
+            extras.append(line)
+            continue
+        if indented and in_namespace:
+            if value:
+                fields[key] = value
             continue
         if value:
             fields[key] = value
-    return fields
+        else:
+            extras.append(line)
+    if not marker_inserted:
+        extras.insert(0, _MARKER)
+    return fields, extras
 
 
-def serialize(fields: dict[str, str], body: str) -> str:
+def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -> str:
     """Render fields plus body back into text, in FIELD_ORDER.
 
     Known fields (`FIELD_ORDER`) are emitted nested under a `pentimento:`
     opener, indented, in canonical order. Fields absent from `fields` are
     omitted. Unknown keys are emitted unindented after the block, outside
     the namespace, so parse reads them back as top-level fields. Body bytes
-    are never touched.
+    are never touched. `extras`, when given, restores foreign blocks,
+    comments, and blank lines to their original position, and the source
+    file's line ending.
     """
     if not fields:
         return body
+
+    _validate_values(fields)
 
     known = set(FIELD_ORDER)
     namespaced = [key for key in FIELD_ORDER if key in fields]
     unknown = [key for key in fields if key not in known]
 
-    lines = [DELIMITER]
+    pentimento_block: list[str] = []
     if namespaced:
-        lines.append(f"{NAMESPACE}:")
+        pentimento_block.append(f"{NAMESPACE}:")
         for key in namespaced:
-            lines.append(f"{INDENT}{key}: {fields[key]}")
+            pentimento_block.append(f"{INDENT}{key}: {fields[key]}")
     for key in unknown:
-        lines.append(f"{key}: {fields[key]}")
+        pentimento_block.append(f"{key}: {fields[key]}")
+
+    raw_lines = list(extras.lines) if extras is not None else [_MARKER]
+    if _MARKER not in raw_lines:
+        raw_lines = [_MARKER, *raw_lines]
+
+    lines = [DELIMITER]
+    for raw_line in raw_lines:
+        if raw_line == _MARKER:
+            lines.extend(pentimento_block)
+        else:
+            lines.append(raw_line)
     lines.append(DELIMITER)
-    return "\n".join(lines) + "\n" + body
+
+    nl = extras.newline if extras is not None else "\n"
+    return nl.join(lines) + nl + body

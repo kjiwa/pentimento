@@ -144,7 +144,7 @@ def run(
         if only is not None and target.id not in only:
             continue
         new_fields = new_fields_by_id[target.id]
-        if frontmatter.serialize(new_fields, target.body) == target.text:
+        if frontmatter.serialize(new_fields, target.body, target.extras) == target.text:
             continue
         changed.append(target.id)
         if not dry_run:

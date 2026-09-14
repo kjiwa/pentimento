@@ -569,11 +569,15 @@ def cmd_set(args) -> int:
             if value == "" and field == "project":
                 target.fields.pop(field, None)
             elif field == "project":
-                target.fields[field] = _resolve_project(value)
+                resolved = _resolve_project(value)
+                if not frontmatter.is_valid_value(resolved):
+                    print(f"invalid project: {resolved!r}", file=sys.stderr)
+                    return 1
+                target.fields[field] = resolved
             else:
                 target.fields[field] = value
 
-    if frontmatter.serialize(target.fields, target.body) == target.text:
+    if frontmatter.serialize(target.fields, target.body, target.extras) == target.text:
         return 0
     plan_module.save(target, keep_mtime=True)
     return 0

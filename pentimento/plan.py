@@ -27,6 +27,7 @@ class Plan:
     source: str = "claude"
     text: str = ""
     ended: str = ""
+    extras: frontmatter.Extras | None = None
 
     @property
     def modified(self) -> datetime.datetime:
@@ -104,7 +105,7 @@ def _id_for(path: Path) -> str:
 
 def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
     text = path.read_text(encoding="utf-8")
-    fields, body = frontmatter.parse(text)
+    fields, body, extras = frontmatter.parse(text)
     plan_id = _id_for(path)
     session = (sessions or {}).get(plan_id)
     started = session.started if session else _file_started(path)
@@ -119,6 +120,7 @@ def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Pl
         source=source,
         text=text,
         ended=ended,
+        extras=extras,
     )
 
 
@@ -130,7 +132,7 @@ def _file_started(path: Path) -> str:
 
 
 def save(plan: Plan, *, keep_mtime: bool = False) -> None:
-    text = frontmatter.serialize(plan.fields, plan.body)
+    text = frontmatter.serialize(plan.fields, plan.body, plan.extras)
     plan.text = text
     if keep_mtime:
         stat = plan.path.stat()

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pentimento import frontmatter, lineage, status, times
+from pentimento import frontmatter, lineage, status, times, vocabulary
 from pentimento import plan as plan_module
-from pentimento import vocabulary
 
 _PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary.PROGRESS_ORDER)}
 

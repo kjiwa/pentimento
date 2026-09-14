@@ -9,6 +9,6 @@ any of pentimento's logic — it is a thin entry point.
 
 1. If `$ARGUMENTS` is empty, run `pentimento list`.
 2. Otherwise, run `pentimento $ARGUMENTS` verbatim — e.g. `/plans tree
-   --project fankado`, `/plans show <id>`, `/plans set <id> --intent active`.
+   --project platform`, `/plans show <id>`, `/plans set <id> --intent active`.
 3. If `pentimento` is not on `$PATH`, report that and stop; do not attempt to
    install or reimplement it.

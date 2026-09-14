@@ -190,7 +190,7 @@ def _no_such_plan(plans, wanted: str) -> str:
 
 def _empty_corpus_hint() -> str:
     directories = []
-    for source in (sources_module.claude_source(), sources_module.cursor_source()):
+    for source in sources_module.all_sources():
         directories.extend(str(d) for d in source.directories)
     return "no plans found; searched: " + ", ".join(directories)
 

@@ -72,6 +72,54 @@ class FilesTests(_EnvIsolated):
         self.assertEqual([p.name for p in found], ["refactor-auth.plan.md"])
 
 
+class AllSourcesTests(_EnvIsolated):
+    def test_returns_claude_and_cursor(self):
+        found = sources.all_sources()
+        self.assertEqual([s.name for s in found], ["claude", "cursor"])
+
+
+class ContainsTests(_EnvIsolated):
+    def test_matching_file_in_directory(self):
+        plans_dir = self.directory / "plans"
+        plans_dir.mkdir()
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md")
+        self.assertTrue(sources.contains(source, plans_dir / "root-plan.md"))
+
+    def test_file_need_not_exist(self):
+        plans_dir = self.directory / "plans"
+        plans_dir.mkdir()
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md")
+        self.assertTrue(sources.contains(source, plans_dir / "not-yet-written.md"))
+
+    def test_excluded_filename_is_false(self):
+        plans_dir = self.directory / "plans"
+        plans_dir.mkdir()
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md")
+        self.assertFalse(sources.contains(source, plans_dir / "README.md"))
+        self.assertFalse(sources.contains(source, plans_dir / "INDEX.md"))
+
+    def test_wrong_suffix_is_false(self):
+        plans_dir = self.directory / "plans"
+        plans_dir.mkdir()
+        source = sources.Source(name="cursor", directories=[plans_dir], suffix=".plan.md", strip_suffix=".plan.md")
+        self.assertFalse(sources.contains(source, plans_dir / "notes.md"))
+
+    def test_nested_subdirectory_is_false(self):
+        plans_dir = self.directory / "plans"
+        nested = plans_dir / "nested"
+        nested.mkdir(parents=True)
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md")
+        self.assertFalse(sources.contains(source, nested / "root-plan.md"))
+
+    def test_outside_every_directory_is_false(self):
+        plans_dir = self.directory / "plans"
+        plans_dir.mkdir()
+        other = self.directory / "elsewhere"
+        other.mkdir()
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md")
+        self.assertFalse(sources.contains(source, other / "root-plan.md"))
+
+
 class DiscoverTests(_EnvIsolated):
     def test_pairs_carry_source_name(self):
         claude_dir = self.directory / "claude-plans"

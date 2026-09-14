@@ -47,21 +47,38 @@ def cursor_source() -> Source:
     return Source(name="cursor", directories=directories, suffix=plan_module.CURSOR_SUFFIX, strip_suffix=plan_module.CURSOR_SUFFIX)
 
 
+def all_sources() -> tuple[Source, ...]:
+    return (claude_source(), cursor_source())
+
+
+def _name_matches(source: Source, path: Path) -> bool:
+    if source.name == "claude":
+        return plan_module.is_plan_file(path) and path.name.endswith(source.suffix)
+    return path.name.endswith(source.suffix)
+
+
 def files(source: Source) -> list[Path]:
     found = []
     for directory in source.directories:
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob(f"*{source.suffix}")):
-            if source.name == "claude" and not plan_module.is_plan_file(path):
-                continue
-            found.append(path)
+            if _name_matches(source, path):
+                found.append(path)
     return found
+
+
+def contains(source: Source, path: Path) -> bool:
+    """Whether `path` would be discovered by `source`, without requiring it to exist."""
+    if not _name_matches(source, path):
+        return False
+    resolved_parent = path.parent.resolve()
+    return any(resolved_parent == directory.resolve() for directory in source.directories)
 
 
 def discover() -> list[tuple[str, Path]]:
     """`(source_name, path)` pairs across every configured source."""
     pairs = []
-    for source in (claude_source(), cursor_source()):
+    for source in all_sources():
         pairs.extend((source.name, path) for path in files(source))
     return pairs

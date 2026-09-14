@@ -396,10 +396,19 @@ def cmd_set(args) -> int:
 
 
 def _backfill(
-    *, dry_run: bool = False, rederive: bool = False, recreate: bool = False, derive_status: bool = True, only=None
+    *,
+    dry_run: bool = False,
+    rederive: bool = False,
+    recreate: bool = False,
+    derive_status: bool = True,
+    only=None,
+    sessions=None,
+    plans=None,
 ) -> list[str]:
-    sessions = sessions_module.load()
-    plans = corpus.load_all(sessions=sessions)
+    if sessions is None:
+        sessions = sessions_module.load()
+    if plans is None:
+        plans = corpus.load_all(sessions=sessions)
     return backfill_module.run(
         plans,
         sessions,
@@ -418,11 +427,12 @@ def cmd_hook(_args) -> int:
         path = hook_module.touched_plan_path(sys.stdin.read())
         if path is None:
             return 0
-        plans = corpus.load_all(sessions=sessions_module.load())
+        sessions = sessions_module.load()
+        plans = corpus.load_all(sessions=sessions)
         target = corpus.by_id(plans, path.name)
         if target is None:
             return 0
-        changed = _backfill(only={target.id}, derive_status=False)
+        changed = _backfill(only={target.id}, derive_status=False, sessions=sessions, plans=plans)
         for plan_id in changed:
             print(plan_id)
     except Exception:  # noqa: BLE001, S110

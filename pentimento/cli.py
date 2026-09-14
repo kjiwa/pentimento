@@ -10,7 +10,7 @@ import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus, counts, formats, frontmatter, listing, style, table
+from pentimento import corpus, counts, formats, frontmatter, listing, shortid, style, table
 from pentimento import history as history_module
 from pentimento import index as index_module
 from pentimento import plan as plan_module
@@ -162,6 +162,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _no_such_plan(plans, wanted: str) -> str:
+    matches = corpus.ambiguous(plans, wanted)
+    if matches:
+        return f"ambiguous plan id: {wanted} -- matches: {', '.join(matches)}"
     message = f"no such plan: {wanted}"
     close = corpus.suggest(plans, wanted)
     if close:
@@ -191,7 +194,8 @@ def cmd_list(args) -> int:
         return 0
     on_color = style.enabled(sys.stdout, args.color)
     unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    print(listing.render(plans, on_color, unicode_ok))
+    short_ids = shortid.shorten(p.id for p in corpus_plans)
+    print(listing.render(plans, on_color, unicode_ok, short_ids=short_ids))
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -215,7 +219,12 @@ def cmd_tree(args) -> int:
     on_color = style.enabled(sys.stdout, args.color)
     unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
     glyphs = style.glyphs(unicode_ok)
-    print(tree_module.render_grouped(plans, on_color, key=key, reverse=reverse, glyphs=glyphs, unicode_ok=unicode_ok))
+    short_ids = shortid.shorten(p.id for p in corpus_plans)
+    print(
+        tree_module.render_grouped(
+            plans, on_color, key=key, reverse=reverse, glyphs=glyphs, unicode_ok=unicode_ok, short_ids=short_ids
+        )
+    )
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -366,11 +375,12 @@ def cmd_check(args) -> int:
         if findings:
             columns = (
                 table.Column("CODE", drop=1),
-                table.Column("PLAN", flex=1, comfort=24, floor=10),
+                table.Column("PLAN"),
                 table.Column("MESSAGE", flex=2, comfort=40, floor=20),
             )
+            short = shortid.shorten(p.id for p in plans)
             rows = [
-                ((f.code, (style.RED,)), (f.plan_id, ()), (f.message, ()))
+                ((f.code, (style.RED,)), (short.get(f.plan_id, f.plan_id), ()), (f.message, ()))
                 for f in findings
             ]
             width = style.terminal_width()

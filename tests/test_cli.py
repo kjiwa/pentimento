@@ -47,6 +47,15 @@ class CmdSetTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertNotIn("parent", reloaded.fields)
 
+    def test_resolves_a_short_id(self):
+        _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
+        args = cli.build_parser().parse_args(["set", "abundant-rabbit", "--status", "complete"])
+        result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "is-it-possible-to-abundant-rabbit")
+        self.assertEqual(reloaded.fields["status"], "complete")
+
     def test_accepts_parent_that_resolves_to_a_plan(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         _write(self.directory, "child-plan", "# Child\n\n## Progress\n- [ ] todo\n")
@@ -252,6 +261,16 @@ class CmdShowTests(unittest.TestCase):
         id_line = next(line for line in lines if line.startswith("id:"))
         self.assertIn("root-plan", id_line)
 
+    def test_resolves_a_short_id(self):
+        _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "abundant-rabbit"])
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_show(args)
+        self.assertEqual(result, 0)
+        id_line = next(line for line in out.getvalue().splitlines() if line.startswith("id:"))
+        self.assertIn("is-it-possible-to-abundant-rabbit", id_line)
+
 
 class CmdCheckTests(unittest.TestCase):
     def setUp(self):
@@ -311,6 +330,35 @@ class CmdHistoryTests(unittest.TestCase):
             result = cli.cmd_history(args)
         self.assertEqual(result, 0)
         self.assertIn("no session history for root-plan", out.getvalue())
+
+    def test_resolves_a_short_id(self):
+        _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["history", "abundant-rabbit"])
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_history(args)
+        self.assertEqual(result, 0)
+        self.assertIn("no session history for is-it-possible-to-abundant-rabbit", out.getvalue())
+
+
+class AmbiguousShortIdTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_ambiguous_short_id_exits_one_with_ambiguity_message(self):
+        _write(self.directory, "foo-abundant-rabbit", "# Foo\n")
+        _write(self.directory, "bar-abundant-rabbit", "# Bar\n")
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "abundant-rabbit"])
+        with contextlib.redirect_stderr(out):
+            result = cli.cmd_show(args)
+        self.assertEqual(result, 1)
+        self.assertIn("ambiguous plan id: abundant-rabbit", out.getvalue())
+        self.assertIn("foo-abundant-rabbit", out.getvalue())
+        self.assertIn("bar-abundant-rabbit", out.getvalue())
 
 
 class CmdBackfillRederiveTests(unittest.TestCase):

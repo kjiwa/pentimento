@@ -39,6 +39,19 @@ class ShrinkBeforeDropTests(unittest.TestCase):
         self.assertIn("FLEX", header)
 
 
+class NoWasteShrinkTests(unittest.TestCase):
+    def test_flex_column_shrinks_to_exactly_the_target_width_not_comfort(self):
+        columns = (
+            _column("FIXED"),
+            _column("FLEX", flex=1, comfort=5, floor=2),
+        )
+        rows = [(("fixed-value", ()), ("abcdefghijklmnopqrstuvwxyz", ()))]
+        width = style.display_width("fixed-value") + style.GUTTER + 8
+        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=width)
+        record_line = rendered.split("\n")[1]
+        self.assertEqual(style.display_width(record_line), width)
+
+
 class DropOrderTests(unittest.TestCase):
     def test_lowest_drop_value_goes_first(self):
         columns = (

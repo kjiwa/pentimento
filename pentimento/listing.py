@@ -4,19 +4,21 @@ Sort order is decided by the caller (`cli.py`); this module renders plans
 in the order given. Columns are sized to their content -- `table.render`
 never stretches a column to fill the terminal -- and shrink, then drop, in
 a documented order when the terminal is too narrow to hold everything, so
-every line fits `style.terminal_width()`.
+every line fits `style.terminal_width()`. `PLAN` holds the short id
+(`pentimento/shortid.py`) and is never truncated -- it only drops -- so
+`TITLE` is the sole column that shrinks.
 """
 
 from __future__ import annotations
 
-from pentimento import style, table, times
+from pentimento import shortid, style, table, times
 
 COLUMNS = (
     table.Column("STATUS", drop=7),
     table.Column("INTENT", drop=6),
     table.Column("PROJECT", drop=4),
     table.Column("SOURCE", drop=3),
-    table.Column("PLAN", flex=2, comfort=24, floor=10, drop=5),
+    table.Column("PLAN", drop=5),
     table.Column("TITLE", flex=1, comfort=32, floor=16),
     table.Column("TAGS", drop=2),
     table.Column("CREATED", drop=1),
@@ -24,7 +26,16 @@ COLUMNS = (
 )
 
 
-def render(plans, on_color: bool, unicode_ok: bool = True) -> str:
+def render(plans, on_color: bool, unicode_ok: bool = True, *, short_ids=None) -> str:
+    """Render `plans` as a table.
+
+    `short_ids`, when given, must be a corpus-wide `shortid.shorten` mapping
+    -- a mapping built from a filtered subset could print an id that is
+    ambiguous corpus-wide. When omitted, ids are shortened over `plans`
+    itself.
+    """
+    if short_ids is None:
+        short_ids = shortid.shorten(p.id for p in plans)
     show_project = len({p.project for p in plans}) > 1
     show_source = len({p.source for p in plans}) > 1
     show_tags = any(p.tags for p in plans)
@@ -51,7 +62,7 @@ def render(plans, on_color: bool, unicode_ok: bool = True) -> str:
             "INTENT": (p.intent, style.INTENT_CODES.get(p.intent, ())),
             "PROJECT": (p.project or "", ()),
             "SOURCE": (p.source, style.SOURCE_CODES.get(p.source, ())),
-            "PLAN": (p.id, ()),
+            "PLAN": (short_ids[p.id], ()),
             "TITLE": (title, ()),
             "TAGS": (", ".join(p.tags), ()),
             "CREATED": (p.fields.get("created", ""), (style.DIM,)),

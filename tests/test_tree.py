@@ -41,6 +41,13 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(lines[0], "`- Root Plan")
         self.assertTrue(lines[1].startswith("     root  "))
 
+    def test_meta_line_shows_the_short_id(self):
+        root = FakePlan(id="is-it-possible-to-abundant-rabbit", title="Root Plan")
+        other = FakePlan(id="some-other-plan-id", title="Other")
+        lines = _with_width(120, lambda: tree.render([root, other])).split("\n")
+        self.assertIn("abundant-rabbit", lines[1])
+        self.assertNotIn("is-it-possible-to-abundant-rabbit", lines[1])
+
     def test_two_children_use_branch_and_final_connectors(self):
         root = FakePlan(id="root", title="Root")
         a = FakePlan(id="a", title="A", parent="root")

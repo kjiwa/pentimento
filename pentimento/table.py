@@ -2,10 +2,12 @@
 
 Not a general table library: exactly the layout behaviour those two call
 sites need. Columns are sized to their content and never stretched; surplus
-terminal width is left unused. When a row would still overflow, columns
-shrink, then drop, then shrink further, in the order each `Column` declares
--- and the per-line truncation in `_render_row` is the unconditional
-backstop, so callers never have to reason about pathological widths.
+terminal width is left unused. When a row would still overflow, each flex
+column gives up only the current excess -- never more than it needs to,
+bounded below by its target -- then columns drop, then flex columns shrink
+further to their floor, in the order each `Column` declares -- and the
+per-line truncation in `_render_row` is the unconditional backstop, so
+callers never have to reason about pathological widths.
 
 Padding is applied to the unpainted string, then `style.paint` wraps it --
 the invariant `style.py`'s docstring states. The trailing column is only
@@ -49,13 +51,11 @@ def _total(widths: dict[Column, int], active: list[Column]) -> int:
 
 def _shrink(widths: dict[Column, int], active: list[Column], attr: str, width: int) -> tuple[dict[Column, int], bool]:
     widths = dict(widths)
-    if _total(widths, active) <= width:
-        return widths, True
     for column in sorted((c for c in active if c.flex > 0), key=lambda c: c.flex):
-        target = getattr(column, attr)
-        widths[column] = min(widths[column], target)
-        if _total(widths, active) <= width:
-            return widths, True
+        excess = _total(widths, active) - width
+        if excess <= 0:
+            break
+        widths[column] = max(getattr(column, attr), widths[column] - excess)
     return widths, _total(widths, active) <= width
 
 

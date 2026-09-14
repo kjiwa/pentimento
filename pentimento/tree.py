@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pentimento import record as record_module
-from pentimento import style, times
+from pentimento import shortid, style, times
 from pentimento import tags as tags_module
 
 
@@ -51,7 +51,8 @@ def _roots(plans, children_by_parent, key=_id_key, reverse=False):
 
 
 def _render_node(
-    plan, children_by_parent, prefix, is_last, lines, visited, on_color, glyphs, unicode_ok, width, root_annotation=None
+    plan, children_by_parent, prefix, is_last, lines, visited, on_color, glyphs, unicode_ok, width, short_ids,
+    root_annotation=None,
 ):
     connector = glyphs["last"] if is_last else glyphs["branch"]
     annotation_text = f"({root_annotation})" if root_annotation else ""
@@ -67,7 +68,7 @@ def _render_node(
     is_repeat = plan.id in visited
     status_text = style.paint(plan.status, *style.STATUS_CODES.get(plan.status, ()), on=on_color)
     intent_text = style.paint(plan.intent, *style.INTENT_CODES.get(plan.intent, ()), on=on_color)
-    meta = f"{plan.id}  {status_text}  {intent_text}"
+    meta = f"{short_ids[plan.id]}  {status_text}  {intent_text}"
     if plan.tags:
         meta += f"  {tags_module.render(plan.tags)}"
     created = plan.fields.get("created")
@@ -86,16 +87,19 @@ def _render_node(
     for index, child in enumerate(kids):
         _render_node(
             child, children_by_parent, child_prefix, index == len(kids) - 1, lines, visited, on_color, glyphs,
-            unicode_ok, width,
+            unicode_ok, width, short_ids,
         )
 
 
 def render(
-    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False
+    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False,
+    short_ids=None,
 ) -> str:
     """Tree for one project's worth of plans (roots and descendants)."""
     glyphs = glyphs or style.GLYPHS_ASCII
     width = style.terminal_width()
+    if short_ids is None:
+        short_ids = shortid.shorten(p.id for p in plans)
     children_by_parent = _children_by_parent(plans, key, reverse)
     roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
@@ -105,15 +109,18 @@ def render(
         annotation = f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
         _render_node(
             root, children_by_parent, "", index == len(roots) - 1, lines, visited, on_color, glyphs, unicode_ok,
-            width, annotation,
+            width, short_ids, annotation,
         )
     return "\n".join(lines)
 
 
 def render_grouped(
-    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False
+    plans, on_color: bool = False, key=_id_key, reverse: bool = False, glyphs=None, unicode_ok: bool = False,
+    short_ids=None,
 ) -> str:
     """Group plans by project, then render each group's tree."""
+    if short_ids is None:
+        short_ids = shortid.shorten(p.id for p in plans)
     groups: dict[str, list] = {}
     for p in plans:
         groups.setdefault(p.project or "(no project)", []).append(p)
@@ -121,7 +128,9 @@ def render_grouped(
     blocks = []
     for project in sorted(groups):
         heading = style.paint(project, style.BOLD, on=on_color)
-        blocks.append(heading + "\n" + render(groups[project], on_color, key, reverse, glyphs, unicode_ok))
+        blocks.append(
+            heading + "\n" + render(groups[project], on_color, key, reverse, glyphs, unicode_ok, short_ids)
+        )
     return "\n\n".join(blocks)
 
 

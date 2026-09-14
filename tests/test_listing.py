@@ -42,6 +42,25 @@ class RenderTests(unittest.TestCase):
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
         self.assertIn("a-plan", record_line)
 
+    def test_plan_column_holds_the_short_id(self):
+        plans = [
+            FakePlan(id="is-it-possible-to-abundant-rabbit", title="Alpha"),
+            FakePlan(id="some-other-plan-id", title="Beta"),
+        ]
+        rendered = _with_width(120, lambda: listing.render(plans, on_color=False))
+        record_line = rendered.split("\n")[1]
+        self.assertIn("abundant-rabbit", record_line)
+        self.assertNotIn("is-it-possible-to-abundant-rabbit", record_line)
+
+    def test_explicit_short_ids_mapping_is_honoured(self):
+        plans = [FakePlan(id="a-plan-id", title="Alpha")]
+        rendered = _with_width(
+            120, lambda: listing.render(plans, on_color=False, short_ids={"a-plan-id": "custom"})
+        )
+        record_line = rendered.split("\n")[1]
+        self.assertIn("custom", record_line)
+        self.assertNotIn("a-plan-id", record_line)
+
     def test_title_column_holds_the_h1(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
@@ -152,6 +171,18 @@ class FitGuaranteeTests(unittest.TestCase):
                 self.assertLessEqual(
                     style.display_width(line), width, f"width={width} overflowed: {line!r}"
                 )
+
+    def test_plan_column_is_never_truncated_at_any_width_where_it_is_present(self):
+        plans = self._plans()
+        for width in range(20, 201):
+            header = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+            if "PLAN" not in header:
+                continue
+            rendered = _with_width(width, lambda: listing.render(plans, on_color=False))
+            plan_column_start = header.index("PLAN")
+            for line in rendered.split("\n")[1:]:
+                cell = line[plan_column_start:].split("  ")[0]
+                self.assertNotIn("…", cell, f"width={width} truncated PLAN: {line!r}")
 
     def test_no_column_is_stretched_at_a_wide_width(self):
         rendered = _with_width(200, lambda: listing.render(self._plans(), on_color=False))

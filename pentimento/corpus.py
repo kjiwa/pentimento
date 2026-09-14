@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pentimento import plan as plan_module
 from pentimento import sessions as sessions_module
+from pentimento import shortid
 from pentimento import sources as sources_module
 
 
@@ -46,7 +47,19 @@ def by_id(plans: list[plan_module.Plan], plan_id: str) -> plan_module.Plan | Non
     for candidate in plans:
         if candidate.id in (target, target_stem) or candidate.path.name == plan_id:
             return candidate
+
+    found = shortid.matches([p.id for p in plans], plan_id)
+    if len(found) == 1:
+        for candidate in plans:
+            if candidate.id == found[0]:
+                return candidate
     return None
+
+
+def ambiguous(plans: list[plan_module.Plan], wanted: str) -> list[str]:
+    """Full ids when `wanted` is a short id that matched more than one plan."""
+    found = shortid.matches([p.id for p in plans], wanted)
+    return found if len(found) > 1 else []
 
 
 def suggest(plans: list[plan_module.Plan], wanted: str) -> list[str]:

@@ -7,6 +7,20 @@ from pathlib import Path
 from pentimento import plan as plan_module
 
 
+class BodyBelowTitleTests(unittest.TestCase):
+    def test_drops_leading_h1_and_blank_lines(self):
+        body = "# Title\n\n## Progress\n\nNot started.\n"
+        self.assertEqual(plan_module.body_below_title(body), "## Progress\n\nNot started.\n")
+
+    def test_skips_a_blank_separator_line_before_the_h1(self):
+        body = "\n# Title\n\n## Progress\n\nNot started.\n"
+        self.assertEqual(plan_module.body_below_title(body), "## Progress\n\nNot started.\n")
+
+    def test_body_with_no_h1_is_unchanged(self):
+        body = "## Progress\n\nNot started.\n"
+        self.assertEqual(plan_module.body_below_title(body), body)
+
+
 class ModifiedTests(unittest.TestCase):
     def test_modified_prefers_ended_over_mtime(self):
         target = plan_module.Plan(

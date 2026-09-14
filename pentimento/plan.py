@@ -73,6 +73,19 @@ def _first_h1(body: str) -> str | None:
     return None
 
 
+def body_below_title(body: str) -> str:
+    """Drop a leading H1 and the blank lines around it."""
+    lines = body.split("\n")
+    while lines and lines[0].strip() == "":
+        lines.pop(0)
+    if not lines or not lines[0].startswith("# "):
+        return body
+    lines.pop(0)
+    while lines and lines[0].strip() == "":
+        lines.pop(0)
+    return "\n".join(lines)
+
+
 def _id_for(path: Path) -> str:
     if path.name.endswith(CURSOR_SUFFIX):
         return path.name[: -len(CURSOR_SUFFIX)]

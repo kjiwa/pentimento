@@ -10,7 +10,17 @@ import sys
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
-from pentimento import corpus, counts, formats, frontmatter, listing, shortid, style, table
+from pentimento import (
+    corpus,
+    counts,
+    formats,
+    frontmatter,
+    listing,
+    markdown,
+    shortid,
+    style,
+    table,
+)
 from pentimento import history as history_module
 from pentimento import index as index_module
 from pentimento import plan as plan_module
@@ -128,8 +138,9 @@ def build_parser() -> argparse.ArgumentParser:
     _add_format_args(p_tree)
     _add_sort_args(p_tree)
 
-    p_show = sub.add_parser("show", help="H1, frontmatter, and Progress block")
+    p_show = sub.add_parser("show", help="H1, frontmatter, and the rendered body")
     p_show.add_argument("id", help="plan id (filename stem)")
+    p_show.add_argument("--full", action="store_true", help="print the whole body, unclipped")
     _add_format_args(p_show)
 
     p_set = sub.add_parser("set", help="rewrite frontmatter in place")
@@ -238,9 +249,17 @@ def cmd_show(args) -> int:
         return 1
     if args.format == "table":
         on_color = style.enabled(sys.stdout, args.color)
-        print(style.paint(f"# {target.title}", style.BOLD, on=on_color))
-        print()
-        print(f"{style.paint('id:', style.DIM, on=on_color)} {target.id}")
+        unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+        header_lines = 0
+
+        def emit(text: str = "") -> None:
+            nonlocal header_lines
+            print(text)
+            header_lines += 1
+
+        emit(style.paint(f"# {target.title}", style.BOLD, on=on_color))
+        emit()
+        emit(f"{style.paint('id:', style.DIM, on=on_color)} {target.id}")
         ordered = [k for k in frontmatter.FIELD_ORDER if k in target.fields]
         remaining = [k for k in target.fields if k not in frontmatter.FIELD_ORDER]
         for key in ordered + remaining:
@@ -249,33 +268,23 @@ def cmd_show(args) -> int:
                 value = style.paint(value, *style.STATUS_CODES.get(value, ()), on=on_color)
             elif key == "intent":
                 value = style.paint(value, *style.INTENT_CODES.get(value, ()), on=on_color)
-            print(f"{style.paint(f'{key}:', style.DIM, on=on_color)} {value}")
-        print(f"{style.paint('source:', style.DIM, on=on_color)} {target.source}")
-        print(f"{style.paint('modified:', style.DIM, on=on_color)} {times_module.local_stamp(target.modified)}")
-        print()
-        section = _progress_block(target.body)
-        if section:
-            print(section)
+            emit(f"{style.paint(f'{key}:', style.DIM, on=on_color)} {value}")
+        emit(f"{style.paint('source:', style.DIM, on=on_color)} {target.source}")
+        emit(f"{style.paint('modified:', style.DIM, on=on_color)} {times_module.local_stamp(target.modified)}")
+        emit()
+
+        width = min(style.terminal_width(), markdown.MAX_WIDTH)
+        body = plan_module.body_below_title(target.body)
+        lines = markdown.render(body, on_color=on_color, unicode_ok=unicode_ok, width=width)
+        limit = None
+        if sys.stdout.isatty() and not args.full:
+            limit = max(style.terminal_height() - header_lines - 2, markdown.MIN_BODY_LINES)
+        hint = f"pentimento show {args.id} --full"
+        for line in markdown.clip(lines, limit, hint, on_color=on_color):
+            print(line)
     else:
         formats.emit([record_module.as_dict(target)], args.format, sys.stdout, record_module.FIELDS)
     return 0
-
-
-def _progress_block(body: str) -> str | None:
-    lines = body.split("\n")
-    start = None
-    for index, line in enumerate(lines):
-        if line.strip().lower() == "## progress":
-            start = index
-            break
-    if start is None:
-        return None
-    end = len(lines)
-    for index in range(start + 1, len(lines)):
-        if lines[index].startswith("## "):
-            end = index
-            break
-    return "\n".join(lines[start:end]).rstrip()
 
 
 def _apply_tag_edits(target, args) -> str | None:

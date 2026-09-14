@@ -130,7 +130,12 @@ main() {
     '## Progress
 
 - [x] Ship behind a feature flag
-- [ ] Flip the flag for all tenants' \
+- [ ] Flip the flag for all tenants
+
+## Context
+
+Tenants opt in via the `auth_v2` flag in `tenant_settings`. Watch error rates
+before flipping the remaining cohort.' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-rollout-session.jsonl \
     api-auth-rollout /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \

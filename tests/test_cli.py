@@ -271,6 +271,56 @@ class CmdShowTests(unittest.TestCase):
         id_line = next(line for line in out.getvalue().splitlines() if line.startswith("id:"))
         self.assertIn("is-it-possible-to-abundant-rabbit", id_line)
 
+    def test_body_sections_beyond_progress_appear(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "# Root\n\n## Progress\n\nNot started.\n\n## Context\n\nBackground details go here.\n",
+        )
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "root-plan"])
+        with contextlib.redirect_stdout(out):
+            cli.cmd_show(args)
+        rendered = out.getvalue()
+        self.assertIn("Progress", rendered)
+        self.assertIn("Context", rendered)
+        self.assertIn("Background details go here.", rendered)
+
+    def test_full_on_a_non_tty_is_a_no_op(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "# Root\n\n## Progress\n\nNot started.\n\n## Context\n\nBackground details go here.\n",
+        )
+        plain = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "root-plan"])
+        with contextlib.redirect_stdout(plain):
+            cli.cmd_show(args)
+
+        full = io.StringIO()
+        args = cli.build_parser().parse_args(["show", "root-plan", "--full"])
+        with contextlib.redirect_stdout(full):
+            cli.cmd_show(args)
+
+        self.assertEqual(plain.getvalue(), full.getvalue())
+
+    def test_format_json_output_is_unchanged_by_full(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "# Root\n\n## Progress\n\nNot started.\n\n## Context\n\nBackground details go here.\n",
+        )
+        plain = self._run_json(["show", "root-plan", "--format", "json"])
+        full = self._run_json(["show", "root-plan", "--full", "--format", "json"])
+        self.assertEqual(plain, full)
+
+    def _run_json(self, argv):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            cli.cmd_show(args)
+        return out.getvalue()
+
 
 class CmdCheckTests(unittest.TestCase):
     def setUp(self):

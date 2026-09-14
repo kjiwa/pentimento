@@ -76,6 +76,10 @@ def terminal_width() -> int:
     return shutil.get_terminal_size().columns
 
 
+def terminal_height() -> int:
+    return shutil.get_terminal_size().lines
+
+
 def display_width(text: str) -> int:
     """Terminal column width: East Asian wide/fullwidth count 2, combining marks 0."""
     total = 0

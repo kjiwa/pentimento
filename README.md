@@ -137,12 +137,20 @@ parent: api-auth-redesign
 project: platform
 created: 2026-08-24
 source: claude
-modified: 2026-08-24 17:08
+modified: 2026-08-24 22:26
 
-## Progress
 
-- [x] Ship behind a feature flag
-- [ ] Flip the flag for all tenants
+Progress
+
+✓ Ship behind a feature flag
+☐ Flip the flag for all tenants
+
+
+Context
+
+Tenants opt in via the auth_v2 flag in tenant_settings. Watch error rates before flipping the
+remaining cohort.
+
 ```
 <!-- /sample -->
 
@@ -185,8 +193,8 @@ on this machine, never a claim the plan wasn't worked.
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-29 17:08  authored  api-auth-cleanup                             1
-2026-09-10 17:08  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-08-29 22:26  authored  api-auth-cleanup                             1
+2026-09-10 22:26  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 

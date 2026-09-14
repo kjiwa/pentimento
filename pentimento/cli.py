@@ -6,7 +6,9 @@ import argparse
 import dataclasses
 import datetime
 import importlib.metadata
+import os
 import sys
+import traceback
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
@@ -346,7 +348,7 @@ def cmd_show(args) -> int:
         if sys.stdout.isatty() and not args.full:
             limit = max(style.terminal_height() - header_lines - 2, markdown.MIN_BODY_LINES)
         hint = f"pentimento show {args.id} --full"
-        for line in markdown.clip(lines, limit, hint, on_color=on_color):
+        for line in markdown.clip(lines, limit, hint, on_color=on_color, unicode_ok=unicode_ok):
             print(line)
     else:
         formats.emit([record_module.as_dict(target)], args.format, sys.stdout, record_module.FIELDS)
@@ -454,8 +456,9 @@ def cmd_hook(_args) -> int:
         changed = _backfill(only={target.id}, derive_status=False, sessions=sessions, plans=plans)
         for plan_id in changed:
             print(plan_id)
-    except Exception:  # noqa: BLE001, S110
-        pass
+    except Exception:
+        if os.environ.get("PENTIMENTO_DEBUG"):
+            traceback.print_exc(file=sys.stderr)
     return 0
 
 

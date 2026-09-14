@@ -3,7 +3,9 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from pentimento import history, touches
+import io
+
+from pentimento import formats, history, touches
 
 
 def _touch(session, tool, at, plan_id="the-plan", cwd="/Users/kjiwa/example"):
@@ -57,6 +59,19 @@ class AsRecordsTests(unittest.TestCase):
         self.assertEqual(records[0]["what"], "authored")
         self.assertEqual(records[1]["session"], "implement-it-later")
         self.assertEqual(records[1]["what"], "worked")
+
+
+class FieldsTests(unittest.TestCase):
+    def test_fields_matches_the_table_column_order(self):
+        self.assertEqual(history.FIELDS, ("when", "what", "session", "touches"))
+
+    def test_tsv_header_agrees_with_the_table_header(self):
+        plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        records = history.as_records("the-plan", plan_touches)
+        out = io.StringIO()
+        formats.emit(records, "tsv", out, history.FIELDS)
+        header = out.getvalue().splitlines()[0]
+        self.assertEqual(header.split("\t"), ["when", "what", "session", "touches"])
 
 
 class RenderTests(unittest.TestCase):

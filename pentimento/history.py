@@ -13,7 +13,7 @@ import dataclasses
 from pentimento import style, table, times
 from pentimento import touches as touches_module
 
-FIELDS = ("session", "what", "when", "touches")
+FIELDS = ("when", "what", "session", "touches")
 
 COLUMNS = (
     table.Column("WHEN", drop=1),

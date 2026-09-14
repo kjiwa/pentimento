@@ -849,6 +849,31 @@ class CmdHookTests(unittest.TestCase):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         self.assertEqual(self._run_hook("garbage"), 0)
 
+    def test_debug_env_prints_traceback_on_crash_but_still_exits_zero(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        path = self.directory / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        with _EnvGuard(PENTIMENTO_DEBUG="1"):
+            with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    result = self._run_hook(payload)
+        self.assertEqual(result, 0)
+        self.assertIn("RuntimeError", err.getvalue())
+        self.assertIn("boom", err.getvalue())
+
+    def test_without_debug_env_a_crash_is_silent(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        path = self.directory / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        with _EnvGuard(PENTIMENTO_DEBUG=None):
+            with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    result = self._run_hook(payload)
+        self.assertEqual(result, 0)
+        self.assertEqual(err.getvalue(), "")
+
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields, {})
 

@@ -293,6 +293,31 @@ class BackfillTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["status"], "complete")
 
+    def test_rederive_retracts_complete_when_boxes_are_later_unchecked(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\npentimento:\n  status: complete\n  intent: unset\n  created: 2026-09-01\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans, rederive=True)
+        self.assertEqual(changed, ["root-plan"])
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "not-started")
+
+    def test_rederive_does_not_overwrite_superseded_status(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: superseded\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] done\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, rederive=True)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "superseded")
+
     def test_set_survives_a_backfill(self):
         _write(
             self.directory,

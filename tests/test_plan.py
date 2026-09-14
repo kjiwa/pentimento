@@ -37,6 +37,22 @@ class ModifiedTests(unittest.TestCase):
             datetime.datetime(2026, 9, 5, tzinfo=datetime.timezone.utc),
         )
 
+    def test_modified_prefers_a_later_mtime_over_a_stale_ended(self):
+        later_mtime = datetime.datetime(2026, 9, 10, tzinfo=datetime.timezone.utc).timestamp()
+        target = plan_module.Plan(
+            id="root-plan",
+            path=Path("root-plan.md"),
+            fields={},
+            body="",
+            mtime=later_mtime,
+            started="",
+            ended="2026-09-05T00:00:00.000Z",
+        )
+        self.assertEqual(
+            target.modified,
+            datetime.datetime.fromtimestamp(later_mtime, tz=datetime.timezone.utc),
+        )
+
     def test_modified_falls_back_to_mtime_when_no_ended(self):
         target = plan_module.Plan(
             id="root-plan",

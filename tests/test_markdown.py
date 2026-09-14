@@ -288,28 +288,34 @@ class SqueezeTests(unittest.TestCase):
 class ClipTests(unittest.TestCase):
     def test_under_limit_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, 10, "hint", on_color=False), lines)
+        self.assertEqual(markdown.clip(lines, 10, "hint", on_color=False, unicode_ok=True), lines)
 
     def test_limit_none_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, None, "hint", on_color=False), lines)
+        self.assertEqual(markdown.clip(lines, None, "hint", on_color=False, unicode_ok=True), lines)
 
     def test_at_limit_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, 3, "hint", on_color=False), lines)
+        self.assertEqual(markdown.clip(lines, 3, "hint", on_color=False, unicode_ok=True), lines)
 
     def test_over_limit_trims_and_appends_hint(self):
         lines = [str(n) for n in range(10)]
-        clipped = markdown.clip(lines, 5, "pentimento show foo --full", on_color=False)
+        clipped = markdown.clip(lines, 5, "pentimento show foo --full", on_color=False, unicode_ok=True)
         self.assertEqual(len(clipped), markdown.MIN_BODY_LINES + 1)
         self.assertIn("more lines", clipped[-1])
         self.assertIn("pentimento show foo --full", clipped[-1])
 
     def test_over_limit_trims_trailing_blank_lines(self):
         lines = ["0", "1", "2", "3", "4", "", "6", "7"]
-        clipped = markdown.clip(lines, 6, "hint", on_color=False)
+        clipped = markdown.clip(lines, 6, "hint", on_color=False, unicode_ok=True)
         self.assertEqual(clipped[:-1], ["0", "1", "2", "3", "4"])
         self.assertIn("more lines", clipped[-1])
+
+    def test_ascii_mode_never_emits_unicode_clip_glyphs(self):
+        lines = [str(n) for n in range(10)]
+        clipped = markdown.clip(lines, 5, "hint", on_color=False, unicode_ok=False)
+        self.assertNotIn("…", clipped[-1])
+        self.assertNotIn("—", clipped[-1])
 
 
 if __name__ == "__main__":

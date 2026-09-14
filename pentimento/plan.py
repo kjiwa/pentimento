@@ -30,10 +30,18 @@ class Plan:
 
     @property
     def modified(self) -> datetime.datetime:
+        """The later of the session's end and the file's own mtime.
+
+        A session end alone goes stale the moment a *later* session (or a
+        hand edit) touches the file without also touching a session tied to
+        it -- writes already use `keep_mtime=True`, so mtime only moves on a
+        real edit.
+        """
+        mtime = datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
         ended = times.parse_iso(self.ended)
         if ended is not None:
-            return ended
-        return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
+            return max(ended, mtime)
+        return mtime
 
     @property
     def created_at(self) -> datetime.datetime | None:

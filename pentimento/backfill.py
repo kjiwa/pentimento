@@ -37,15 +37,15 @@ def derive_fields(
 
     Each derived field states its gap-fill and its rederive behaviour once:
 
-    - `status`: recomputed every run, plain or `--rederive` alike, unless
-      `derive_status` is `False` -- a caller deriving mid-draft must pass
-      `False`, because a half-written `## Progress` can read all-checked and
-      the monotonic ratchet would make that `complete` permanent. Derivation
-      advances a plan's status but never retracts it: written only when it
-      ranks strictly above the existing value on `_PROGRESS_RANK`, or when no
-      status is set yet. `superseded` and `unknown` never rank, so a
-      `superseded` status is never overwritten and a recomputed `unknown`
-      never overwrites a real status; retraction is `set`'s job.
+    - `status`: recomputed every run, unless `derive_status` is `False` -- a
+      caller deriving mid-draft must pass `False`, because a half-written
+      `## Progress` can read all-checked and the monotonic ratchet would make
+      that `complete` permanent. Plain derivation advances a plan's status
+      but never retracts it: written only when it ranks strictly above the
+      existing value on `_PROGRESS_RANK`, or when no status is set yet.
+      `--rederive` bypasses the ratchet -- it is the only way to retract a
+      `complete` whose `## Progress` boxes were later unchecked. Either way,
+      `superseded` is never overwritten.
     - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
     - `created`: gap-filled if absent; never touched by `rederive`, only by
       `recreate`, which overwrites it from local time.
@@ -67,10 +67,13 @@ def derive_fields(
         if existing_status is None:
             fields["status"] = derived_status
         elif existing_status != vocabulary.SUPERSEDED:
-            existing_rank = _PROGRESS_RANK.get(existing_status, -1)
-            derived_rank = _PROGRESS_RANK.get(derived_status, -1)
-            if derived_rank > existing_rank:
+            if rederive:
                 fields["status"] = derived_status
+            else:
+                existing_rank = _PROGRESS_RANK.get(existing_status, -1)
+                derived_rank = _PROGRESS_RANK.get(derived_status, -1)
+                if derived_rank > existing_rank:
+                    fields["status"] = derived_status
 
     if rederive or "project" not in fields:
         project = _derive_project(target, sessions)

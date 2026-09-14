@@ -29,7 +29,7 @@ def _referenced_ids(text: str, candidates) -> set[str]:
     return {candidate.id for candidate in candidates if re.search(re.escape(candidate.id) + r"(\.plan)?\.md", text)}
 
 
-def _eligible(plan, candidate_ids, candidates, sessions, project):
+def _eligible(plan, candidate_ids, candidates, project):
     by_id = {c.id: c for c in candidates}
     eligible = []
     for candidate_id in candidate_ids:
@@ -55,7 +55,7 @@ def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
     preamble_ids = _referenced_ids(_preamble(plan.body), candidates)
 
     for reference_ids in (prompt_ids, preamble_ids):
-        eligible = _eligible(plan, reference_ids, candidates, sessions, project)
+        eligible = _eligible(plan, reference_ids, candidates, project)
         if eligible:
             return max(eligible, key=lambda c: c.started).id
     return None

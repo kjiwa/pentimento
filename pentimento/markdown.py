@@ -27,8 +27,8 @@ _BULLET_RE = re.compile(r"^(\s*)(?:[-*]|\d+\.)\s+(.*)$")
 _INLINE_RE = re.compile(r"\*\*(?P<bold>.+?)\*\*|`(?P<code>.+?)`|(?<!!)\[(?P<link>[^\]]+)\]\([^)]*\)")
 _RULES = ("---", "***")
 
-GLYPHS_UNICODE = {"bullet": "•", "checked": "✓", "unchecked": "☐", "rule": "─"}
-GLYPHS_ASCII = {"bullet": "-", "checked": "[x]", "unchecked": "[ ]", "rule": "-"}
+GLYPHS_UNICODE = {"bullet": "•", "checked": "✓", "unchecked": "☐", "rule": "─", "ellipsis": "…", "dash": "—"}
+GLYPHS_ASCII = {"bullet": "-", "checked": "[x]", "unchecked": "[ ]", "rule": "-", "ellipsis": "...", "dash": "--"}
 
 
 def _glyphs(unicode_ok: bool) -> dict:
@@ -469,7 +469,7 @@ def _wrap_with_prefix(text: str, width: int, prefix: str, prefix_width: int, *, 
     return lines
 
 
-def clip(lines: list[str], limit: int | None, hint: str, *, on_color: bool) -> list[str]:
+def clip(lines: list[str], limit: int | None, hint: str, *, on_color: bool, unicode_ok: bool) -> list[str]:
     if limit is None or len(lines) <= limit:
         return lines
     limit = max(limit, MIN_BODY_LINES)
@@ -479,6 +479,7 @@ def clip(lines: list[str], limit: int | None, hint: str, *, on_color: bool) -> l
     while kept and kept[-1] == "":
         kept.pop()
     remaining = len(lines) - len(kept)
-    message = f"… {remaining} more lines — {hint}"
+    glyphs = _glyphs(unicode_ok)
+    message = f"{glyphs['ellipsis']} {remaining} more lines {glyphs['dash']} {hint}"
     kept.append(style.paint(message, style.DIM, on=on_color))
     return kept

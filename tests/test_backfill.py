@@ -353,5 +353,56 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual(reloaded["plan-b"].fields["parent"], "plan-a")
 
 
+    def test_only_restricts_writes_and_returned_changed(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        _write(self.directory, "other-plan", "# Other\n\n## Progress\n- [x] done\n")
+        plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(plans, only={"root-plan"})
+        self.assertEqual(changed, ["root-plan"])
+
+        reloaded = {p.id: p for p in corpus.load_all(self.directory, sessions={})}
+        self.assertEqual(reloaded["root-plan"].fields["status"], "complete")
+        self.assertEqual(reloaded["other-plan"].fields, {})
+
+    def test_only_is_idempotent(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, only={"root-plan"})
+
+        reloaded_plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(reloaded_plans, only={"root-plan"})
+        self.assertEqual(changed, [])
+
+    def test_derive_status_false_leaves_absent_status_absent(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, derive_status=False)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertNotIn("status", reloaded.fields)
+        self.assertEqual(reloaded.fields["intent"], "unset")
+
+    def test_derive_status_false_leaves_existing_status_untouched(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] done\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, derive_status=False)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "not-started")
+
+    def test_derive_status_false_is_idempotent(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, derive_status=False)
+
+        reloaded_plans = corpus.load_all(self.directory, sessions={})
+        changed = backfill.run(reloaded_plans, derive_status=False)
+        self.assertEqual(changed, [])
+
+
 if __name__ == "__main__":
     unittest.main()

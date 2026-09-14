@@ -84,6 +84,39 @@ class BackfillTests(unittest.TestCase):
         )
         self.assertEqual(child.fields["parent"], "eager-bird")
 
+    def test_parent_derives_against_a_project_derived_in_the_same_pass(self):
+        # Regression: a plan with neither `project` nor `parent` in frontmatter must
+        # still resolve its parent on the pass that first derives its project --
+        # `derive_parent` used to see the plan's stale (absent) project and reject
+        # every same-project candidate.
+        _write(
+            self.directory,
+            "earlier-plan",
+            "---\nproject: real-project\n---\n\n# Earlier\n\n## Progress\nPlanning only.\n",
+        )
+        _write(
+            self.directory,
+            "later-plan",
+            "# Later\n\nSee ~/.claude/plans/earlier-plan.md\n\n## Progress\nPlanning only.\n",
+        )
+        session_sessions = {
+            "earlier-plan": sessions.Session(
+                slug="earlier-plan", project="real-project", started="2026-09-01T00:00:00.000Z", prompt=""
+            ),
+            "later-plan": sessions.Session(
+                slug="later-plan",
+                project="real-project",
+                started="2026-09-02T00:00:00.000Z",
+                prompt="See ~/.claude/plans/earlier-plan.md",
+            ),
+        }
+        plans = corpus.load_all(self.directory, sessions=session_sessions)
+        later = corpus.by_id(plans, "later-plan")
+        fields = backfill.derive_fields(later, plans, session_sessions)
+
+        self.assertEqual(fields["project"], "real-project")
+        self.assertEqual(fields["parent"], "earlier-plan")
+
     def test_rederive_overwrites_derived_fields_but_not_intent_or_created(self):
         _write(
             self.directory,

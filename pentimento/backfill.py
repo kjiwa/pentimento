@@ -72,13 +72,13 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
             fields["project"] = project
 
     if rederive:
-        parent_id = lineage.derive_parent(target, candidates, sessions)
+        parent_id = lineage.derive_parent(target, candidates, sessions, project=fields.get("project"))
         if parent_id:
             fields["parent"] = parent_id
         else:
             fields.pop("parent", None)
     elif "parent" not in fields:
-        parent_id = lineage.derive_parent(target, candidates, sessions)
+        parent_id = lineage.derive_parent(target, candidates, sessions, project=fields.get("project"))
         if parent_id:
             fields["parent"] = parent_id
 

@@ -29,14 +29,14 @@ def _referenced_ids(text: str, candidates) -> set[str]:
     return {candidate.id for candidate in candidates if re.search(re.escape(candidate.id) + r"(\.plan)?\.md", text)}
 
 
-def _eligible(plan, candidate_ids, candidates, sessions):
+def _eligible(plan, candidate_ids, candidates, sessions, project):
     by_id = {c.id: c for c in candidates}
     eligible = []
     for candidate_id in candidate_ids:
         candidate = by_id.get(candidate_id)
         if candidate is None or candidate.id == plan.id:
             continue
-        if candidate.project != plan.project:
+        if candidate.project != project:
             continue
         if candidate.source != plan.source:
             continue
@@ -46,13 +46,16 @@ def _eligible(plan, candidate_ids, candidates, sessions):
     return eligible
 
 
-def derive_parent(plan, candidates, sessions) -> str | None:
+def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
+    """`project` overrides `plan.project` for callers deriving it in the same pass."""
+    if project is None:
+        project = plan.project
     session = sessions.get(plan.id)
     prompt_ids = _referenced_ids(session.prompt, candidates) if session else set()
     preamble_ids = _referenced_ids(_preamble(plan.body), candidates)
 
     for reference_ids in (prompt_ids, preamble_ids):
-        eligible = _eligible(plan, reference_ids, candidates, sessions)
+        eligible = _eligible(plan, reference_ids, candidates, sessions, project)
         if eligible:
             return max(eligible, key=lambda c: c.started).id
     return None

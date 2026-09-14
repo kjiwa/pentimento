@@ -241,13 +241,18 @@ def _column_widths(rows: list[list[str]], width: int) -> list[int]:
     if total <= width:
         return natural
 
-    available = max(width - style.GUTTER * (ncols - 1), _MIN_COLUMN * ncols)
+    available = width - style.GUTTER * (ncols - 1)
+    floor = max(min(_MIN_COLUMN, available // ncols), 1)
     sum_natural = sum(natural) or 1
-    widths = [max(_MIN_COLUMN, round(n * available / sum_natural)) for n in natural]
+    widths = [max(floor, round(n * available / sum_natural)) for n in natural]
     overflow = sum(widths) - available
-    if overflow > 0:
+    while overflow > 0:
         widest = max(range(ncols), key=lambda i: widths[i])
-        widths[widest] = max(_MIN_COLUMN, widths[widest] - overflow)
+        if widths[widest] <= floor:
+            break
+        take = min(overflow, widths[widest] - floor)
+        widths[widest] -= take
+        overflow -= take
     return widths
 
 

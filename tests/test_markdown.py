@@ -169,7 +169,16 @@ class TableTests(unittest.TestCase):
         lines = _render(body, width=10)
         self.assertGreater(len(lines), 2)
         for line in lines:
-            self.assertLessEqual(style.display_width(line), markdown._MIN_COLUMN * 3 + style.GUTTER * 2)
+            self.assertLessEqual(style.display_width(line), 10)
+
+    def test_six_narrow_columns_fit_the_width(self):
+        header = "| " + " | ".join("aaaaaa" for _ in range(6)) + " |"
+        delimiter = "| " + " | ".join("---" for _ in range(6)) + " |"
+        row = "| " + " | ".join("x x x x" for _ in range(6)) + " |"
+        body = f"{header}\n{delimiter}\n{row}"
+        lines = _render(body, width=20)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
 
 
 class LinkTests(unittest.TestCase):

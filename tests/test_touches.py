@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,21 @@ from pentimento import touches
 
 def _write_jsonl(path: Path, records: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+
+def _restore_cache_env(previous):
+    if previous is None:
+        os.environ.pop("XDG_CACHE_HOME", None)
+    else:
+        os.environ["XDG_CACHE_HOME"] = previous
+
+
+def _isolate_cache(test):
+    tmp = tempfile.TemporaryDirectory()
+    test.addCleanup(tmp.cleanup)
+    previous = os.environ.get("XDG_CACHE_HOME")
+    os.environ["XDG_CACHE_HOME"] = tmp.name
+    test.addCleanup(_restore_cache_env, previous)
 
 
 def _tool_use_record(*, slug, cwd, timestamp, tool, input_):
@@ -27,6 +43,7 @@ class LoadTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.directory = Path(self._tmp.name)
+        _isolate_cache(self)
 
     def test_missing_directory_yields_empty_index(self):
         result = touches.load(self.directory / "does-not-exist")

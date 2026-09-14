@@ -14,6 +14,8 @@ import json
 import os
 from pathlib import Path
 
+from pentimento import cache as cache_module
+
 HOME_PROJECT_NAME = "home"
 
 
@@ -35,37 +37,12 @@ def load(directory: Path | None = None) -> dict[str, Session]:
     if not directory.is_dir():
         return {}
 
-    sessions: dict[str, Session] = {}
-    for project_dir in sorted(p for p in directory.iterdir() if p.is_dir()):
-        sessions.update(_load_project(project_dir))
-    return sessions
-
-
-def _load_project(project_dir: Path) -> dict[str, Session]:
+    cached = cache_module.read("sessions")
+    fresh: dict[str, dict] = {}
     by_slug: dict[str, dict] = {}
-    for log_path in sorted(project_dir.glob("*.jsonl")):
-        for record in read_records(log_path):
-            slug = record.get("slug")
-            if not slug:
-                continue
-            entry = by_slug.setdefault(
-                slug, {"cwds": [], "started": None, "ended": None, "prompt": None, "prompt_ts": None}
-            )
-            cwd = record.get("cwd")
-            if cwd:
-                entry["cwds"].append(cwd)
-            timestamp = record.get("timestamp")
-            if timestamp and (entry["started"] is None or timestamp < entry["started"]):
-                entry["started"] = timestamp
-            if timestamp and (entry["ended"] is None or timestamp > entry["ended"]):
-                entry["ended"] = timestamp
-            if timestamp and record.get("type") == "user" and (
-                entry["prompt_ts"] is None or timestamp < entry["prompt_ts"]
-            ):
-                text = _prompt_text(record)
-                if text is not None:
-                    entry["prompt"] = text
-                    entry["prompt_ts"] = timestamp
+    for project_dir in sorted(p for p in directory.iterdir() if p.is_dir()):
+        _load_project(project_dir, cached, fresh, by_slug)
+    cache_module.write("sessions", fresh)
 
     return {
         slug: Session(
@@ -77,6 +54,58 @@ def _load_project(project_dir: Path) -> dict[str, Session]:
         )
         for slug, entry in by_slug.items()
     }
+
+
+def _load_project(project_dir: Path, cached: dict, fresh: dict, by_slug: dict[str, dict]) -> None:
+    for log_path in sorted(project_dir.glob("*.jsonl")):
+        cache_key = cache_module.key(log_path)
+        partials = cached.get(cache_key)
+        if partials is None:
+            partials = _parse_log(log_path)
+        fresh[cache_key] = partials
+        for slug, partial in partials.items():
+            _merge_slug(by_slug, slug, partial)
+
+
+def _parse_log(log_path: Path) -> dict[str, dict]:
+    partials: dict[str, dict] = {}
+    for record in read_records(log_path):
+        slug = record.get("slug")
+        if not slug:
+            continue
+        entry = partials.setdefault(
+            slug, {"cwds": [], "started": None, "ended": None, "prompt": None, "prompt_ts": None}
+        )
+        cwd = record.get("cwd")
+        if cwd:
+            entry["cwds"].append(cwd)
+        timestamp = record.get("timestamp")
+        if timestamp and (entry["started"] is None or timestamp < entry["started"]):
+            entry["started"] = timestamp
+        if timestamp and (entry["ended"] is None or timestamp > entry["ended"]):
+            entry["ended"] = timestamp
+        if timestamp and record.get("type") == "user" and (
+            entry["prompt_ts"] is None or timestamp < entry["prompt_ts"]
+        ):
+            text = _prompt_text(record)
+            if text is not None:
+                entry["prompt"] = text
+                entry["prompt_ts"] = timestamp
+    return partials
+
+
+def _merge_slug(by_slug: dict[str, dict], slug: str, partial: dict) -> None:
+    entry = by_slug.setdefault(
+        slug, {"cwds": [], "started": None, "ended": None, "prompt": None, "prompt_ts": None}
+    )
+    entry["cwds"].extend(partial["cwds"])
+    if partial["started"] and (entry["started"] is None or partial["started"] < entry["started"]):
+        entry["started"] = partial["started"]
+    if partial["ended"] and (entry["ended"] is None or partial["ended"] > entry["ended"]):
+        entry["ended"] = partial["ended"]
+    if partial["prompt_ts"] and (entry["prompt_ts"] is None or partial["prompt_ts"] < entry["prompt_ts"]):
+        entry["prompt"] = partial["prompt"]
+        entry["prompt_ts"] = partial["prompt_ts"]
 
 
 def read_records(log_path: Path):

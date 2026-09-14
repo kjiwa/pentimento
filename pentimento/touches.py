@@ -20,6 +20,7 @@ import json
 import re
 from pathlib import Path
 
+from pentimento import cache as cache_module
 from pentimento import sessions
 
 _TOOLS = {"Read", "Edit", "Write", "NotebookEdit", "MultiEdit", "Task"}
@@ -40,10 +41,19 @@ def load(directory: Path | None = None) -> dict[str, list[Touch]]:
     if not directory.is_dir():
         return {}
 
+    cached = cache_module.read("touches")
+    fresh: dict[str, list[dict]] = {}
     by_plan: dict[str, list[Touch]] = {}
     for log_path in sorted(directory.rglob("*.jsonl")):
-        for touch in _touches_in(log_path):
+        cache_key = cache_module.key(log_path)
+        serialized = cached.get(cache_key)
+        if serialized is None:
+            serialized = [dataclasses.asdict(t) for t in _touches_in(log_path)]
+        fresh[cache_key] = serialized
+        for record in serialized:
+            touch = Touch(**record)
             by_plan.setdefault(touch.plan_id, []).append(touch)
+    cache_module.write("touches", fresh)
 
     for plan_touches in by_plan.values():
         plan_touches.sort(key=lambda t: t.at)

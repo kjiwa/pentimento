@@ -48,8 +48,12 @@ becoming a root -- run `tree` without `--project` to see the whole chain.
 
 ## Backfilling safely
 
-Run `pentimento backfill --dry-run` periodically to see what a real run
-would change before it writes anything. Its footer reports `N plans updated`
+With the `pentimento hook` `PostToolUse` hook and the `SessionEnd` sweep
+both installed ([docs/integrations.md](integrations.md)), frontmatter stays
+current without a manual step. Run `pentimento backfill --dry-run`
+periodically anyway to confirm no unexpected churn -- e.g. after installing
+the hooks for the first time, or against a corpus a harness wrote to
+directly. Its footer reports `N plans updated`
 (or `N plans would change (dry run)`, or `no changes`), so a dry run is never
 mistaken for a real one; `--quiet` suppresses the footer along with the id
 list. Plain `backfill` always recomputes `status`, and fills in `parent` and

@@ -42,6 +42,7 @@ pentimento tree [--status STATUS] [--intent INTENT] [--project PROJECT] [--sourc
 pentimento show <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags]
 pentimento backfill [--dry-run] [--quiet] [--rederive] [--recreate]
+pentimento hook
 pentimento index
 pentimento check [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
@@ -149,7 +150,11 @@ beta      in progress
 ```
 <!-- /sample -->
 
-`backfill` fills in missing fields without touching what's already set.
+`backfill` fills in missing fields without touching what's already set; the
+`pentimento hook` `PostToolUse` hook runs the same logic scoped to the one
+plan just written, minus `status` derivation, and `SessionEnd`'s
+`backfill --quiet` sweep catches `status` once a draft is finished. See
+[docs/integrations.md](docs/integrations.md) for the split.
 `--rederive` instead recomputes `status`, `parent`, and `project` from
 scratch and overwrites them -- `intent` (operator-owned) and `created`
 (immutable) are never touched; a re-derivation that finds no parent removes
@@ -210,8 +215,9 @@ pentimento:
 The vocabulary lives in one place:
 [pentimento/vocabulary.py](pentimento/vocabulary.py).
 
-`status` is derived automatically -- every `backfill` run recomputes it from
-the `## Progress` checkboxes, so it never goes stale even without
+`status` is derived automatically -- every `backfill` run (including the
+`SessionEnd` sweep, but not the per-write `pentimento hook`) recomputes it
+from the `## Progress` checkboxes, so it never goes stale even without
 `--rederive`. It's also correctable: `set --status` is the one way to set
 `superseded` (an operator-only, never-derived value) or to override a
 derivation stuck at `unknown`. `intent` is only ever set by the operator, so
@@ -253,8 +259,9 @@ Ubuntu and macOS.
 
 ## Docs
 
-- [docs/integrations.md](docs/integrations.md) -- wiring `backfill` into
-  Claude Code and Cursor, a slash command, `check` in CI.
+- [docs/integrations.md](docs/integrations.md) -- wiring `backfill` and
+  `pentimento hook` into Claude Code and Cursor, a slash command, `check` in
+  CI.
 - [docs/workflows.md](docs/workflows.md) -- triage, supersession, lineage
   trees, scripting with `--format json`.
 - [docs/troubleshooting.md](docs/troubleshooting.md) -- every empty field

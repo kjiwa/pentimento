@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pentimento hook"
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

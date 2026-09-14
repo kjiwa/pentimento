@@ -16,7 +16,10 @@ as a session `slug`), it's a Cursor plan -- Cursor keeps no session logs, so
 `project` is never derived for one
 ([sessions.py](../pentimento/sessions.py)) -- or `backfill` hasn't run since
 the session log appeared; run `pentimento backfill` (or `check`, which flags
-this as `underived-project`).
+this as `underived-project`). With the `pentimento hook` `PostToolUse` hook
+installed ([docs/integrations.md](integrations.md)), a Claude Code plan gets
+`project` on its first write, so a persistently empty `project` there is an
+anomaly worth investigating, not the steady state.
 
 ## `parent` is empty
 
@@ -76,7 +79,8 @@ Each finding code and its fix ([check.py](../pentimento/check.py)):
   `## Progress` heading with `- [ ]` / `- [x]` items.
 - `underived-project` -- the plan has no `project`, but its session log
   supplies one, meaning `backfill` hasn't caught up. Run `pentimento
-  backfill`.
+  backfill`. With the `PostToolUse` hook installed this finding is now an
+  anomaly, not the steady state -- see [docs/integrations.md](integrations.md).
 - `status-behind-history` -- `status` is `not-started` or `unknown`, but a
   later, differently-slugged session read, edited, or delegated work on the
   plan (see [touches.py](../pentimento/touches.py)). Run `pentimento history

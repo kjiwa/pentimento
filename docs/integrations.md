@@ -2,22 +2,37 @@
 
 ## Claude Code
 
-Run `backfill` automatically when a session ends, with a `SessionEnd` hook.
-Use `SessionEnd`, not `Stop`: `Stop` fires at every turn, and lineage is only
-complete once the session log is finished being written. `SessionEnd`
-supports a `matcher` on the exit reason (`clear`, `resume`, `logout`,
-`prompt_input_exit`, `other`) if you want to filter which exits trigger it;
-leaving it unset runs on every exit reason.
+Two hooks, split by what each field needs to be trustworthy:
+
+- A `PostToolUse` hook on `Write|Edit` runs `pentimento hook` after every
+  plan-file write. `project`, `created`, and (with `--rederive`) `parent` are
+  derived from the session log, which carries `slug` and `cwd` from its first
+  record -- they're safe to write from the moment the plan file exists, so
+  this hook backfills them on every write. It deliberately does not derive
+  `status`: a half-written `## Progress` section can read all-checked mid-draft,
+  and `status` derivation only ever advances, never retracts, so that would
+  make `complete` permanent.
+- A `SessionEnd` hook runs `pentimento backfill --quiet` as a sweep, deriving
+  `status` from the finished draft. `SessionEnd` supports a `matcher` on the
+  exit reason (`clear`, `resume`, `logout`, `prompt_input_exit`, `other`) if
+  you want to filter which exits trigger it; leaving it unset runs on every
+  exit reason.
 
 Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
 into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to
-scope the hook to that repo). `backfill` now recomputes `status` from the
-`## Progress` checkboxes on every run, so this one hook keeps `status`
-current as well as `intent`/`created`/`parent`/`project` -- there's no
-separate step for status to go stale in. `SessionEnd` hooks can't block or
-report back to Claude, so keep this to the one command, and use
-`backfill --dry-run` from a terminal if you want to see what it would
+scope the hooks to that repo). Both hooks run `pentimento`'s own writes
+through `plan.save(keep_mtime=True)`, which do not themselves re-fire
+`PostToolUse` -- that event fires on Claude's tool use, not on filesystem
+changes, so there's no re-entrancy to worry about. Neither hook can block or
+report back to Claude, so keep each to the one command, and use
+`backfill --dry-run` from a terminal if you want to see what a sweep would
 change before it runs unattended.
+
+Two gaps the hooks don't close: `--rederive` is the correction for a `parent`
+that was derived from a transient preamble reference; and a wholesale
+re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
+outright, dropping an operator-set `intent` until the next sweep gap-fills it
+back to the default.
 
 A slash command wrapping `pentimento list --starred`, so you can pull up
 your active/queued plans mid-session. Copy

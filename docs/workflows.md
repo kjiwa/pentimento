@@ -6,16 +6,22 @@
 plans worth looking at today. Narrow further with `--intent active` (just
 the ones in flight) or `--intent queued` (up next). `--status` filters by
 lifecycle stage independently of intent, so `--status partial --starred`
-finds work that's underway and still wanted.
+finds work that's underway and still wanted. `--grep PATTERN` narrows by a
+case-insensitive regex over title and body when a status/intent/tag filter
+isn't specific enough; `--project .` filters to the current directory's
+project without typing its name out.
 
 ## Recording supersession
 
 `status` is maintained automatically -- `backfill` recomputes it from the
-`## Progress` checkboxes on every run, plain or `--rederive`. `set --status`
-exists for the two cases that are always the operator's call: marking a
-plan `superseded` (a value `backfill` never derives and never overwrites),
-and overriding a derivation that's stuck at `unknown` (no `## Progress`
-heading, or one with neither checkboxes nor a recognized prose phrase).
+`## Progress` checkboxes on every run. Plain `backfill` only ever advances
+status, never retracts it; `--rederive` bypasses that ratchet, so it's the
+one way to retract a `complete` whose boxes were later unchecked. `set
+--status` exists for the two cases that are always the operator's call:
+marking a plan `superseded` (a value `backfill` never derives and never
+overwrites, even under `--rederive`), and overriding a derivation that's
+stuck at `unknown` (no `## Progress` heading, or one with neither
+checkboxes nor a recognized prose phrase).
 
 When a plan is replaced rather than finished, mark it explicitly instead of
 leaving it to rot as `not-started`:
@@ -56,9 +62,10 @@ the hooks for the first time, or against a corpus a harness wrote to
 directly. Its footer reports `N plans updated`
 (or `N plans would change (dry run)`, or `no changes`), so a dry run is never
 mistaken for a real one; `--quiet` suppresses the footer along with the id
-list. Plain `backfill` always recomputes `status`, and fills in `parent` and
-`project` only if missing; `--rederive` additionally recomputes `parent` and
-`project` from scratch and overwrites them, which is safe to run repeatedly
+list. Plain `backfill` always recomputes `status` (never retracting it), and
+fills in `parent` and `project` only if missing; `--rederive` additionally
+recomputes `status`, `parent`, and `project` from scratch and overwrites
+them -- including retracting `status` -- which is safe to run repeatedly
 but will remove a `parent` that no longer resolves.
 `--recreate` is the one flag that touches `created`, and should only be run
 once, deliberately, to fix a plan whose `created` was derived incorrectly --

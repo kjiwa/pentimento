@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 
+from tests import _header_block
+
 
 def _extract_sample(readme_text: str, name: str) -> list[str]:
     start_marker = f"<!-- sample:{name} -->"
@@ -10,11 +12,6 @@ def _extract_sample(readme_text: str, name: str) -> list[str]:
     fence_start = block.index("```") + 3
     fence_end = block.index("```", fence_start)
     return block[fence_start:fence_end].strip("\n").splitlines()
-
-
-def _header_block(lines: list[str]) -> list[str]:
-    body_start = lines.index("", 2)
-    return lines[2:body_start]
 
 
 class ReadmeShowSampleTests(unittest.TestCase):

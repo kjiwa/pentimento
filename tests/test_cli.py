@@ -9,38 +9,11 @@ from pathlib import Path
 from unittest import mock
 
 from pentimento import cli, corpus
+from tests import _header_block
 
 
 def _write(directory: Path, name: str, text: str) -> None:
     (directory / f"{name}.md").write_text(text)
-
-
-class _EnvGuard:
-    def __init__(self, **overrides):
-        self._overrides = overrides
-        self._previous = {}
-
-    def __enter__(self):
-        for key, value in self._overrides.items():
-            self._previous[key] = os.environ.get(key)
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-        return self
-
-    def __exit__(self, *exc_info):
-        for key, value in self._previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-
-
-def _header_block(lines: list[str]) -> list[str]:
-    """The flowed frontmatter lines: after the title and its blank line, up to the next blank."""
-    body_start = lines.index("", 2)
-    return lines[2:body_start]
 
 
 def _restore_env(key, previous):
@@ -380,7 +353,7 @@ class CmdShowTests(unittest.TestCase):
             "root-plan",
             "---\nproject: example\nstatus: complete\nintent: active\n---\n\n# Root\n",
         )
-        with _EnvGuard(COLUMNS="100"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "100"}):
             out = io.StringIO()
             args = cli.build_parser().parse_args(["show", "root-plan"])
             with contextlib.redirect_stdout(out):
@@ -394,14 +367,14 @@ class CmdShowTests(unittest.TestCase):
             "root-plan",
             "---\nproject: example\nstatus: complete\nintent: active\n---\n\n# Root\n",
         )
-        with _EnvGuard(COLUMNS="100"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "100"}):
             out = io.StringIO()
             args = cli.build_parser().parse_args(["show", "root-plan"])
             with contextlib.redirect_stdout(out):
                 cli.cmd_show(args)
         wide_header = _header_block(out.getvalue().splitlines())
 
-        with _EnvGuard(COLUMNS="20"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "20"}):
             narrow_out = io.StringIO()
             args = cli.build_parser().parse_args(["show", "root-plan"])
             with contextlib.redirect_stdout(narrow_out):
@@ -412,7 +385,7 @@ class CmdShowTests(unittest.TestCase):
     def test_an_over_long_id_gets_its_own_line_intact(self):
         long_id = "a-very-long-plan-id-that-should-never-be-truncated-no-matter-what"
         _write(self.directory, long_id, "# Root\n")
-        with _EnvGuard(COLUMNS="20"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "20"}):
             out = io.StringIO()
             args = cli.build_parser().parse_args(["show", long_id])
             with contextlib.redirect_stdout(out):
@@ -472,7 +445,7 @@ class CmdShowTests(unittest.TestCase):
             "---\nstatus: complete\nintent: unset\nparent: none\nproject: example\n"
             "created: 2026-09-14\n---\n\n# Root\n",
         )
-        with _EnvGuard(COLUMNS="100"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "100"}):
             out = io.StringIO()
             args = cli.build_parser().parse_args(["show", "root-plan"])
             with contextlib.redirect_stdout(out):
@@ -495,7 +468,7 @@ class CmdShowTests(unittest.TestCase):
             _write(self.directory, plan_id, "---\nstatus: complete\nintent: unset\n---\n\n# Root\n")
         columns = {}
         for plan_id in (short_id, long_id):
-            with _EnvGuard(COLUMNS="100"):
+            with mock.patch.dict(os.environ, {"COLUMNS": "100"}):
                 out = io.StringIO()
                 args = cli.build_parser().parse_args(["show", plan_id])
                 with contextlib.redirect_stdout(out):
@@ -511,7 +484,7 @@ class CmdShowTests(unittest.TestCase):
             "root-plan",
             "---\nstatus: complete\nintent: unset\nmystery: field\n---\n\n# Root\n",
         )
-        with _EnvGuard(COLUMNS="100"):
+        with mock.patch.dict(os.environ, {"COLUMNS": "100"}):
             out = io.StringIO()
             args = cli.build_parser().parse_args(["show", "root-plan"])
             with contextlib.redirect_stdout(out):
@@ -926,7 +899,7 @@ class CmdHookTests(unittest.TestCase):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         path = self.directory / "root-plan.md"
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
-        with _EnvGuard(PENTIMENTO_DEBUG="1"):
+        with mock.patch.dict(os.environ, {"PENTIMENTO_DEBUG": "1"}):
             with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
                 err = io.StringIO()
                 with contextlib.redirect_stderr(err):
@@ -939,7 +912,8 @@ class CmdHookTests(unittest.TestCase):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         path = self.directory / "root-plan.md"
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
-        with _EnvGuard(PENTIMENTO_DEBUG=None):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("PENTIMENTO_DEBUG", None)
             with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
                 err = io.StringIO()
                 with contextlib.redirect_stderr(err):

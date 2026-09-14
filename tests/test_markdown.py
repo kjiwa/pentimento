@@ -31,6 +31,34 @@ class WrapTests(unittest.TestCase):
             self.assertTrue(line.startswith("  "))
             self.assertFalse(line.startswith("  •"))
 
+    def test_a_token_wider_than_the_width_is_broken_into_full_rows(self):
+        token = "a" * 60
+        lines = _render(token, width=20)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
+        self.assertEqual("".join(lines), token)
+
+    def test_a_token_wider_than_its_table_cell_is_broken(self):
+        token = "b" * 60
+        body = f"| col |\n| --- |\n| {token} |"
+        lines = _render(body, width=20)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
+        self.assertIn(token, "".join(lines))
+
+    def test_a_wide_cjk_token_is_split_on_a_character_boundary(self):
+        token = "文" * 30
+        lines = _render(token, width=20)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
+            self.assertNotIn("�", line)
+        self.assertEqual("".join(lines), token)
+
+    def test_fenced_code_with_a_wide_token_is_still_not_reflowed(self):
+        body = "```sh\n" + "a" * 60 + "\n```"
+        lines = _render(body, width=20)
+        self.assertEqual(len(lines), 1)
+
 
 class ListItemContinuationTests(unittest.TestCase):
     def test_fenced_code_nested_under_a_bullet_is_not_folded_into_prose(self):

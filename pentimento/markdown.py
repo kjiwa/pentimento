@@ -119,16 +119,36 @@ def _pack(tokens: list[Token], first_width: int, rest_width: int) -> list[list[T
     row: list[Token] = []
     row_width = 0
     limit = max(first_width, 1)
+
+    def break_row():
+        nonlocal row, row_width, limit
+        rows.append(row)
+        row, row_width = [], 0
+        limit = max(rest_width, 1)
+
     for text, codes, glued in tokens:
         token_width = style.display_width(text)
         space = 1 if row and not glued else 0
         if row and row_width + space + token_width > limit:
-            rows.append(row)
-            row, row_width = [], 0
-            limit = max(rest_width, 1)
-            space = 0
-        row.append((text, codes, glued))
-        row_width += space + token_width
+            break_row()
+
+        # A token wider than a full row is broken unconditionally, not just
+        # reported as overflow: the corpus's over-wide tokens are repo
+        # paths and filenames, and a path pushed past the wrap width breaks
+        # clip's line accounting for every plan below it.
+        while token_width > limit:
+            head, text = style.split_width(text, limit)
+            if not head:
+                break
+            row.append((head, codes, glued))
+            break_row()
+            glued = True
+            token_width = style.display_width(text)
+
+        if text:
+            space = 1 if row and not glued else 0
+            row.append((text, codes, glued))
+            row_width += space + token_width
     if row:
         rows.append(row)
     return rows

@@ -20,8 +20,7 @@ from __future__ import annotations
 import dataclasses
 
 from pentimento import style
-
-Cell = tuple[str, tuple[str, ...]]
+from pentimento.style import Cell
 
 
 @dataclasses.dataclass(frozen=True)

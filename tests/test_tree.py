@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import re
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -131,6 +132,19 @@ class RenderTests(unittest.TestCase):
         root = FakePlan(id="root", title="Root")
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
         self.assertNotIn("2026-", lines[1])
+
+
+    def test_narrow_width_with_color_fits_after_stripping_escapes_and_balances_them(self):
+        root = FakePlan(
+            id="root", title="Root", status="complete", intent="active", tags=["auth", "security"],
+            fields={"created": "2026-01-01"}, mtime=1,
+        )
+        for width in range(20, 60):
+            rendered = _with_width(width, lambda: tree.render([root], on_color=True))
+            meta = rendered.split("\n")[1]
+            stripped = re.sub(r"\033\[[0-9;]*m", "", meta)
+            self.assertLessEqual(style.display_width(stripped), width)
+            self.assertNotIn("\033", stripped)
 
 
 class FitGuaranteeTests(unittest.TestCase):

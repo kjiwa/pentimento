@@ -15,6 +15,8 @@ from pentimento import vocabulary as vocabulary_module
 
 GUTTER = 2
 
+Cell = tuple[str, tuple[str, ...]]
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -97,7 +99,15 @@ def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
     if width <= 0 or display_width(text) <= width:
         return text
     if width <= ellipsis_width:
-        return text[:width]
+        kept = []
+        used = 0
+        for ch in text:
+            char_width = display_width(ch)
+            if used + char_width > width:
+                break
+            kept.append(ch)
+            used += char_width
+        return "".join(kept)
 
     budget = width - ellipsis_width
     kept = []
@@ -109,6 +119,41 @@ def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
         kept.append(ch)
         used += char_width
     return "".join(kept).rstrip() + ellipsis
+
+
+def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[str, str]:
+    """Join `cells` with `separator`, returning the (plain, painted) pair."""
+    plain = separator.join(text for text, _ in cells)
+    painted = separator.join(paint(text, *codes, on=on_color) for text, codes in cells)
+    return plain, painted
+
+
+def truncate_cells(cells: list[Cell], separator: str, width: int, *, unicode_ok: bool, on_color: bool) -> str:
+    """Join `cells` under a `width` column budget.
+
+    Only the cell that straddles the limit is truncated, and its unpainted
+    text is what gets truncated -- painting happens last, same invariant
+    as everywhere else in this module.
+    """
+    sep_width = display_width(separator)
+    parts = []
+    used = 0
+    for index, (text, codes) in enumerate(cells):
+        gap = sep_width if index else 0
+        text_width = display_width(text)
+        if used + gap + text_width <= width:
+            if gap:
+                parts.append(separator)
+            parts.append(paint(text, *codes, on=on_color))
+            used += gap + text_width
+            continue
+        remaining = width - used - gap
+        if remaining > 0:
+            if gap:
+                parts.append(separator)
+            parts.append(paint(truncate(text, remaining, unicode_ok=unicode_ok), *codes, on=on_color))
+        break
+    return "".join(parts)
 
 
 GLYPHS_UNICODE = {

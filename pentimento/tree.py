@@ -66,18 +66,23 @@ def _render_node(
 
     child_prefix = prefix + (glyphs["space"] if is_last else glyphs["vertical"])
     is_repeat = plan.id in visited
-    status_text = style.paint(plan.status, *style.STATUS_CODES.get(plan.status, ()), on=on_color)
-    intent_text = style.paint(plan.intent, *style.INTENT_CODES.get(plan.intent, ()), on=on_color)
-    meta = f"{short_ids[plan.id]}  {status_text}  {intent_text}"
+    cells: list[style.Cell] = [
+        (short_ids[plan.id], ()),
+        (plan.status, style.STATUS_CODES.get(plan.status, ())),
+        (plan.intent, style.INTENT_CODES.get(plan.intent, ())),
+    ]
     if plan.tags:
-        meta += f"  {tags_module.render(plan.tags)}"
+        cells.append((tags_module.render(plan.tags), ()))
     created = plan.fields.get("created")
     if created:
-        meta += f"  {style.paint(created, style.DIM, on=on_color)}"
-    meta += f"  {style.paint(times.relative(plan.modified), style.DIM, on=on_color)}"
+        cells.append((created, (style.DIM,)))
+    cells.append((times.relative(plan.modified), (style.DIM,)))
     if is_repeat:
-        meta += "  (cycle)"
-    meta_line = style.truncate(f"{child_prefix}  {meta}", width, unicode_ok=unicode_ok)
+        cells.append(("(cycle)", ()))
+    prefix_text = f"{child_prefix}  "
+    meta_line = prefix_text + style.truncate_cells(
+        cells, "  ", width - style.display_width(prefix_text), unicode_ok=unicode_ok, on_color=on_color
+    )
     lines.append(meta_line)
 
     if is_repeat:

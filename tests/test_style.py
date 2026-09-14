@@ -101,6 +101,40 @@ class TruncateTests(unittest.TestCase):
         self.assertTrue(result.endswith("..."))
         self.assertEqual(style.display_width(result), 6)
 
+    def test_cjk_text_at_a_width_no_wider_than_the_ellipsis_never_overflows(self):
+        result = style.truncate("文字", 2, unicode_ok=False)
+        self.assertLessEqual(style.display_width(result), 2)
+
+
+class RenderCellsTests(unittest.TestCase):
+    def test_matches_plain_join_when_colour_is_off(self):
+        cells = [("a", (style.BOLD,)), ("b", ())]
+        plain, painted = style.render_cells(cells, "  ", on_color=False)
+        self.assertEqual(plain, "a  b")
+        self.assertEqual(painted, "a  b")
+
+    def test_painted_carries_the_codes(self):
+        cells = [("a", (style.BOLD,)), ("b", ())]
+        _, painted = style.render_cells(cells, "  ", on_color=True)
+        self.assertIn(style.BOLD, painted)
+
+
+class TruncateCellsTests(unittest.TestCase):
+    def test_never_exceeds_the_width(self):
+        cells = [("aaaaaaaaaa", ()), ("bbbbbbbbbb", ()), ("cccccccccc", ())]
+        result = style.truncate_cells(cells, "  ", 10, unicode_ok=True, on_color=False)
+        self.assertLessEqual(style.display_width(result), 10)
+
+    def test_never_emits_a_partial_escape(self):
+        cells = [("aaaaaaaaaa", (style.BOLD,)), ("bbbbbbbbbb", (style.GREEN,))]
+        result = style.truncate_cells(cells, "  ", 8, unicode_ok=True, on_color=True)
+        self.assertEqual(result.count(style.RESET), result.count(style.BOLD) + result.count(style.GREEN))
+
+    def test_identical_to_plain_join_when_colour_is_off_and_it_fits(self):
+        cells = [("a", (style.BOLD,)), ("b", (style.GREEN,))]
+        result = style.truncate_cells(cells, "  ", 20, unicode_ok=True, on_color=False)
+        self.assertEqual(result, "a  b")
+
 
 class GlyphsTests(unittest.TestCase):
     def test_unicode_glyphs_selected(self):

@@ -31,20 +31,20 @@ CYAN = "\033[36m"
 WHITE = "\033[37m"
 
 STATUS_CODES = {
-    "complete": (GREEN,),
-    "partial": (YELLOW,),
-    "not-started": (BLUE,),
-    "superseded": (DIM,),
-    "unknown": (DIM,),
+    vocabulary_module.COMPLETE: (GREEN,),
+    vocabulary_module.PARTIAL: (YELLOW,),
+    vocabulary_module.NOT_STARTED: (BLUE,),
+    vocabulary_module.SUPERSEDED: (DIM,),
+    vocabulary_module.UNKNOWN: (DIM,),
 }
 assert set(STATUS_CODES) == set(vocabulary_module.STATUS_ORDER)
 
 INTENT_CODES = {
-    "active": (BOLD, MAGENTA),
-    "queued": (CYAN,),
-    "someday": (DIM,),
-    "abandoned": (DIM,),
-    "unset": (DIM,),
+    vocabulary_module.ACTIVE: (BOLD, MAGENTA),
+    vocabulary_module.QUEUED: (CYAN,),
+    vocabulary_module.SOMEDAY: (DIM,),
+    vocabulary_module.ABANDONED: (DIM,),
+    vocabulary_module.UNSET: (DIM,),
 }
 assert set(INTENT_CODES) == set(vocabulary_module.INTENT_VALUES)
 

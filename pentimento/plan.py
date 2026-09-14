@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from pentimento import frontmatter, tags, times
+from pentimento import vocabulary as vocabulary_module
 
 EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
 
@@ -47,11 +48,11 @@ class Plan:
 
     @property
     def status(self) -> str:
-        return self.fields.get("status", "unknown")
+        return self.fields.get("status", vocabulary_module.DEFAULT_STATUS)
 
     @property
     def intent(self) -> str:
-        return self.fields.get("intent", "unset")
+        return self.fields.get("intent", vocabulary_module.DEFAULT_INTENT)
 
     @property
     def tags(self) -> list[str]:

@@ -10,7 +10,7 @@ from pentimento import tags as tags_module
 from pentimento import touches as touches_module
 from pentimento import vocabulary as vocabulary_module
 
-_HISTORY_ELIGIBLE_STATUSES = ("not-started", "unknown")
+_HISTORY_ELIGIBLE_STATUSES = vocabulary_module.UNWORKED_STATUSES
 
 
 @dataclasses.dataclass

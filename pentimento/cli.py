@@ -33,7 +33,7 @@ from pentimento import touches as touches_module
 from pentimento import tree as tree_module
 from pentimento import vocabulary as vocabulary_module
 
-STARRED_INTENTS = ("active", "queued")
+STARRED_INTENTS = vocabulary_module.STARRED_INTENTS
 SORT_CHOICES = ("modified", "created", "id", "status", "title")
 _MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 _UNRANKED_STATUS = len(vocabulary_module.STATUS_ORDER)

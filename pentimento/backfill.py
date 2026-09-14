@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pentimento import frontmatter, lineage, status, times
 from pentimento import plan as plan_module
+from pentimento import vocabulary
 
-_PROGRESS_RANK = {"not-started": 0, "partial": 1, "complete": 2}
+_PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary.PROGRESS_ORDER)}
 
 
 def _created_date(target) -> str:
@@ -51,7 +52,7 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
       so unlike `parent`, `rederive` never clears `project`.
     """
     fields = dict(target.fields)
-    fields.setdefault("intent", "unset")
+    fields.setdefault("intent", vocabulary.DEFAULT_INTENT)
     fields.setdefault("created", _created_date(target))
     if recreate:
         fields["created"] = _created_date(target)
@@ -60,7 +61,7 @@ def derive_fields(target, candidates, sessions, *, rederive: bool = False, recre
     derived_status = status.derive_status(target.body)
     if existing_status is None:
         fields["status"] = derived_status
-    elif existing_status != "superseded":
+    elif existing_status != vocabulary.SUPERSEDED:
         existing_rank = _PROGRESS_RANK.get(existing_status, -1)
         derived_rank = _PROGRESS_RANK.get(derived_status, -1)
         if derived_rank > existing_rank:

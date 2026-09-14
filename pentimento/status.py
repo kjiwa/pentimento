@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import re
 
+from pentimento import vocabulary
+
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
 
 NOT_STARTED_PHRASES = (
@@ -52,21 +54,21 @@ def _from_checkboxes(section: str) -> str | None:
         return None
     checked = sum(1 for m in marks if m.lower() == "x")
     if checked == len(marks):
-        return "complete"
+        return vocabulary.COMPLETE
     if checked == 0:
-        return "not-started"
-    return "partial"
+        return vocabulary.NOT_STARTED
+    return vocabulary.PARTIAL
 
 
 def _from_prose(section: str) -> str | None:
     lowered = section.lower()
     if any(phrase in lowered for phrase in NOT_STARTED_PHRASES):
-        return "not-started"
+        return vocabulary.NOT_STARTED
     return None
 
 
 def derive_status(body: str) -> str:
     section = progress_section(body)
     if section is None:
-        return _from_checkboxes(body) or "unknown"
-    return _from_checkboxes(section) or _from_prose(section) or "unknown"
+        return _from_checkboxes(body) or vocabulary.UNKNOWN
+    return _from_checkboxes(section) or _from_prose(section) or vocabulary.UNKNOWN

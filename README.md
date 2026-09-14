@@ -137,7 +137,7 @@ parent: api-auth-redesign
 project: platform
 created: 2026-08-25
 source: claude
-modified: 2026-08-25 09:36
+modified: 2026-08-25 09:40
 
 Progress
 
@@ -147,7 +147,11 @@ Progress
 Context
 
 Tenants opt in via the auth_v2 flag in tenant_settings. Watch error rates before flipping the
-remaining cohort.
+remaining cohort. See the rollout runbook.
+
+Cohort    Status
+internal  complete
+beta      in progress
 ```
 <!-- /sample -->
 
@@ -190,8 +194,8 @@ on this machine, never a claim the plan wasn't worked.
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-30 09:36  authored  api-auth-cleanup                             1
-2026-09-11 09:36  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-08-30 09:40  authored  api-auth-cleanup                             1
+2026-09-11 09:40  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->
 

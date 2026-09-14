@@ -135,7 +135,12 @@ main() {
 ## Context
 
 Tenants opt in via the `auth_v2` flag in `tenant_settings`. Watch error rates
-before flipping the remaining cohort.' \
+before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollout.md).
+
+| Cohort | Status |
+| --- | --- |
+| internal | complete |
+| beta | in progress |' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-rollout-session.jsonl \
     api-auth-rollout /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \

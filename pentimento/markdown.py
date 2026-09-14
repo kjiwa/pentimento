@@ -24,7 +24,8 @@ Token = tuple[str, tuple[str, ...], bool]
 _FENCE_RE = re.compile(r"^(```|~~~)")
 _CHECKBOX_RE = re.compile(r"^(\s*)-\s*\[([ xX])\]\s*(.*)$")
 _BULLET_RE = re.compile(r"^(\s*)(?:[-*]|\d+\.)\s+(.*)$")
-_INLINE_RE = re.compile(r"\*\*(.+?)\*\*|`(.+?)`")
+_INLINE_RE = re.compile(r"\*\*(?P<bold>.+?)\*\*|`(?P<code>.+?)`|(?<!!)\[(?P<link>[^\]]+)\]\([^)]*\)")
+_RULES = ("---", "***")
 
 GLYPHS_UNICODE = {"bullet": "•", "checked": "✓", "unchecked": "☐", "rule": "─"}
 GLYPHS_ASCII = {"bullet": "-", "checked": "[x]", "unchecked": "[ ]", "rule": "-"}
@@ -55,19 +56,27 @@ def _tokenize_spans(text: str) -> list[_Span]:
     for match in _INLINE_RE.finditer(text):
         if match.start() > pos:
             spans.extend(_plain_spans(text, pos, match.start()))
-        if match.group(1) is not None:
-            offset = match.start(1)
+        if match.group("bold") is not None:
+            offset = match.start("bold")
             inner = [
                 (word, (style.BOLD,) + codes, offset + start, offset + end)
-                for word, codes, start, end in _tokenize_spans(match.group(1))
+                for word, codes, start, end in _tokenize_spans(match.group("bold"))
+            ]
+        elif match.group("code") is not None:
+            inner = [
+                (word, (style.CYAN,), start, end) for word, _, start, end in _plain_spans(text, *match.span("code"))
             ]
         else:
-            inner = [(word, (style.CYAN,), start, end) for word, _, start, end in _plain_spans(text, *match.span(2))]
+            offset = match.start("link")
+            inner = []
+            for word, codes, start, end in _tokenize_spans(match.group("link")):
+                codes = codes if style.CYAN in codes else (style.CYAN,) + codes
+                inner.append((word, codes, offset + start, offset + end))
         if inner:
             # Adjacency against text outside the marker is decided by the
-            # marker's own start/end (backticks and all), not group(1|2)'s --
-            # otherwise a token glued right up against the closing `` ` ``
-            # looks one character short of touching.
+            # marker's own start/end (backticks and all), not the named
+            # group's -- otherwise a token glued right up against the
+            # closing `` ` `` looks one character short of touching.
             word, codes, _, end = inner[0]
             inner[0] = (word, codes, match.start(), end)
             word, codes, start, _ = inner[-1]
@@ -158,7 +167,7 @@ def _starts_a_block(stripped: str) -> bool:
         _FENCE_RE.match(stripped)
         or re.match(r"^#{2,6}\s+", stripped)
         or stripped.startswith(("|", ">"))
-        or stripped in ("---", "***")
+        or stripped in _RULES
         or _BULLET_RE.match(stripped)
         or _CHECKBOX_RE.match(stripped)
     )
@@ -184,6 +193,116 @@ def _continuation(lines: list[str], index: int, count: int, indent: int) -> tupl
         parts.append(candidate.strip())
         index += 1
     return " ".join(parts), index
+
+
+_PIPE_RE = re.compile(r"(?<!\\)\|")
+_DELIM_CELL_RE = re.compile(r"^:?-+:?$")
+_MIN_COLUMN = 4
+
+
+def _table_row(line: str) -> list[str]:
+    parts = _PIPE_RE.split(line.strip())
+    if parts and parts[0] == "":
+        parts = parts[1:]
+    if parts and parts[-1] == "":
+        parts = parts[:-1]
+    return [part.strip().replace("\\|", "|") for part in parts]
+
+
+def _column_widths(rows: list[list[str]], width: int) -> list[int]:
+    ncols = len(rows[0]) if rows else 0
+    if ncols == 0:
+        return []
+    natural = [
+        max(style.display_width(_paint_tokens(_inline(row[c]), on_color=False)) for row in rows)
+        for c in range(ncols)
+    ]
+    total = sum(natural) + style.GUTTER * (ncols - 1)
+    if total <= width:
+        return natural
+
+    available = max(width - style.GUTTER * (ncols - 1), _MIN_COLUMN * ncols)
+    sum_natural = sum(natural) or 1
+    widths = [max(_MIN_COLUMN, round(n * available / sum_natural)) for n in natural]
+    overflow = sum(widths) - available
+    if overflow > 0:
+        widest = max(range(ncols), key=lambda i: widths[i])
+        widths[widest] = max(_MIN_COLUMN, widths[widest] - overflow)
+    return widths
+
+
+def _table_cell_lines(text: str, col_width: int, *, bold: bool, on_color: bool) -> list[tuple[str, str]]:
+    """(plain, painted) physical lines for one cell, wrapped to `col_width`."""
+    tokens = _inline(text)
+    if bold:
+        tokens = [(word, (style.BOLD,) + codes, glued) for word, codes, glued in tokens]
+    rows = _pack(tokens, col_width, col_width)
+    return [(_paint_tokens(row, on_color=False), _paint_tokens(row, on_color=on_color)) for row in rows]
+
+
+def _table_row_lines(cells: list[str], widths: list[int], aligns: list[str], *, bold: bool, on_color: bool) -> list[str]:
+    columns = [_table_cell_lines(cell, w, bold=bold, on_color=on_color) for cell, w in zip(cells, widths)]
+    height = max((len(column) for column in columns), default=0) or 1
+    gutter = " " * style.GUTTER
+    lines = []
+    for row_index in range(height):
+        parts = []
+        for col_index, (column, col_width, align) in enumerate(zip(columns, widths, aligns)):
+            plain, painted = column[row_index] if row_index < len(column) else ("", "")
+            pad = " " * max(col_width - style.display_width(plain), 0)
+            is_last = col_index == len(columns) - 1
+            if align == "right":
+                parts.append(pad + painted)
+            elif is_last:
+                parts.append(painted)
+            else:
+                parts.append(painted + pad)
+        lines.append(gutter.join(parts))
+    return lines
+
+
+def _table(
+    lines: list[str], index: int, count: int, width: int, *, on_color: bool, unicode_ok: bool
+) -> tuple[list[str], int]:
+    """Render the run of `|`-prefixed `lines` starting at `index`.
+
+    `table.py` is not reused: it truncates fixed-height rows and its flex
+    model drains columns in declaration order, which would squash column one
+    to nothing on the corpus's widest rows.
+    """
+    raw_rows = []
+    while index < count and lines[index].strip().startswith("|"):
+        raw_rows.append(_table_row(lines[index]))
+        index += 1
+
+    header = None
+    body = raw_rows
+    delimiter = raw_rows[1] if len(raw_rows) >= 2 else None
+    if delimiter and all(_DELIM_CELL_RE.match(cell) for cell in delimiter):
+        header = raw_rows[0]
+        body = raw_rows[2:]
+    else:
+        delimiter = None
+
+    ncols = max((len(row) for row in ([header] if header else []) + body), default=0)
+    if header is not None:
+        header = header + [""] * (ncols - len(header))
+    body = [row + [""] * (ncols - len(row)) for row in body]
+
+    aligns = ["left"] * ncols
+    if delimiter:
+        for i, cell in enumerate(delimiter[:ncols]):
+            if cell.endswith(":") and not cell.startswith(":"):
+                aligns[i] = "right"
+
+    widths = _column_widths(([header] if header else []) + body, width)
+
+    out = []
+    if header is not None:
+        out.extend(_table_row_lines(header, widths, aligns, bold=True, on_color=on_color))
+    for row in body:
+        out.extend(_table_row_lines(row, widths, aligns, bold=False, on_color=on_color))
+    return out, index
 
 
 def _squeeze(lines: list[str]) -> list[str]:
@@ -253,8 +372,8 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
 
         if stripped.startswith("|"):
             flush_paragraph()
-            out.append(style.truncate(line, width, unicode_ok=unicode_ok))
-            index += 1
+            table_lines, index = _table(lines, index, count, width, on_color=on_color, unicode_ok=unicode_ok)
+            out.extend(table_lines)
             continue
 
         checkbox_match = _CHECKBOX_RE.match(line)
@@ -295,7 +414,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
                 out.append(style.paint(wrapped, style.DIM, on=on_color))
             continue
 
-        if stripped in ("---", "***"):
+        if stripped in _RULES:
             flush_paragraph()
             rule = glyphs["rule"] * width
             out.append(style.paint(rule, style.DIM, on=on_color))

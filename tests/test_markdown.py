@@ -86,11 +86,84 @@ class FencedCodeTests(unittest.TestCase):
         self.assertEqual(len(lines), 1)
 
 
-class TableRowTests(unittest.TestCase):
-    def test_table_rows_are_untouched(self):
-        body = "| a | b |\n| --- | --- |"
+class TableTests(unittest.TestCase):
+    def test_header_and_delimiter_render_a_bold_header_row(self):
+        body = "| a | b |\n| --- | --- |\n| 1 | 2 |"
+        lines = _render(body, on_color=True, width=100)
+        self.assertIn(style.BOLD, lines[0])
+        self.assertNotIn("|", "".join(lines))
+        self.assertIn("1", lines[1])
+        self.assertIn("2", lines[1])
+
+    def test_right_aligned_column(self):
+        body = "| name | count |\n| --- | ---: |\n| a | 1 |"
         lines = _render(body, width=100)
-        self.assertEqual(lines, ["| a | b |", "| --- | --- |"])
+        header, row = lines[0], lines[1]
+        self.assertTrue(header.rstrip().endswith("count"))
+        self.assertTrue(row.rstrip().endswith("1"))
+
+    def test_no_delimiter_row_has_no_header(self):
+        body = "| a | b |\n| c | d |"
+        lines = _render(body, on_color=True, width=100)
+        self.assertNotIn(style.BOLD, lines[0])
+        self.assertEqual(len(lines), 2)
+
+    def test_escaped_pipe_is_unescaped_in_a_cell(self):
+        body = r"| a\|b | c |" + "\n| --- | --- |"
+        lines = _render(body, width=100)
+        self.assertIn("a|b", lines[0])
+
+    def test_ragged_row_is_padded(self):
+        body = "| a | b |\n| --- | --- |\n| 1 |"
+        lines = _render(body, width=100)
+        self.assertEqual(len(lines), 2)
+
+    def test_wide_row_wraps_instead_of_truncating(self):
+        body = "| col |\n| --- |\n| " + "word " * 30 + "|"
+        lines = _render(body, width=20)
+        joined = "\n".join(lines)
+        self.assertNotIn("…", joined)
+        self.assertGreater(len(lines), 2)
+
+    def test_narrow_width_hits_the_column_floor(self):
+        body = "| aa aa aa aa | bb bb bb bb | cc cc cc cc |\n| --- | --- | --- |\n| x x x x | y y y y | z z z z |"
+        lines = _render(body, width=10)
+        self.assertGreater(len(lines), 2)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), markdown._MIN_COLUMN * 3 + style.GUTTER * 2)
+
+
+class LinkTests(unittest.TestCase):
+    def test_plain_link_is_painted_cyan_with_markers_removed(self):
+        lines = _render("[some text](https://example.com/x)", on_color=True, width=100)
+        self.assertNotIn("](", lines[0])
+        self.assertNotIn("example.com", lines[0])
+        self.assertIn(style.CYAN, lines[0])
+        self.assertIn("some", lines[0])
+        self.assertIn("text", lines[0])
+
+    def test_link_containing_a_code_span_paints_both(self):
+        lines = _render("[`code`](https://example.com)", on_color=True, width=100)
+        self.assertNotIn("`", lines[0])
+        self.assertIn(style.CYAN, lines[0])
+        self.assertIn("code", lines[0])
+
+    def test_unmatched_bracket_stays_literal(self):
+        lines = _render("[not a link", width=100)
+        self.assertIn("[not", lines[0])
+
+    def test_link_glued_to_adjacent_punctuation(self):
+        lines = _render("([link](https://example.com/x))", width=100)
+        self.assertIn("(link)", lines[0])
+
+    def test_link_as_the_last_token_on_a_wrapped_line(self):
+        text = "one two three four five [linktext](https://example.com/page)"
+        lines = _render(text, width=20)
+        self.assertIn("linktext", "\n".join(lines))
+
+    def test_image_syntax_is_left_alone(self):
+        lines = _render("![alt](image.png)", width=100)
+        self.assertIn("![alt](image.png)", lines[0])
 
 
 class InlineSpanTests(unittest.TestCase):

@@ -13,6 +13,7 @@ from pentimento import vocabulary as vocabulary_module
 EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
 
 CURSOR_SUFFIX = ".plan.md"
+PLAN_SUFFIX = ".md"
 
 
 @dataclasses.dataclass
@@ -132,4 +133,4 @@ def save(plan: Plan, *, keep_mtime: bool = False) -> None:
 
 
 def is_plan_file(path: Path) -> bool:
-    return path.suffix == ".md" and path.name not in EXCLUDED_FILENAMES
+    return path.suffix == PLAN_SUFFIX and path.name not in EXCLUDED_FILENAMES

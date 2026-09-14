@@ -55,11 +55,15 @@ SOURCE_CODES = {
 assert set(SOURCE_CODES) == set(sources_module.SOURCE_NAMES)
 
 
+_COLOR_AUTO, _COLOR_ALWAYS, _COLOR_NEVER = "auto", "always", "never"
+COLOR_CHOICES = (_COLOR_AUTO, _COLOR_ALWAYS, _COLOR_NEVER)
+
+
 def enabled(stream, choice: str) -> bool:
-    """Resolve a `--color {auto,always,never}` choice against a stream."""
-    if choice == "always":
+    """Resolve a `--color` choice (`COLOR_CHOICES`) against a stream."""
+    if choice == _COLOR_ALWAYS:
         return True
-    if choice == "never":
+    if choice == _COLOR_NEVER:
         return False
     if not stream.isatty():
         return False

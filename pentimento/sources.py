@@ -25,9 +25,14 @@ class Source:
     strip_suffix: str
 
 
+def directory_source(directory: Path) -> Source:
+    """A single Claude-style directory, overriding discovery entirely."""
+    return Source(name="claude", directories=[directory], suffix=plan_module.PLAN_SUFFIX, strip_suffix=plan_module.PLAN_SUFFIX)
+
+
 def claude_source() -> Source:
     directory = Path(os.environ.get("AGENT_PLANS_DIR", str(Path.home() / ".claude" / "plans")))
-    return Source(name="claude", directories=[directory], suffix=".md", strip_suffix=".md")
+    return directory_source(directory)
 
 
 def cursor_source() -> Source:
@@ -39,7 +44,7 @@ def cursor_source() -> Source:
             Path.home() / ".cursor" / "plans",
             Path.home() / "Library" / "Application Support" / "Cursor" / "User" / "plans",
         ]
-    return Source(name="cursor", directories=directories, suffix=".plan.md", strip_suffix=".plan.md")
+    return Source(name="cursor", directories=directories, suffix=plan_module.CURSOR_SUFFIX, strip_suffix=plan_module.CURSOR_SUFFIX)
 
 
 def files(source: Source) -> list[Path]:

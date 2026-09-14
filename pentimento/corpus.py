@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import difflib
-import os
 from pathlib import Path
 
 from pentimento import plan as plan_module
@@ -13,7 +12,7 @@ from pentimento import sources as sources_module
 
 
 def plans_directory() -> Path:
-    return Path(os.environ.get("AGENT_PLANS_DIR", str(Path.home() / ".claude" / "plans")))
+    return sources_module.claude_source().directories[0]
 
 
 def load_all(directory: Path | None = None, sessions: dict | None = None) -> list[plan_module.Plan]:
@@ -25,7 +24,7 @@ def load_all(directory: Path | None = None, sessions: dict | None = None) -> lis
     if sessions is None:
         sessions = sessions_module.load()
     if directory is not None:
-        source = sources_module.Source(name="claude", directories=[directory], suffix=".md", strip_suffix=".md")
+        source = sources_module.directory_source(directory)
         pairs = [(source.name, p) for p in sources_module.files(source)]
     else:
         pairs = sources_module.discover()
@@ -38,10 +37,10 @@ def by_id(plans: list[plan_module.Plan], plan_id: str) -> plan_module.Plan | Non
             return candidate
 
     target = plan_id
-    if target.endswith(".plan.md"):
-        target = target[: -len(".plan.md")]
-    elif target.endswith(".md"):
-        target = target[: -len(".md")]
+    if target.endswith(plan_module.CURSOR_SUFFIX):
+        target = target[: -len(plan_module.CURSOR_SUFFIX)]
+    elif target.endswith(plan_module.PLAN_SUFFIX):
+        target = target[: -len(plan_module.PLAN_SUFFIX)]
     target_stem = Path(target).stem
 
     for candidate in plans:

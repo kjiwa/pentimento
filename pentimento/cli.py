@@ -34,7 +34,6 @@ from pentimento import tree as tree_module
 from pentimento import vocabulary as vocabulary_module
 
 STARRED_INTENTS = vocabulary_module.STARRED_INTENTS
-SORT_CHOICES = ("modified", "created", "id", "status", "title")
 _MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 _UNRANKED_STATUS = len(vocabulary_module.STATUS_ORDER)
 
@@ -53,6 +52,10 @@ SORT_KEYS = {
     "status": lambda p: _status_rank(p.status),
     "title": lambda p: p.title,
 }
+SORT_CHOICES = tuple(SORT_KEYS)
+
+_ORDER_ASC, _ORDER_DESC = "asc", "desc"
+ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 
 def _add_filter_args(parser):
@@ -68,7 +71,9 @@ def _add_filter_args(parser):
 
 def _add_sort_args(parser):
     parser.add_argument("--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)")
-    parser.add_argument("--order", choices=("asc", "desc"), default="asc", help="sort direction (default: asc)")
+    parser.add_argument(
+        "--order", choices=ORDER_CHOICES, default=_ORDER_ASC, help=f"sort direction (default: {_ORDER_ASC})"
+    )
 
 
 def _sort_key(args):
@@ -76,19 +81,19 @@ def _sort_key(args):
 
 
 def _sort_descending(args) -> bool:
-    return args.order == "desc"
+    return args.order == _ORDER_DESC
 
 
 def _add_format_args(parser):
     parser.add_argument(
         "--format",
-        choices=("table", "json", "tsv"),
-        default="table",
-        help="output format (default: table)",
+        choices=formats.CHOICES,
+        default=formats.TABLE,
+        help=f"output format (default: {formats.TABLE})",
     )
     parser.add_argument(
         "--color",
-        choices=("auto", "always", "never"),
+        choices=style.COLOR_CHOICES,
         default="auto",
         help="colour policy (default: auto)",
     )
@@ -193,7 +198,7 @@ def _empty_corpus_hint() -> str:
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
     plans = sorted(_apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args))
-    if args.format != "table":
+    if args.format != formats.TABLE:
         formats.emit([record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS)
         return 0
     if not corpus_plans:
@@ -216,7 +221,7 @@ def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
     key, reverse = _sort_key(args), _sort_descending(args)
-    if args.format != "table":
+    if args.format != formats.TABLE:
         records = tree_module.as_records(plans, key=key, reverse=reverse)
         formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
         return 0
@@ -291,7 +296,7 @@ def cmd_show(args) -> int:
     if target is None:
         print(_no_such_plan(plans, args.id), file=sys.stderr)
         return 1
-    if args.format == "table":
+    if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
         header_lines = 0
@@ -417,7 +422,7 @@ def cmd_check(args) -> int:
     touches = touches_module.load()
     plans = corpus.load_all(sessions=sessions)
     findings = check_module.run(plans, sessions, touches)
-    if args.format == "table":
+    if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
         if findings:
@@ -448,7 +453,7 @@ def cmd_history(args) -> int:
         return 1
 
     plan_touches = touches_module.load().get(target.id, [])
-    if args.format != "table":
+    if args.format != formats.TABLE:
         formats.emit(history_module.as_records(target.id, plan_touches), args.format, sys.stdout, history_module.FIELDS)
         return 0
     if not plan_touches:

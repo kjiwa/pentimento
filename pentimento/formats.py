@@ -31,6 +31,9 @@ FORMATS = {
     "tsv": _emit_tsv,
 }
 
+TABLE = "table"  # the human format `emit` does not handle
+CHOICES = (TABLE, *FORMATS)
+
 
 def emit(records, fmt: str, stream=sys.stdout, columns: tuple = ()) -> None:
     """Emit `records` in `fmt`.

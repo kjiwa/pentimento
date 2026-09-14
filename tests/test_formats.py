@@ -36,6 +36,13 @@ def _emit(records, fmt, columns=()) -> str:
     return stream.getvalue()
 
 
+class ChoicesTests(unittest.TestCase):
+    def test_choices_contains_table_plus_every_format(self):
+        self.assertIn(formats.TABLE, formats.CHOICES)
+        for key in formats.FORMATS:
+            self.assertIn(key, formats.CHOICES)
+
+
 class JsonTests(unittest.TestCase):
     def test_field_set_matches_record_as_dict(self):
         plan = FakePlan(id="a", title="Alpha")

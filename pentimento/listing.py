@@ -13,17 +13,56 @@ from __future__ import annotations
 
 from pentimento import shortid, style, table, times
 
-COLUMNS = (
-    table.Column("STATUS", drop=7),
-    table.Column("INTENT", drop=6),
-    table.Column("PROJECT", drop=4),
-    table.Column("SOURCE", drop=3),
-    table.Column("PLAN", drop=5),
-    table.Column("TITLE", flex=1, comfort=32, floor=16),
-    table.Column("TAGS", drop=2),
-    table.Column("CREATED", drop=1),
-    table.Column("UPDATED", align="right"),
+# (Column, include(plans) -> bool, cell(plan, short_ids) -> table.Cell), one spelling per column.
+_SPECS = (
+    (
+        table.Column("STATUS", drop=7),
+        lambda plans: True,
+        lambda p, short_ids: (p.status, style.STATUS_CODES.get(p.status, ())),
+    ),
+    (
+        table.Column("INTENT", drop=6),
+        lambda plans: True,
+        lambda p, short_ids: (p.intent, style.INTENT_CODES.get(p.intent, ())),
+    ),
+    (
+        table.Column("PROJECT", drop=4),
+        lambda plans: len({p.project for p in plans}) > 1,
+        lambda p, short_ids: (p.project or "", ()),
+    ),
+    (
+        table.Column("SOURCE", drop=3),
+        lambda plans: len({p.source for p in plans}) > 1,
+        lambda p, short_ids: (p.source, style.SOURCE_CODES.get(p.source, ())),
+    ),
+    (
+        table.Column("PLAN", drop=5),
+        lambda plans: True,
+        lambda p, short_ids: (short_ids[p.id], ()),
+    ),
+    (
+        table.Column("TITLE", flex=1, comfort=32, floor=16),
+        lambda plans: True,
+        lambda p, short_ids: (p.title if p.has_title else "", ()),
+    ),
+    (
+        table.Column("TAGS", drop=2),
+        lambda plans: any(p.tags for p in plans),
+        lambda p, short_ids: (", ".join(p.tags), ()),
+    ),
+    (
+        table.Column("CREATED", drop=1),
+        lambda plans: any(p.fields.get("created") for p in plans),
+        lambda p, short_ids: (p.fields.get("created", ""), (style.DIM,)),
+    ),
+    (
+        table.Column("UPDATED", align="right"),
+        lambda plans: True,
+        lambda p, short_ids: (times.relative(p.modified), (style.DIM,)),
+    ),
 )
+
+COLUMNS = tuple(spec[0] for spec in _SPECS)
 
 
 def render(plans, on_color: bool, unicode_ok: bool = True, *, short_ids=None) -> str:
@@ -36,39 +75,10 @@ def render(plans, on_color: bool, unicode_ok: bool = True, *, short_ids=None) ->
     """
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
-    show_project = len({p.project for p in plans}) > 1
-    show_source = len({p.source for p in plans}) > 1
-    show_tags = any(p.tags for p in plans)
-    show_created = any(p.fields.get("created") for p in plans)
 
-    shown = {
-        "STATUS": True,
-        "INTENT": True,
-        "PROJECT": show_project,
-        "SOURCE": show_source,
-        "PLAN": True,
-        "TITLE": True,
-        "TAGS": show_tags,
-        "CREATED": show_created,
-        "UPDATED": True,
-    }
-    columns = tuple(c for c in COLUMNS if shown[c.header])
-
-    rows = []
-    for p in plans:
-        title = p.title if p.has_title else ""
-        cells = {
-            "STATUS": (p.status, style.STATUS_CODES.get(p.status, ())),
-            "INTENT": (p.intent, style.INTENT_CODES.get(p.intent, ())),
-            "PROJECT": (p.project or "", ()),
-            "SOURCE": (p.source, style.SOURCE_CODES.get(p.source, ())),
-            "PLAN": (short_ids[p.id], ()),
-            "TITLE": (title, ()),
-            "TAGS": (", ".join(p.tags), ()),
-            "CREATED": (p.fields.get("created", ""), (style.DIM,)),
-            "UPDATED": (times.relative(p.modified), (style.DIM,)),
-        }
-        rows.append(tuple(cells[c.header] for c in columns))
+    active = [(column, cell) for column, include, cell in _SPECS if include(plans)]
+    columns = tuple(column for column, _ in active)
+    rows = [tuple(cell(p, short_ids) for _, cell in active) for p in plans]
 
     width = style.terminal_width()
     return table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)

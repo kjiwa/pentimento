@@ -8,11 +8,11 @@ Status, intent, and lineage over agent plan files.
 
 ![demo](https://raw.githubusercontent.com/kjiwa/pentimento/main/demo/pentimento.gif)
 
-Claude Code and Cursor (and other harnesses) accumulate plan files with no
-status, no starring, and no record of which plan supersedes which. pentimento
-reads a directory of plan markdown files, derives a small frontmatter block
-for each one, and gives you a CLI to list, filter, and render them as a
-lineage tree.
+Coding agents leave plan files behind. After a few hundred of them you
+cannot tell which finished, which you still care about, or which plan
+replaced which — the filenames are random and the files say nothing about
+their own state. pentimento derives that state and gives you a CLI to list,
+filter, and render the lot as a lineage tree.
 
 Built with [Claude Code](https://claude.com/claude-code).
 

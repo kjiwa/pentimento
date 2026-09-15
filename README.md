@@ -14,6 +14,14 @@ replaced which — the filenames are random and the files say nothing about
 their own state. pentimento derives that state and gives you a CLI to list,
 filter, and render the lot as a lineage tree.
 
+The plans worth keeping are the long ones. An infrastructure migration you
+have been designing for months grows subplans, absorbs decisions made in
+discussion, and leaves behind the branches you rejected — which is the part
+you want back a quarter later. A superseded plan is a decision record, not
+garbage, which is why `superseded` is the one status no derivation produces
+or overwrites. A pentimento is the earlier composition showing through a
+repainted canvas; that is what a plans directory is.
+
 Built with [Claude Code](https://claude.com/claude-code).
 
 ## Install
@@ -209,6 +217,21 @@ Full flags for every command, plus the environment variables, are in
 [docs/reference.md](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md).
 Run `pentimento <command> --help` for the same information from the CLI
 itself.
+
+## Scope
+
+pentimento is built for one operator's corpus on one machine. Shared,
+concurrent, or multi-author planning is out of scope and not a gap this tool
+intends to close — `project`, session-prompt lineage, and `modified` are all
+derived from local Claude Code transcripts, and deriving them across authors
+would need a different source, a sync, and an identity model.
+
+Keeping the plans directory in git does get you review and history, and part
+of the derived state travels with the files: `status`, operator-set
+frontmatter, and body-referenced `parent` survive a checkout anywhere;
+`project`, prompt-derived `parent`, and session history do not. See
+[docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
+for the details, and `pentimento index` for an `INDEX.md` worth committing.
 
 ## Requirements and limitations
 

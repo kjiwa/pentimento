@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.4
+
+Docs-only release: the README explains why pentimento exists (long-carried
+plans, not just volume, and the origin of the name) and adds a `## Scope`
+section ruling out shared or multi-author planning as a non-goal.
+`CONTRIBUTING.md` separates the single-maintainer project from the
+single-operator tool. `docs/workflows.md` documents which derived fields
+survive keeping the plans directory in git and which don't.
+
+## 0.1.3
+
+Broadened the PyPI classifiers.
+
 ## 0.1.2
 
 A `pinned` frontmatter field makes a hand-set `status` immune to

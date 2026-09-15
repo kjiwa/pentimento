@@ -1,10 +1,7 @@
 """Memoize per-file derived data across `pentimento` invocations.
 
-Transcripts only grow by appending lines, so a cache keyed on file identity
-(`key`) never goes stale: any edit changes `st_size`. A cache miss, a
-corrupt file, or an unwritable cache directory all degrade to a full parse
-rather than an error -- the same "a missing harness is a normal state"
-stance `sessions.py` already takes.
+A cache miss, a corrupt file, or an unwritable cache directory all degrade
+to a full parse rather than an error.
 """
 
 from __future__ import annotations

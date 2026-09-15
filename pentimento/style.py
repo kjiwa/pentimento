@@ -10,10 +10,15 @@ import os
 import shutil
 import unicodedata
 
-from pentimento import sources as sources_module
 from pentimento import vocabulary as vocabulary_module
 
 GUTTER = 2
+
+
+def _require_matching_keys(mapping: dict, expected, what: str) -> None:
+    if set(mapping) != set(expected):
+        raise ValueError(f"{what} out of sync with its keys")
+
 
 Cell = tuple[str, tuple[str, ...]]
 
@@ -37,7 +42,7 @@ STATUS_CODES = {
     vocabulary_module.SUPERSEDED: (DIM,),
     vocabulary_module.UNKNOWN: (DIM,),
 }
-assert set(STATUS_CODES) == set(vocabulary_module.STATUS_ORDER)
+_require_matching_keys(STATUS_CODES, vocabulary_module.STATUS_ORDER, "STATUS_CODES")
 
 INTENT_CODES = {
     vocabulary_module.ACTIVE: (BOLD, MAGENTA),
@@ -46,13 +51,12 @@ INTENT_CODES = {
     vocabulary_module.ABANDONED: (DIM,),
     vocabulary_module.UNSET: (DIM,),
 }
-assert set(INTENT_CODES) == set(vocabulary_module.INTENT_VALUES)
+_require_matching_keys(INTENT_CODES, vocabulary_module.INTENT_VALUES, "INTENT_CODES")
 
 SOURCE_CODES = {
     "claude": (CYAN,),
     "cursor": (MAGENTA,),
 }
-assert set(SOURCE_CODES) == set(sources_module.SOURCE_NAMES)
 
 
 _COLOR_AUTO, _COLOR_ALWAYS, _COLOR_NEVER = "auto", "always", "never"

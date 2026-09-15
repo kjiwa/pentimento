@@ -1,11 +1,10 @@
 """Shortest-unique trailing-segment ids for the human tables.
 
-Plan ids are hyphen-segmented (`is-it-possible-to-abundant-rabbit`). The
-generated ids put the discriminating `adjective-noun` at the end, so the
-shortest unique *suffix* run of segments is both short and stable -- unlike
-a shortest-unique-prefix scheme, which yields stubs like `a-co`. Machine
-formats and `show`'s `id:` line always use the full id; this module only
-feeds the display tables (`list`, `check`, `tree`).
+Plan ids are hyphen-segmented, with the discriminating `adjective-noun` at
+the end, so the shortest unique *suffix* run of segments is both short and
+stable -- unlike a shortest-unique-prefix scheme. Machine formats and
+`show`'s `id:` line always use the full id; this module only feeds the
+display tables (`list`, `check`, `tree`).
 """
 
 from __future__ import annotations

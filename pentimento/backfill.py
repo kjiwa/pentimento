@@ -39,29 +39,7 @@ def derive_fields(
     recreate: bool = False,
     max_status: str | None = None,
 ) -> dict[str, str]:
-    """Fields to backfill for `target`.
-
-    Each derived field states its gap-fill and its rederive behaviour once:
-
-    - `status`: recomputed every run. `max_status`, when given, clamps the
-      derived value to no higher than that rank on `_PROGRESS_RANK` before the
-      ratchet runs -- a caller deriving mid-draft should pass `vocabulary.PARTIAL`,
-      because a half-written `## Progress` can read all-checked and the
-      monotonic ratchet would make an unclamped `complete` permanent. Plain
-      derivation advances a plan's status but never retracts it: written only
-      when it ranks strictly above the existing value on `_PROGRESS_RANK`, or
-      when no status is set yet. `--rederive` bypasses the ratchet -- it is
-      the only way to retract a `complete` whose `## Progress` boxes were
-      later unchecked. Either way, `superseded` is never overwritten.
-    - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
-    - `created`: gap-filled if absent; never touched by `rederive`, only by
-      `recreate`, which overwrites it from local time.
-    - `parent`: gap-filled if absent; when `rederive`, recomputed and
-      overwritten, cleared if re-derivation finds nothing.
-    - `project`: gap-filled if absent; when `rederive`, recomputed and
-      overwritten, but `_derive_project` falls back to the existing value,
-      so unlike `parent`, `rederive` never clears `project`.
-    """
+    """Fields to backfill for `target`."""
     fields = dict(target.fields)
     fields.setdefault("intent", vocabulary.DEFAULT_INTENT)
     fields.setdefault("created", _created_date(target))

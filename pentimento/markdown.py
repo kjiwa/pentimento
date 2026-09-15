@@ -152,10 +152,6 @@ def _pack(tokens: list[Token], first_width: int, rest_width: int) -> list[list[T
         if row and row_width + space + token_width > limit:
             break_row()
 
-        # A token wider than a full row is broken unconditionally, not just
-        # reported as overflow: the corpus's over-wide tokens are repo
-        # paths and filenames, and a path pushed past the wrap width breaks
-        # clip's line accounting for every plan below it.
         while token_width > limit:
             head, text = style.split_width(text, limit)
             if not head:
@@ -317,14 +313,9 @@ def _table_row_lines(
 
 
 def _table(
-    lines: list[str], index: int, count: int, width: int, *, on_color: bool, unicode_ok: bool
+    lines: list[str], index: int, count: int, width: int, *, on_color: bool
 ) -> tuple[list[str], int]:
-    """Render the run of `|`-prefixed `lines` starting at `index`.
-
-    `table.py` is not reused: it truncates fixed-height rows and its flex
-    model drains columns in declaration order, which would squash column one
-    to nothing on the corpus's widest rows.
-    """
+    """Render the run of `|`-prefixed `lines` starting at `index`."""
     raw_rows = []
     while index < count and lines[index].strip().startswith("|"):
         raw_rows.append(_table_row(lines[index]))
@@ -427,9 +418,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
 
         if stripped.startswith("|"):
             flush_paragraph()
-            table_lines, index = _table(
-                lines, index, count, width, on_color=on_color, unicode_ok=unicode_ok
-            )
+            table_lines, index = _table(lines, index, count, width, on_color=on_color)
             out.extend(table_lines)
             continue
 

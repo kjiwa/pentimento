@@ -1,6 +1,6 @@
 """Derive `status` from a plan's `## Progress` section.
 
-Two signals, in order, each covering a distinct minority of the corpus:
+Two signals, in order:
 1. Checkbox ratio (`- [x]` vs `- [ ]`): all-checked is complete, all-unchecked
    is not-started, mixed is partial.
 2. Prose fallback for sections with no checkboxes at all, e.g. "Nothing

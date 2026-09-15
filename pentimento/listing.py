@@ -1,13 +1,4 @@
-"""Human-facing `list` rendering: one greppable line per plan.
-
-Sort order is decided by the caller (`cli.py`); this module renders plans
-in the order given. Columns are sized to their content -- `table.render`
-never stretches a column to fill the terminal -- and shrink, then drop, in
-a documented order when the terminal is too narrow to hold everything, so
-every line fits `style.terminal_width()`. `PLAN` holds the short id
-(`pentimento/shortid.py`) and is never truncated -- it only drops -- so
-`TITLE` is the sole column that shrinks.
-"""
+"""Human-facing `list` rendering: one greppable line per plan."""
 
 from __future__ import annotations
 

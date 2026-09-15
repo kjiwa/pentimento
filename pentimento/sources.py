@@ -2,8 +2,7 @@
 
 Two harnesses are discovered: Claude Code (`~/.claude/plans/*.md`) and
 Cursor (`~/.cursor/plans/*.plan.md`, plus its legacy pre-migration location).
-A directory that does not exist contributes nothing -- pentimento must stay
-usable without a harness, mirroring `sessions.py`.
+A directory that does not exist contributes nothing.
 """
 
 from __future__ import annotations

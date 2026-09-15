@@ -1,19 +1,4 @@
-"""Content-width column rendering shared by `list` and `check`.
-
-Not a general table library: exactly the layout behaviour those two call
-sites need. Columns are sized to their content and never stretched; surplus
-terminal width is left unused. When a row would still overflow, each flex
-column gives up only the current excess -- never more than it needs to,
-bounded below by its target -- then columns drop, then flex columns shrink
-further to their floor, in the order each `Column` declares -- and the
-per-line truncation in `_render_row` is the unconditional backstop, so
-callers never have to reason about pathological widths.
-
-Padding is applied to the unpainted string, then `style.paint` wraps it --
-the invariant `style.py`'s docstring states. The trailing column is only
-padded when right-aligned (that pads on the left), so no line carries
-trailing whitespace.
-"""
+"""Content-width column rendering shared by `list` and `check`."""
 
 from __future__ import annotations
 

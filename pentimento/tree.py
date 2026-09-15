@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 from pentimento import record as record_module
 from pentimento import shortid, style, times
 from pentimento import tags as tags_module
@@ -52,40 +54,39 @@ def _roots(plans, children_by_parent, key=_id_key, reverse=False):
     return roots
 
 
-def _render_node(
-    plan,
-    children_by_parent,
-    prefix,
-    is_last,
-    lines,
-    visited,
-    on_color,
-    glyphs,
-    unicode_ok,
-    width,
-    short_ids,
-    show_status,
-    show_intent,
-    root_annotation=None,
-):
-    connector = glyphs["last"] if is_last else glyphs["branch"]
+@dataclasses.dataclass(frozen=True)
+class _RenderContext:
+    children_by_parent: dict
+    lines: list
+    visited: set
+    on_color: bool
+    glyphs: dict
+    unicode_ok: bool
+    width: int
+    short_ids: dict
+    show_status: bool
+    show_intent: bool
+
+
+def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
+    connector = ctx.glyphs["last"] if is_last else ctx.glyphs["branch"]
     annotation_text = f"({root_annotation})" if root_annotation else ""
     title_line = f"{prefix}{connector}{plan.title}"
     if annotation_text:
         title_line += f" {annotation_text}"
-    title_line = style.truncate(title_line, width, unicode_ok=unicode_ok)
+    title_line = style.truncate(title_line, ctx.width, unicode_ok=ctx.unicode_ok)
     if annotation_text and title_line.endswith(annotation_text):
         title_line = title_line[: -len(annotation_text)] + style.paint(
-            annotation_text, style.DIM, on=on_color
+            annotation_text, style.DIM, on=ctx.on_color
         )
-    lines.append(title_line)
+    ctx.lines.append(title_line)
 
-    child_prefix = prefix + (glyphs["space"] if is_last else glyphs["vertical"])
-    is_repeat = plan.id in visited
-    cells: list[style.Cell] = [(short_ids[plan.id], ())]
-    if show_status:
+    child_prefix = prefix + (ctx.glyphs["space"] if is_last else ctx.glyphs["vertical"])
+    is_repeat = plan.id in ctx.visited
+    cells: list[style.Cell] = [(ctx.short_ids[plan.id], ())]
+    if ctx.show_status:
         cells.append((plan.status, style.STATUS_CODES.get(plan.status, ())))
-    if show_intent:
+    if ctx.show_intent:
         cells.append((plan.intent, style.INTENT_CODES.get(plan.intent, ())))
     if plan.tags:
         cells.append((tags_module.render(plan.tags), ()))
@@ -99,32 +100,18 @@ def _render_node(
     meta_line = prefix_text + style.truncate_cells(
         cells,
         "  ",
-        width - style.display_width(prefix_text),
-        unicode_ok=unicode_ok,
-        on_color=on_color,
+        ctx.width - style.display_width(prefix_text),
+        unicode_ok=ctx.unicode_ok,
+        on_color=ctx.on_color,
     )
-    lines.append(meta_line)
+    ctx.lines.append(meta_line)
 
     if is_repeat:
         return
-    visited.add(plan.id)
-    kids = children_by_parent.get(plan.id, [])
+    ctx.visited.add(plan.id)
+    kids = ctx.children_by_parent.get(plan.id, [])
     for index, child in enumerate(kids):
-        _render_node(
-            child,
-            children_by_parent,
-            child_prefix,
-            index == len(kids) - 1,
-            lines,
-            visited,
-            on_color,
-            glyphs,
-            unicode_ok,
-            width,
-            short_ids,
-            show_status,
-            show_intent,
-        )
+        _render_node(ctx, child, child_prefix, index == len(kids) - 1)
 
 
 def render(
@@ -156,29 +143,24 @@ def render(
     children_by_parent = _children_by_parent(plans, key, reverse)
     roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
-    lines = []
-    visited = set()
+    ctx = _RenderContext(
+        children_by_parent=children_by_parent,
+        lines=[],
+        visited=set(),
+        on_color=on_color,
+        glyphs=glyphs,
+        unicode_ok=unicode_ok,
+        width=width,
+        short_ids=short_ids,
+        show_status=show_status,
+        show_intent=show_intent,
+    )
     for index, root in enumerate(roots):
         annotation = (
             f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
         )
-        _render_node(
-            root,
-            children_by_parent,
-            "",
-            index == len(roots) - 1,
-            lines,
-            visited,
-            on_color,
-            glyphs,
-            unicode_ok,
-            width,
-            short_ids,
-            show_status,
-            show_intent,
-            annotation,
-        )
-    return "\n".join(lines)
+        _render_node(ctx, root, "", index == len(roots) - 1, annotation)
+    return "\n".join(ctx.lines)
 
 
 def render_grouped(

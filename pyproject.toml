@@ -1,6 +1,6 @@
 [project]
 name = "pentimento"
-version = "0.1.0"
+version = "0.0.1"
 description = "Status, intent, and lineage over agent plan files."
 readme = "README.md"
 requires-python = ">=3.9"

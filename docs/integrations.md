@@ -8,15 +8,17 @@ Two hooks, split by what each field needs to be trustworthy:
   plan-file write. `project`, `created`, and (with `--rederive`) `parent` are
   derived from the session log, which carries `slug` and `cwd` from its first
   record -- they're safe to write from the moment the plan file exists, so
-  this hook backfills them on every write. It deliberately does not derive
-  `status`: a half-written `## Progress` section can read all-checked mid-draft,
-  and `status` derivation only ever advances, never retracts, so that would
-  make `complete` permanent.
-- A `SessionEnd` hook runs `pentimento backfill --quiet` as a sweep, deriving
-  `status` from the finished draft. `SessionEnd` supports a `matcher` on the
-  exit reason (`clear`, `resume`, `logout`, `prompt_input_exit`, `other`) if
-  you want to filter which exits trigger it; leaving it unset runs on every
-  exit reason.
+  this hook backfills them on every write. It also derives `status`, capped at
+  `partial`: a half-written `## Progress` section can read all-checked
+  mid-draft, and `status` derivation only ever advances, never retracts, so
+  writing `complete` from this hook would make that permanent. Capping at
+  `partial` is safe -- it's still strictly better than leaving a worked plan's
+  status stale until the next sweep.
+- A `SessionEnd` hook runs `pentimento backfill` as a sweep, the only thing
+  that advances `status` all the way to `complete`. `SessionEnd` supports a
+  `matcher` on the exit reason (`clear`, `resume`, `logout`,
+  `prompt_input_exit`, `other`) if you want to filter which exits trigger it;
+  leaving it unset runs on every exit reason.
 
 Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
 into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to

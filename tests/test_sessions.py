@@ -221,5 +221,14 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class ProjectNameTests(unittest.TestCase):
+    def test_malformed_relative_cwd_mixed_with_absolute_does_not_crash(self):
+        name = sessions._project_name(["not/absolute", "/Users/kjiwa/src/project-a"])
+        self.assertEqual(name, "project-a")
+
+    def test_all_relative_cwds_yield_empty_project(self):
+        self.assertEqual(sessions._project_name(["relative/one", "relative/two"]), "")
+
+
 if __name__ == "__main__":
     unittest.main()

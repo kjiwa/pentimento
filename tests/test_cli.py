@@ -562,6 +562,93 @@ class CmdCheckTests(unittest.TestCase):
         header = out.getvalue().splitlines()[0]
         self.assertEqual(header.split(), ["CODE", "PLAN", "MESSAGE"])
 
+    def test_unreadable_file_is_reported_and_survives(self):
+        _write(self.directory, "ok", "# Ok\n\n## Progress\n- [x] a\n")
+        secret = self.directory / "secret.md"
+        secret.write_text("# Secret\n")
+        secret.chmod(0)
+        self.addCleanup(secret.chmod, 0o644)
+        out = io.StringIO()
+        err = io.StringIO()
+        args = cli.build_parser().parse_args(["check"])
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            result = cli.cmd_check(args)
+        self.assertEqual(result, 1)
+        self.assertIn("unreadable-file", out.getvalue())
+        self.assertIn("secret.md", err.getvalue())
+
+
+class HostileCorpusTests(unittest.TestCase):
+    """A single unreadable/malformed file must not crash the corpus-wide commands."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "ok", "# Ok\n\n## Progress\n- [x] a\n")
+        (self.directory / "latin1.md").write_bytes(b"# Latin1 \xe9\xe9\n")
+        (self.directory / "binary.md").write_bytes(b"\x00\xff binary")
+        (self.directory / "dangle.md").symlink_to(self.directory / "nonexistent.md")
+        (self.directory / "adir.md").mkdir()
+        secret = self.directory / "secret.md"
+        secret.write_text("# Secret\n")
+        secret.chmod(0)
+        self.addCleanup(secret.chmod, 0o644)
+
+    def test_list_survives_and_lists_the_ok_plan(self):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["list", "--color", "never"])
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            result = cli.cmd_list(args)
+        self.assertIn(result, (0, 1))
+        self.assertIn("ok", out.getvalue())
+
+    def test_tree_survives_and_lists_the_ok_plan(self):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(["tree", "--color", "never"])
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            result = cli.cmd_tree(args)
+        self.assertIn(result, (0, 1))
+        self.assertIn("Ok", out.getvalue())
+
+    def test_check_survives(self):
+        args = cli.build_parser().parse_args(["check"])
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            result = cli.cmd_check(args)
+        self.assertIn(result, (0, 1))
+
+    def test_index_survives(self):
+        args = cli.build_parser().parse_args(["index"])
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            result = cli.cmd_index(args)
+        self.assertIn(result, (0, 1))
+
+
+class MainTopLevelHandlerTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_oserror_from_a_command_is_caught_and_reported(self):
+        err = io.StringIO()
+        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=OSError("boom"))}):
+            with contextlib.redirect_stderr(err):
+                result = cli.main(["list"])
+        self.assertEqual(result, 1)
+        self.assertIn("pentimento: boom", err.getvalue())
+
+    def test_unicodedecodeerror_from_a_command_is_caught_and_reported(self):
+        exc = UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+        err = io.StringIO()
+        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=exc)}):
+            with contextlib.redirect_stderr(err):
+                result = cli.main(["list"])
+        self.assertEqual(result, 1)
+        self.assertIn("pentimento:", err.getvalue())
+
 
 class CmdHistoryTests(unittest.TestCase):
     def setUp(self):

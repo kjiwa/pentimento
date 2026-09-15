@@ -140,7 +140,7 @@ def _prompt_text(record: dict) -> str | None:
 
 
 def _project_name(cwds) -> str:
-    cwds = list(cwds)
+    cwds = [c for c in cwds if os.path.isabs(c)]
     if not cwds:
         return ""
     common = os.path.commonpath(cwds)

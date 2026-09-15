@@ -118,18 +118,25 @@ def _status_behind_history(plans, touches):
     return findings
 
 
-def run(plans, sessions=None, touches=None) -> list[Finding]:
+def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
     `sessions`, when given, enables the `underived-project` finding; it
     stays silent by default so Cursor plans and session-less plans, where
     an empty `project` is a legitimate state, are not flagged. `touches`,
-    when given, enables `status-behind-history` the same way.
+    when given, enables `status-behind-history` the same way. `skips`, when
+    given, is the `(source, path, error)` list `corpus.load_all` collected
+    for files it could not read; each becomes an `unreadable-file` finding.
     """
     sessions = sessions or {}
     touches = touches or {}
+    skips = skips or []
     by_id = {p.id: p for p in plans}
     findings = []
+
+    for _source, path, exc in skips:
+        message = f"could not read {path}: {exc}"
+        findings.append(Finding(path.name, "unreadable-file", message))
 
     for p in _dangling_parents(plans, by_id):
         message = f"parent {p.parent!r} does not resolve to a plan"

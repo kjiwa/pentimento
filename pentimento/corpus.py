@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import sys
 from pathlib import Path
 
 from pentimento import plan as plan_module
@@ -15,11 +16,19 @@ def plans_directory() -> Path:
     return sources_module.claude_source().directories[0]
 
 
-def load_all(directory: Path | None = None, sessions: dict | None = None) -> list[plan_module.Plan]:
+def load_all(
+    directory: Path | None = None,
+    sessions: dict | None = None,
+    skips: list | None = None,
+) -> list[plan_module.Plan]:
     """Load every plan across all sources.
 
     `directory`, when given, overrides discovery entirely with a single
-    Claude-style directory.
+    Claude-style directory. A file that raises `OSError` (unreadable,
+    dangling symlink, a directory named `*.md`, ...) is skipped rather than
+    crashing the whole corpus; one line goes to stderr per skip, and the
+    `(source, path, error)` triple is appended to `skips` when given, so
+    `pentimento check` can also report it.
     """
     if sessions is None:
         sessions = sessions_module.load()
@@ -28,7 +37,15 @@ def load_all(directory: Path | None = None, sessions: dict | None = None) -> lis
         pairs = [(source.name, p) for p in sources_module.files(source)]
     else:
         pairs = sources_module.discover()
-    return [plan_module.load(path, sessions, source=name) for name, path in pairs]
+    plans = []
+    for name, path in pairs:
+        try:
+            plans.append(plan_module.load(path, sessions, source=name))
+        except OSError as exc:
+            print(f"pentimento: skipping unreadable plan {path}: {exc}", file=sys.stderr)
+            if skips is not None:
+                skips.append((name, path, exc))
+    return plans
 
 
 def by_id(plans: list[plan_module.Plan], plan_id: str) -> plan_module.Plan | None:

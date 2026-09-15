@@ -670,8 +670,9 @@ def cmd_index(_args) -> int:
 def cmd_check(args) -> int:
     sessions = sessions_module.load()
     touches = touches_module.load()
-    plans = corpus.load_all(sessions=sessions)
-    findings = check_module.run(plans, sessions, touches)
+    skips = []
+    plans = corpus.load_all(sessions=sessions, skips=skips)
+    findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
@@ -739,7 +740,11 @@ COMMANDS = {
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    return COMMANDS[args.command](args)
+    try:
+        return COMMANDS[args.command](args)
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"pentimento: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

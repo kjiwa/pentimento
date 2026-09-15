@@ -199,6 +199,18 @@ class RunTests(unittest.TestCase):
         }
         self.assertEqual(check.run([plan], touches=touches), [])
 
+    def test_unreadable_file_is_reported(self):
+        from pathlib import Path
+
+        skips = [("claude", Path("/plans/secret.md"), OSError("Permission denied"))]
+        findings = check.run([], skips=skips)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].code, "unreadable-file")
+        self.assertEqual(findings[0].plan_id, "secret.md")
+
+    def test_no_skips_means_no_unreadable_file_findings(self):
+        self.assertEqual(check.run([FakePlan(id="root")], skips=[]), [])
+
 
 if __name__ == "__main__":
     unittest.main()

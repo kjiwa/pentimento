@@ -105,7 +105,7 @@ def _id_for(path: Path) -> str:
 
 
 def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8", errors="replace")
     fields, body, extras = frontmatter.parse(text)
     plan_id = _id_for(path)
     session = (sessions or {}).get(plan_id)

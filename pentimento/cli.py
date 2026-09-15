@@ -186,7 +186,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="pentimento",
         description="Status, intent, and lineage over agent plan files.",
         epilog=(
-            "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans).\n"
+            "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
+            "CURSOR_PLANS_DIR; session history from AGENT_SESSIONS_DIR (default:\n"
+            "~/.claude/projects).\n"
             "Run `pentimento <command> --help` for a command's flags."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

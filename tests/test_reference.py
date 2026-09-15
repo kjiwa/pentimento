@@ -59,8 +59,8 @@ class ReadmeCommandsTests(unittest.TestCase):
     """The `## Commands` block's flags must match the parser exactly."""
 
     def setUp(self):
-        readme_path = Path(__file__).parent.parent / "README.md"
-        self.lines = _extract_commands_block(readme_path.read_text())
+        reference_path = Path(__file__).parent.parent / "docs" / "reference.md"
+        self.lines = _extract_commands_block(reference_path.read_text())
         parser = cli.build_parser()
         subparsers_action = _subparsers_action(parser)
         self.subparsers = subparsers_action.choices

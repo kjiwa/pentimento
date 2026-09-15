@@ -54,7 +54,8 @@ class CmdSetTests(unittest.TestCase):
     def test_resolves_a_short_id(self):
         _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
         args = cli.build_parser().parse_args(["set", "abundant-rabbit", "--status", "complete"])
-        result = cli.cmd_set(args)
+        with _silenced():
+            result = cli.cmd_set(args)
         self.assertEqual(result, 0)
 
         reloaded = corpus.by_id(
@@ -66,7 +67,8 @@ class CmdSetTests(unittest.TestCase):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         _write(self.directory, "child-plan", "# Child\n\n## Progress\n- [ ] todo\n")
         args = cli.build_parser().parse_args(["set", "child-plan", "--parent", "root-plan"])
-        result = cli.cmd_set(args)
+        with _silenced():
+            result = cli.cmd_set(args)
         self.assertEqual(result, 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
@@ -79,13 +81,14 @@ class CmdSetTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\nparent: root-plan\n---\n\n# Child\n",
         )
         args = cli.build_parser().parse_args(["set", "child-plan", "--clear-parent"])
-        result = cli.cmd_set(args)
+        with _silenced():
+            result = cli.cmd_set(args)
         self.assertEqual(result, 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
         self.assertNotIn("parent", reloaded.fields)
 
-    def test_empty_parent_removes_parent(self):
+    def test_empty_string_parent_is_looked_up_literally_not_treated_as_clear(self):
         _write(
             self.directory,
             "child-plan",
@@ -93,15 +96,85 @@ class CmdSetTests(unittest.TestCase):
         )
         args = cli.build_parser().parse_args(["set", "child-plan", "--parent", ""])
         result = cli.cmd_set(args)
+        self.assertEqual(result, 1)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
+        self.assertEqual(reloaded.fields["parent"], "root-plan")
+
+    def test_parent_named_none_is_a_real_lookup(self):
+        _write(self.directory, "none", "# None\n")
+        _write(self.directory, "child-plan", "# Child\n")
+        args = cli.build_parser().parse_args(["set", "child-plan", "--parent", "none"])
+        with _silenced():
+            result = cli.cmd_set(args)
         self.assertEqual(result, 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "child-plan")
-        self.assertNotIn("parent", reloaded.fields)
+        self.assertEqual(reloaded.fields["parent"], "none")
+
+    def test_parent_creating_a_cycle_is_rejected(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\nparent: child-plan\n---\n\n# Root\n",
+        )
+        _write(
+            self.directory,
+            "child-plan",
+            "---\nstatus: not-started\nintent: unset\nparent: root-plan\n---\n\n# Child\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--parent", "child-plan"])
+        result = cli.cmd_set(args)
+        self.assertEqual(result, 1)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.fields["parent"], "child-plan")
+
+    def test_dry_run_reports_without_writing(self):
+        original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        args = cli.build_parser().parse_args(
+            ["set", "root-plan", "--status", "complete", "--dry-run"]
+        )
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+        self.assertIn("status", out.getvalue())
+        self.assertIn("dry run", out.getvalue())
+
+        text = (self.directory / "root-plan.md").read_text()
+        self.assertEqual(text, original)
+
+    def test_clear_project_flag_removes_project(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\nproject: pentimento\n---\n\n# Root\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--clear-project"])
+        with _silenced():
+            result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertNotIn("project", reloaded.fields)
+
+    def test_no_changes_reports_no_changes(self):
+        original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        args = cli.build_parser().parse_args(["set", "root-plan", "--status", "not-started"])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+        self.assertIn("no changes", out.getvalue())
 
     def test_add_tag_writes(self):
         _write(self.directory, "root-plan", "# Root\n")
         args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "auth"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.tags, ["auth"])
@@ -113,7 +186,8 @@ class CmdSetTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\ntags: [Auth]\n---\n\n# Root\n",
         )
         args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "security"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.tags, ["auth", "security"])
@@ -125,7 +199,8 @@ class CmdSetTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\ntags: [auth, security]\n---\n\n# Root\n",
         )
         args = cli.build_parser().parse_args(["set", "root-plan", "--remove-tag", "auth"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.tags, ["security"])
@@ -137,7 +212,8 @@ class CmdSetTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\ntags: [auth, security]\n---\n\n# Root\n",
         )
         args = cli.build_parser().parse_args(["set", "root-plan", "--clear-tags"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertNotIn("tags", reloaded.fields)
@@ -163,7 +239,8 @@ class CmdSetTests(unittest.TestCase):
         before = path.stat().st_mtime
 
         args = cli.build_parser().parse_args(["set", "root-plan", "--status", "complete"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         self.assertEqual(path.stat().st_mtime, before)
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
@@ -178,7 +255,8 @@ class CmdSetTests(unittest.TestCase):
         before = path.stat().st_mtime
 
         args = cli.build_parser().parse_args(["set", "root-plan", "--status", "not-started"])
-        self.assertEqual(cli.cmd_set(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_set(args), 0)
 
         self.assertEqual(path.stat().st_mtime, before)
         self.assertEqual(path.read_text(), original)
@@ -272,9 +350,8 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
         args = cli.build_parser().parse_args(["list", "--grep", "(unclosed"])
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            with self.assertRaises(SystemExit) as ctx:
-                cli.cmd_list(args)
-        self.assertEqual(ctx.exception.code, 1)
+            result = cli.cmd_list(args)
+        self.assertEqual(result, 1)
         self.assertTrue(err.getvalue())
 
     def test_project_dot_resolves_to_the_current_directory_name(self):
@@ -291,7 +368,8 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
             "pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")
         ):
             args = cli.build_parser().parse_args(["set", "root-plan", "--project", "."])
-            self.assertEqual(cli.cmd_set(args), 0)
+            with _silenced():
+                self.assertEqual(cli.cmd_set(args), 0)
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["project"], "pentimento")
 
@@ -320,6 +398,32 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
             _write(self.directory, name, "# Plan\n")
         out = self._run_json(["list", "--sort", "id", "-n", "2"])
         self.assertIn("2 of 3 plans", out)
+
+    def test_negative_limit_is_rejected_by_the_parser(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                cli.build_parser().parse_args(["list", "-n", "-2"])
+        self.assertEqual(ctx.exception.code, 2)
+
+    def test_zero_limit_returns_no_rows_under_ascending_order(self):
+        for name in ("a-plan", "b-plan", "c-plan"):
+            _write(self.directory, name, "# Plan\n")
+        matched = json.loads(
+            self._run_json(
+                ["list", "--sort", "id", "--order", "asc", "-n", "0", "--format", "json"]
+            )
+        )
+        self.assertEqual(matched, [])
+
+    def test_zero_limit_returns_no_rows_under_descending_order(self):
+        for name in ("a-plan", "b-plan", "c-plan"):
+            _write(self.directory, name, "# Plan\n")
+        matched = json.loads(
+            self._run_json(
+                ["list", "--sort", "id", "--order", "desc", "-n", "0", "--format", "json"]
+            )
+        )
+        self.assertEqual(matched, [])
 
 
 class CmdShowTests(unittest.TestCase):

@@ -64,6 +64,13 @@ _ORDER_ASC, _ORDER_DESC = "asc", "desc"
 ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 
+def _non_negative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError(f"limit must not be negative: {value}")
+    return parsed
+
+
 def _add_filter_args(parser):
     group = parser.add_argument_group("filters")
     group.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
@@ -152,7 +159,7 @@ def _apply_filters(plans, args):
             pattern = re.compile(args.grep, re.IGNORECASE)
         except re.error as exc:
             print(str(exc), file=sys.stderr)
-            sys.exit(1)
+            return None
         plans = [p for p in plans if pattern.search(p.title + p.body)]
     return plans
 
@@ -210,8 +217,8 @@ def build_parser() -> argparse.ArgumentParser:
     sort_group.add_argument(
         "-n",
         "--limit",
-        type=int,
-        help="keep only the N rows nearest the prompt (before rendering or emitting)",
+        type=_non_negative_int,
+        help="keep only the N rows nearest the prompt (before rendering or emitting); 0 means none",
     )
 
     p_tree = _add_command(
@@ -254,14 +261,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_set.add_argument("id", help="plan id (filename stem)")
     p_set.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="new status")
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
-    p_set.add_argument("--parent", metavar="ID", help="new parent plan id")
+    p_set.add_argument(
+        "--parent", metavar="ID", help="new parent plan id; rejected if it would create a cycle"
+    )
     p_set.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
-    p_set.add_argument("--project", help="new project")
+    p_set.add_argument(
+        "--project", help="new project; '.' resolves to the current directory's name"
+    )
+    p_set.add_argument("--clear-project", action="store_true", help="clear project")
     p_set.add_argument("--add-tag", metavar="TAG", action="append", help="add a tag; repeatable")
     p_set.add_argument(
         "--remove-tag", metavar="TAG", action="append", help="remove a tag; repeatable"
     )
     p_set.add_argument("--clear-tags", action="store_true", help="remove all tags")
+    p_set.add_argument(
+        "--dry-run", action="store_true", help="report what would change, without writing"
+    )
 
     p_backfill = _add_command(
         sub,
@@ -347,69 +362,77 @@ def _apply_limit(plans, args):
     """Keep the N rows nearest the prompt: the tail under `--order asc`, the head under `desc`."""
     if args.limit is None:
         return plans
+    if args.limit == 0:
+        return []
     return plans[: args.limit] if _sort_descending(args) else plans[-args.limit :]
+
+
+def _render_table_or_empty(corpus_plans, plans, args, render):
+    """Shared `list`/`tree` table-format tail: empty-corpus hint, empty-filter
+    summary, or `render(on_color, unicode_ok, short_ids)` followed by the
+    filtered/total summary line."""
+    if not corpus_plans:
+        print(_empty_corpus_hint(), file=sys.stderr)
+        return 0
+    if not plans:
+        on_color = style.enabled(sys.stdout, args.color)
+        print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
+        return 0
+    on_color = style.enabled(sys.stdout, args.color)
+    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+    short_ids = shortid.shorten(p.id for p in corpus_plans)
+    print(render(on_color, unicode_ok, short_ids))
+    print()
+    print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
+    return 0
 
 
 def cmd_list(args) -> int:
     corpus_plans = corpus.load_all()
-    plans = sorted(
-        _apply_filters(corpus_plans, args), key=_sort_key(args), reverse=_sort_descending(args)
-    )
+    plans = _apply_filters(corpus_plans, args)
+    if plans is None:
+        return 1
+    plans = sorted(plans, key=_sort_key(args), reverse=_sort_descending(args))
     plans = _apply_limit(plans, args)
     if args.format != formats.TABLE:
         formats.emit(
             [record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS
         )
         return 0
-    if not corpus_plans:
-        print(_empty_corpus_hint(), file=sys.stderr)
-        return 0
-    if not plans:
-        on_color = style.enabled(sys.stdout, args.color)
-        print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
-        return 0
-    on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    short_ids = shortid.shorten(p.id for p in corpus_plans)
-    print(listing.render(plans, on_color, unicode_ok, short_ids=short_ids))
-    print()
-    print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
-    return 0
+    return _render_table_or_empty(
+        corpus_plans,
+        plans,
+        args,
+        lambda on_color, unicode_ok, short_ids: listing.render(
+            plans, on_color, unicode_ok, short_ids=short_ids
+        ),
+    )
 
 
 def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
+    if plans is None:
+        return 1
     key, reverse = _sort_key(args), _sort_descending(args)
     if args.format != formats.TABLE:
         records = tree_module.as_records(plans, key=key, reverse=reverse)
         formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
         return 0
-    if not corpus_plans:
-        print(_empty_corpus_hint(), file=sys.stderr)
-        return 0
-    if not plans:
-        on_color = style.enabled(sys.stdout, args.color)
-        print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
-        return 0
-    on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    glyphs = style.glyphs(unicode_ok)
-    short_ids = shortid.shorten(p.id for p in corpus_plans)
-    print(
-        tree_module.render_grouped(
+    return _render_table_or_empty(
+        corpus_plans,
+        plans,
+        args,
+        lambda on_color, unicode_ok, short_ids: tree_module.render_grouped(
             plans,
             on_color,
             key=key,
             reverse=reverse,
-            glyphs=glyphs,
+            glyphs=style.glyphs(unicode_ok),
             unicode_ok=unicode_ok,
             short_ids=short_ids,
-        )
+        ),
     )
-    print()
-    print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
-    return 0
 
 
 FIELD_GUTTER = 3
@@ -543,6 +566,21 @@ def _apply_tag_edits(target, args) -> str | None:
     return None
 
 
+def _describe_field_changes(before: dict, after: dict) -> list[str]:
+    changes = []
+    for key in sorted(set(before) | set(after)):
+        old, new = before.get(key), after.get(key)
+        if old == new:
+            continue
+        if old is None:
+            changes.append(f"{key}: set to {new!r}")
+        elif new is None:
+            changes.append(f"{key}: cleared (was {old!r})")
+        else:
+            changes.append(f"{key}: {old!r} -> {new!r}")
+    return changes
+
+
 def cmd_set(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
@@ -550,12 +588,28 @@ def cmd_set(args) -> int:
         print(_no_such_plan(plans, args.id), file=sys.stderr)
         return 1
 
-    if args.clear_parent or args.parent in ("", "none", "None"):
+    before_fields = dict(target.fields)
+
+    if args.clear_project:
+        target.fields.pop("project", None)
+    elif args.project is not None:
+        resolved = _resolve_project(args.project)
+        if not frontmatter.is_valid_value(resolved):
+            print(f"invalid project: {resolved!r}", file=sys.stderr)
+            return 1
+        target.fields["project"] = resolved
+
+    if args.clear_parent:
         target.fields.pop("parent", None)
     elif args.parent is not None:
         parent_plan = corpus.by_id(plans, args.parent)
         if parent_plan is None:
             print(_no_such_plan(plans, args.parent), file=sys.stderr)
+            return 1
+        fields_by_id = {p.id: p.fields for p in plans}
+        fields_by_id[target.id] = {**target.fields, "parent": parent_plan.id}
+        if backfill_module._resolves_to_cycle(target.id, parent_plan.id, fields_by_id):
+            print(f"pentimento: --parent {parent_plan.id} would create a cycle", file=sys.stderr)
             return 1
         target.fields["parent"] = parent_plan.id
 
@@ -565,21 +619,19 @@ def cmd_set(args) -> int:
             print(f"invalid tag: {invalid!r}", file=sys.stderr)
             return 1
 
-    for field in ("status", "intent", "project"):
+    for field in ("status", "intent"):
         value = getattr(args, field, None)
         if value is not None:
-            if value == "" and field == "project":
-                target.fields.pop(field, None)
-            elif field == "project":
-                resolved = _resolve_project(value)
-                if not frontmatter.is_valid_value(resolved):
-                    print(f"invalid project: {resolved!r}", file=sys.stderr)
-                    return 1
-                target.fields[field] = resolved
-            else:
-                target.fields[field] = value
+            target.fields[field] = value
 
-    if frontmatter.serialize(target.fields, target.body, target.extras) == target.text:
+    changes = _describe_field_changes(before_fields, target.fields)
+    if not changes:
+        print("no changes")
+        return 0
+    suffix = " (dry run)" if args.dry_run else ""
+    for change in changes:
+        print(f"{change}{suffix}")
+    if args.dry_run:
         return 0
     plan_module.save(target, keep_mtime=True)
     return 0

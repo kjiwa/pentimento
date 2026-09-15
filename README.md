@@ -40,7 +40,7 @@ Sources and their default directories are covered in
 pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--sort modified|created|id|status|title] [--order asc|desc] [-n LIMIT] [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento tree [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--sort modified|created|id|status|title] [--order asc|desc] [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento show <id> [--full] [--format table|json|tsv] [--color auto|always|never] [--ascii]
-pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags]
+pentimento set <id> [--status STATUS] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--rederive] [--recreate]
 pentimento hook
 pentimento index

@@ -341,6 +341,57 @@ class BackfillTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["status"], "superseded")
 
+    def test_pinned_status_survives_rederive(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\npinned: true\nintent: unset\n---\n\n"
+            "# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, rederive=True)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
+        self.assertEqual(reloaded.fields["pinned"], "true")
+
+    def test_unpinned_status_still_rederives(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\nintent: unset\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, rederive=True)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "not-started")
+
+    def test_pinned_plans_parent_and_project_still_rederive(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\npinned: true\nintent: unset\nparent: stale-plan\n"
+            "project: stale-project\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        session_sessions = {
+            "root-plan": sessions.Session(
+                slug="root-plan",
+                project="real-project",
+                started="2026-09-01T00:00:00.000Z",
+                prompt="",
+            ),
+        }
+        plans = corpus.load_all(self.directory, sessions=session_sessions)
+        backfill.run(plans, session_sessions, rederive=True)
+
+        reloaded = corpus.by_id(
+            corpus.load_all(self.directory, sessions=session_sessions), "root-plan"
+        )
+        self.assertEqual(reloaded.fields["status"], "complete")
+        self.assertEqual(reloaded.fields["project"], "real-project")
+        self.assertNotIn("parent", reloaded.fields)
+
     def test_set_survives_a_backfill(self):
         _write(
             self.directory,

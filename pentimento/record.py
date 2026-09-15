@@ -8,6 +8,7 @@ _ACCESSORS = {
     "id": lambda p: p.id,
     "title": lambda p: p.title,
     "status": lambda p: p.status,
+    "pinned": lambda p: p.pinned,
     "intent": lambda p: p.intent,
     "tags": lambda p: p.tags,
     "parent": lambda p: p.parent,

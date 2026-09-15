@@ -67,7 +67,8 @@ Every finding's `code`, from [check.py](../pentimento/check.py):
 | `missing-progress` | The body has no `## Progress` heading, so `status` can never be more than a guess from body-wide checkboxes. | Add a `## Progress` heading with `- [ ]` / `- [x]` items. |
 | `underived-project` | The plan has no `project`, but its session log supplies one, meaning `backfill` hasn't caught up. | Run `pentimento backfill`. With the `PostToolUse` hook installed this finding is now an anomaly, not the steady state — see [docs/integrations.md](integrations.md). |
 | `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (see [touches.py](../pentimento/touches.py)). | Run `pentimento history <id>` to see the sessions, then `pentimento set <id> --status <value>` on your own judgement — this finding never fires the other way, so a plan with no history isn't flagged as unworked. |
-| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than what's stored. | Run `pentimento backfill`. |
+| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than what's stored. Skipped when `pinned` is set. | Run `pentimento backfill`. |
+| `pin-diverged` | `pinned` is set but the stored `status` disagrees with what `## Progress` would derive. | The pin is authoritative and nothing is fixed automatically; re-`set --status` or `--unpin` on your own judgement. |
 
 ## `history` is empty
 

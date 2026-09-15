@@ -94,7 +94,7 @@ the human-readable sentence the table format prints.
 `--format json` and `--format tsv` emit the same record for every plan:
 
 ```
-id, title, status, intent, tags, parent, project, source, created, started, modified, path
+id, title, status, pinned, intent, tags, parent, project, source, created, started, modified, path
 ```
 
 (see [record.py](../pentimento/record.py)). `tsv` drops non-scalar fields

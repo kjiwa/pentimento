@@ -63,6 +63,30 @@ class CmdSetTests(unittest.TestCase):
         )
         self.assertEqual(reloaded.fields["status"], "complete")
 
+    def test_status_pins_the_plan(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        args = cli.build_parser().parse_args(["set", "root-plan", "--status", "complete"])
+        with _silenced():
+            result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.fields["pinned"], "true")
+
+    def test_unpin_clears_a_pinned_status(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: complete\npinned: true\nintent: unset\n---\n\n# Root\n",
+        )
+        args = cli.build_parser().parse_args(["set", "root-plan", "--unpin"])
+        with _silenced():
+            result = cli.cmd_set(args)
+        self.assertEqual(result, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertNotIn("pinned", reloaded.fields)
+
     def test_accepts_parent_that_resolves_to_a_plan(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         _write(self.directory, "child-plan", "# Child\n\n## Progress\n- [ ] todo\n")
@@ -161,7 +185,7 @@ class CmdSetTests(unittest.TestCase):
         self.assertNotIn("project", reloaded.fields)
 
     def test_no_changes_reports_no_changes(self):
-        original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
+        original = "---\nstatus: not-started\npinned: true\nintent: unset\n---\n\n# Root\n"
         _write(self.directory, "root-plan", original)
         args = cli.build_parser().parse_args(["set", "root-plan", "--status", "not-started"])
         out = io.StringIO()
@@ -247,7 +271,10 @@ class CmdSetTests(unittest.TestCase):
         self.assertEqual(reloaded.fields["status"], "complete")
 
     def test_no_op_set_leaves_file_bytes_and_mtime_untouched(self):
-        original = "---\npentimento:\n  status: not-started\n  intent: unset\n---\n\n# Root\n"
+        original = (
+            "---\npentimento:\n  status: not-started\n  pinned: true\n  intent: unset\n"
+            "---\n\n# Root\n"
+        )
         _write(self.directory, "root-plan", original)
         path = self.directory / "root-plan.md"
         stat = path.stat()
@@ -824,6 +851,16 @@ class CmdBackfillRederiveTests(unittest.TestCase):
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.fields["status"], "complete")
+
+    def test_only_restricts_writes_to_the_named_id(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        _write(self.directory, "other-plan", "# Other\n\n## Progress\n- [x] done\n")
+        args = cli.build_parser().parse_args(["backfill", "--only", "root-plan", "--quiet"])
+        self.assertEqual(cli.cmd_backfill(args), 0)
+
+        reloaded = {p.id: p for p in corpus.load_all(self.directory)}
+        self.assertEqual(reloaded["root-plan"].fields["status"], "complete")
+        self.assertEqual(reloaded["other-plan"].fields, {})
 
 
 class CmdBackfillRecreateTests(unittest.TestCase):

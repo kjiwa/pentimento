@@ -129,6 +129,17 @@ class SerializeTests(unittest.TestCase):
         self.assertEqual(lines[4], "  parent: root")
         self.assertEqual(lines[5], "---")
 
+    def test_pinned_round_trips_in_canonical_position(self):
+        fields = {"status": "complete", "pinned": "true", "intent": "active"}
+        text = frontmatter.serialize(fields, "body\n")
+        lines = text.split("\n")
+        self.assertEqual(lines[2], "  status: complete")
+        self.assertEqual(lines[3], "  pinned: true")
+        self.assertEqual(lines[4], "  intent: active")
+
+        reparsed, _, _ = frontmatter.parse(text)
+        self.assertEqual(reparsed["pinned"], "true")
+
     def test_tags_round_trip_in_canonical_position(self):
         fields = {
             "status": "complete",

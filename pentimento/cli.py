@@ -262,7 +262,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_set.add_argument("id", help="plan id (filename stem)")
-    p_set.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="new status")
+    p_set.add_argument(
+        "--status",
+        choices=vocabulary_module.STATUS_ORDER,
+        help="new status; pins it against derivation",
+    )
+    p_set.add_argument(
+        "--unpin", action="store_true", help="release a pinned status back to derivation"
+    )
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
     p_set.add_argument(
         "--parent", metavar="ID", help="new parent plan id; rejected if it would create a cycle"
@@ -287,14 +294,25 @@ def build_parser() -> argparse.ArgumentParser:
         "derive and write missing frontmatter",
         description=(
             "Derive status, intent, created, parent, and project for plans missing "
-            "them, and write the frontmatter block. Rerunnable: existing fields are "
-            "kept unless --rederive."
+            "them, and write the frontmatter block. To fix one plan, use --only or "
+            "`pentimento set`; --rederive recomputes derived fields across the whole "
+            "corpus and cannot change a pinned status."
         ),
         epilog="Examples:\n  pentimento backfill --dry-run",
     )
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
     p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
-    p_backfill.add_argument("--rederive", action="store_true", help="recompute derived fields")
+    p_backfill.add_argument(
+        "--only",
+        metavar="ID",
+        action="append",
+        help="restrict writes to this plan id; repeatable",
+    )
+    p_backfill.add_argument(
+        "--rederive",
+        action="store_true",
+        help="recompute derived fields across the whole corpus; cannot change a pinned status",
+    )
     p_backfill.add_argument(
         "--recreate", action="store_true", help="recompute created from local time too"
     )
@@ -627,6 +645,11 @@ def cmd_set(args) -> int:
         if value is not None:
             target.fields[field] = value
 
+    if args.status is not None:
+        target.fields["pinned"] = "true"
+    if args.unpin:
+        target.fields.pop("pinned", None)
+
     changes = _describe_field_changes(before_fields, target.fields)
     if not changes:
         print("no changes")
@@ -704,6 +727,7 @@ def cmd_backfill(args) -> int:
         dry_run=args.dry_run,
         rederive=args.rederive,
         recreate=args.recreate,
+        only=set(args.only) if args.only else None,
         sessions=sessions,
         plans=plans,
     )

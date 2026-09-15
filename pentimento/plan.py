@@ -82,6 +82,10 @@ class Plan:
     def project(self) -> str | None:
         return self.fields.get("project")
 
+    @property
+    def pinned(self) -> bool:
+        return self.fields.get("pinned") == "true"
+
 
 def _first_h1(body: str) -> str | None:
     for line in body.split("\n"):

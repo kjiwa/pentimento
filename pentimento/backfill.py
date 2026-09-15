@@ -52,7 +52,7 @@ def derive_fields(
         derived_status = max_status
     if existing_status is None:
         fields["status"] = derived_status
-    elif existing_status != vocabulary.SUPERSEDED:
+    elif existing_status != vocabulary.SUPERSEDED and fields.get("pinned") != "true":
         if rederive:
             fields["status"] = derived_status
         else:

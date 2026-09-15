@@ -16,7 +16,7 @@ NAMESPACE = "pentimento"
 INDENT = "  "
 
 # Canonical field order for serialization; the reader accepts any order.
-FIELD_ORDER = ("status", "intent", "tags", "parent", "project", "created")
+FIELD_ORDER = ("status", "pinned", "intent", "tags", "parent", "project", "created")
 
 # Sentinel marking, within `Extras.lines`, where the pentimento block goes.
 # Everything else in `Extras.lines` is foreign raw text re-emitted verbatim.

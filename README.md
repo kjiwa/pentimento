@@ -162,6 +162,7 @@ WHEN              WHAT      SESSION                                TOUCHES
 ---
 pentimento:
   status: not-started | partial | complete | superseded | unknown
+  pinned: true                  # omitted unless set
   intent: active | queued | someday | abandoned | unset
   tags: [auth, security]        # omitted if untagged
   parent: some-other-plan-id    # omitted for roots
@@ -175,7 +176,8 @@ The vocabulary lives in one place:
 
 | Field | Set by | How |
 | --- | --- | --- |
-| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly — the only way to set `superseded`, which no derivation ever produces or overwrites. |
+| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly — the only way to set `superseded`, which no derivation ever produces or overwrites — and pins it (see `pinned`). |
+| `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived. `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
 | `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. |

@@ -124,6 +124,8 @@ _PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary_module.PROGRESS_ORDER)}
 def _status_behind_progress(plans):
     findings = []
     for p in plans:
+        if p.pinned:
+            continue
         if p.status not in _PROGRESS_RANK:
             continue
         derived = status_module.derive_status(p.body)
@@ -135,6 +137,19 @@ def _status_behind_progress(plans):
             f"status {p.status!r} but '## Progress' derives {derived!r}; run pentimento backfill"
         )
         findings.append(Finding(p.id, "status-behind-progress", message))
+    return findings
+
+
+def _pin_diverged(plans):
+    findings = []
+    for p in plans:
+        if not p.pinned:
+            continue
+        derived = status_module.derive_status(p.body)
+        if derived == p.status:
+            continue
+        message = f"pinned status {p.status!r} disagrees with derived {derived!r}"
+        findings.append(Finding(p.id, "pin-diverged", message))
     return findings
 
 
@@ -193,5 +208,6 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         findings.append(Finding(p.id, "underived-project", message))
     findings.extend(_status_behind_history(plans, touches))
     findings.extend(_status_behind_progress(plans))
+    findings.extend(_pin_diverged(plans))
 
     return findings

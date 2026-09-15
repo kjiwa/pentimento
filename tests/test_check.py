@@ -11,6 +11,7 @@ from pentimento import touches as touches_module
 class FakePlan:
     id: str
     status: str = "not-started"
+    pinned: bool = False
     intent: str = "unset"
     tags: list = dataclasses.field(default_factory=list)
     parent: str | None = None
@@ -213,6 +214,31 @@ class RunTests(unittest.TestCase):
     def test_status_behind_progress_is_silent_when_in_sync(self):
         plan = FakePlan(id="synced", status="complete", body="## Progress\n\n- [x] done\n")
         self.assertEqual(check.run([plan]), [])
+
+    def test_status_behind_progress_is_silent_for_pinned(self):
+        plan = FakePlan(
+            id="stale", status="not-started", pinned=True, body="## Progress\n\n- [x] done\n"
+        )
+        findings = check.run([plan])
+        self.assertFalse(any(f.code == "status-behind-progress" for f in findings))
+
+    def test_pin_diverged_fires_when_pinned_status_disagrees_with_derived(self):
+        plan = FakePlan(
+            id="stale", status="not-started", pinned=True, body="## Progress\n\n- [x] done\n"
+        )
+        findings = check.run([plan])
+        self.assertTrue(any(f.code == "pin-diverged" and f.plan_id == "stale" for f in findings))
+
+    def test_pin_diverged_is_silent_when_pinned_status_agrees(self):
+        plan = FakePlan(
+            id="synced", status="complete", pinned=True, body="## Progress\n\n- [x] done\n"
+        )
+        self.assertEqual(check.run([plan]), [])
+
+    def test_pin_diverged_is_silent_when_unpinned(self):
+        plan = FakePlan(id="unpinned", status="not-started", body="## Progress\n\n- [x] done\n")
+        findings = check.run([plan])
+        self.assertFalse(any(f.code == "pin-diverged" for f in findings))
 
     def test_unreadable_file_is_reported(self):
         from pathlib import Path

@@ -15,6 +15,7 @@ class FakePlan:
     id: str
     title: str
     status: str = "not-started"
+    pinned: bool = False
     intent: str = "unset"
     tags: list = dataclasses.field(default_factory=list)
     parent: str | None = None

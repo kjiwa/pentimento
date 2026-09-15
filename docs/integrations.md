@@ -27,6 +27,10 @@ re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
 outright, dropping an operator-set `intent` until the next sweep gap-fills it
 back to the default.
 
+Both hooks run the plain, monotonic form of `backfill` -- never `--rederive`
+-- so neither ever sets or clears `pinned`, and both leave a pinned `status`
+alone. Pinning and unpinning are operator actions only, via `pentimento set`.
+
 A `/plans` slash command passes `$ARGUMENTS` straight through to
 `pentimento` -- `/plans` alone runs `pentimento list`, and `/plans tree
 --project platform`, `/plans show <id>`, or `/plans set <id> --intent active`

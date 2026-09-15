@@ -118,6 +118,27 @@ def _status_behind_history(plans, touches):
     return findings
 
 
+_PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary_module.PROGRESS_ORDER)}
+
+
+def _status_behind_progress(plans):
+    findings = []
+    for p in plans:
+        if p.status not in _PROGRESS_RANK:
+            continue
+        derived = status_module.derive_status(p.body)
+        if derived not in _PROGRESS_RANK:
+            continue
+        if _PROGRESS_RANK[derived] <= _PROGRESS_RANK[p.status]:
+            continue
+        message = (
+            f"status {p.status!r} but '## Progress' derives {derived!r}; "
+            "run pentimento backfill"
+        )
+        findings.append(Finding(p.id, "status-behind-progress", message))
+    return findings
+
+
 def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
@@ -172,5 +193,6 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
         findings.append(Finding(p.id, "underived-project", message))
     findings.extend(_status_behind_history(plans, touches))
+    findings.extend(_status_behind_progress(plans))
 
     return findings

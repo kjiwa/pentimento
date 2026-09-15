@@ -199,6 +199,21 @@ class RunTests(unittest.TestCase):
         }
         self.assertEqual(check.run([plan], touches=touches), [])
 
+    def test_status_behind_progress_fires_when_progress_outranks_recorded_status(self):
+        plan = FakePlan(id="stale", status="not-started", body="## Progress\n\n- [x] done\n")
+        findings = check.run([plan])
+        self.assertTrue(
+            any(f.code == "status-behind-progress" and f.plan_id == "stale" for f in findings)
+        )
+
+    def test_status_behind_progress_is_silent_for_superseded(self):
+        plan = FakePlan(id="stale", status="superseded", body="## Progress\n\n- [x] done\n")
+        self.assertEqual(check.run([plan]), [])
+
+    def test_status_behind_progress_is_silent_when_in_sync(self):
+        plan = FakePlan(id="synced", status="complete", body="## Progress\n\n- [x] done\n")
+        self.assertEqual(check.run([plan]), [])
+
     def test_unreadable_file_is_reported(self):
         from pathlib import Path
 

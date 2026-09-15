@@ -976,14 +976,23 @@ class CmdHookTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields["intent"], "unset")
 
-    def test_status_safety_no_status_key_for_all_checked_progress(self):
+    def test_status_safety_all_checked_progress_stops_at_partial(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         path = self.directory / "root-plan.md"
         payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
         self.assertEqual(self._run_hook(payload), 0)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
-        self.assertNotIn("status", reloaded.fields)
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+    def test_mixed_box_progress_reaches_partial(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n- [ ] todo\n")
+        path = self.directory / "root-plan.md"
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        self.assertEqual(self._run_hook(payload), 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "partial")
 
     def test_mtime_preserved_across_the_hook_write(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")

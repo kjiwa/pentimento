@@ -37,21 +37,22 @@ def derive_fields(
     *,
     rederive: bool = False,
     recreate: bool = False,
-    derive_status: bool = True,
+    max_status: str | None = None,
 ) -> dict[str, str]:
     """Fields to backfill for `target`.
 
     Each derived field states its gap-fill and its rederive behaviour once:
 
-    - `status`: recomputed every run, unless `derive_status` is `False` -- a
-      caller deriving mid-draft must pass `False`, because a half-written
-      `## Progress` can read all-checked and the monotonic ratchet would make
-      that `complete` permanent. Plain derivation advances a plan's status
-      but never retracts it: written only when it ranks strictly above the
-      existing value on `_PROGRESS_RANK`, or when no status is set yet.
-      `--rederive` bypasses the ratchet -- it is the only way to retract a
-      `complete` whose `## Progress` boxes were later unchecked. Either way,
-      `superseded` is never overwritten.
+    - `status`: recomputed every run. `max_status`, when given, clamps the
+      derived value to no higher than that rank on `_PROGRESS_RANK` before the
+      ratchet runs -- a caller deriving mid-draft should pass `vocabulary.PARTIAL`,
+      because a half-written `## Progress` can read all-checked and the
+      monotonic ratchet would make an unclamped `complete` permanent. Plain
+      derivation advances a plan's status but never retracts it: written only
+      when it ranks strictly above the existing value on `_PROGRESS_RANK`, or
+      when no status is set yet. `--rederive` bypasses the ratchet -- it is
+      the only way to retract a `complete` whose `## Progress` boxes were
+      later unchecked. Either way, `superseded` is never overwritten.
     - `intent`: gap-filled if absent; never touched otherwise -- operator-owned.
     - `created`: gap-filled if absent; never touched by `rederive`, only by
       `recreate`, which overwrites it from local time.
@@ -67,19 +68,20 @@ def derive_fields(
     if recreate:
         fields["created"] = _created_date(target)
 
-    if derive_status:
-        existing_status = fields.get("status")
-        derived_status = status.derive_status(target.body)
-        if existing_status is None:
+    existing_status = fields.get("status")
+    derived_status = status.derive_status(target.body)
+    if max_status and _PROGRESS_RANK.get(derived_status, -1) > _PROGRESS_RANK[max_status]:
+        derived_status = max_status
+    if existing_status is None:
+        fields["status"] = derived_status
+    elif existing_status != vocabulary.SUPERSEDED:
+        if rederive:
             fields["status"] = derived_status
-        elif existing_status != vocabulary.SUPERSEDED:
-            if rederive:
+        else:
+            existing_rank = _PROGRESS_RANK.get(existing_status, -1)
+            derived_rank = _PROGRESS_RANK.get(derived_status, -1)
+            if derived_rank > existing_rank:
                 fields["status"] = derived_status
-            else:
-                existing_rank = _PROGRESS_RANK.get(existing_status, -1)
-                derived_rank = _PROGRESS_RANK.get(derived_status, -1)
-                if derived_rank > existing_rank:
-                    fields["status"] = derived_status
 
     if rederive or "project" not in fields:
         project = _derive_project(target, sessions)
@@ -111,7 +113,7 @@ def run(
     dry_run: bool = False,
     rederive: bool = False,
     recreate: bool = False,
-    derive_status: bool = True,
+    max_status: str | None = None,
     only=None,
 ) -> list[str]:
     """Backfill frontmatter across `plans`. Returns ids that were changed.
@@ -128,7 +130,7 @@ def run(
             sessions,
             rederive=rederive,
             recreate=recreate,
-            derive_status=derive_status,
+            max_status=max_status,
         )
         for target in plans
     }

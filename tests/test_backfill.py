@@ -421,26 +421,40 @@ class BackfillTests(unittest.TestCase):
         changed = backfill.run(reloaded_plans, only={"root-plan"})
         self.assertEqual(changed, [])
 
-    def test_derive_status_false_leaves_absent_status_absent(self):
+    def test_max_status_caps_absent_status_to_cap(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         plans = corpus.load_all(self.directory, sessions={})
-        backfill.run(plans, derive_status=False)
+        backfill.run(plans, max_status="partial")
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
-        self.assertNotIn("status", reloaded.fields)
+        self.assertEqual(reloaded.fields["status"], "partial")
         self.assertEqual(reloaded.fields["intent"], "unset")
 
-    def test_derive_status_false_leaves_existing_status_untouched(self):
+    def test_max_status_leaves_status_at_cap_untouched(self):
         _write(
             self.directory,
             "root-plan",
-            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] done\n",
+            "---\nstatus: partial\nintent: unset\n---\n\n# Root\n\n## Progress\n- [x] done\n",
         )
         plans = corpus.load_all(self.directory, sessions={})
-        backfill.run(plans, derive_status=False)
+        backfill.run(plans, max_status="partial")
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
-        self.assertEqual(reloaded.fields["status"], "not-started")
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+    def test_max_status_clamps_complete_to_partial(self):
+        _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans, max_status="partial")
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+        # A full backfill without the cap then advances it to complete.
+        changed = backfill.run(corpus.load_all(self.directory, sessions={}))
+        self.assertEqual(changed, ["root-plan"])
+        reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
+        self.assertEqual(reloaded.fields["status"], "complete")
 
     def test_colliding_claude_and_cursor_ids_keep_their_own_derived_status(self):
         # foo.md (Claude) and foo.plan.md (Cursor) collide on id "foo". Before
@@ -463,13 +477,13 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual(reloaded_claude.fields["status"], "not-started")
         self.assertEqual(reloaded_cursor.fields["status"], "complete")
 
-    def test_derive_status_false_is_idempotent(self):
+    def test_max_status_is_idempotent(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         plans = corpus.load_all(self.directory, sessions={})
-        backfill.run(plans, derive_status=False)
+        backfill.run(plans, max_status="partial")
 
         reloaded_plans = corpus.load_all(self.directory, sessions={})
-        changed = backfill.run(reloaded_plans, derive_status=False)
+        changed = backfill.run(reloaded_plans, max_status="partial")
         self.assertEqual(changed, [])
 
 

@@ -56,7 +56,10 @@ becoming a root -- run `tree` without `--project` to see the whole chain.
 
 With the `pentimento hook` `PostToolUse` hook and the `SessionEnd` sweep
 both installed ([docs/integrations.md](integrations.md)), frontmatter stays
-current without a manual step. Run `pentimento backfill --dry-run`
+current without a manual step. The hook derives `status` on every write but
+caps it at `partial`, so a half-written `## Progress` can't land `complete`
+early; only the full `SessionEnd` sweep advances a plan to `complete`. Run
+`pentimento backfill --dry-run`
 periodically anyway to confirm no unexpected churn -- e.g. after installing
 the hooks for the first time, or against a corpus a harness wrote to
 directly. Its footer reports `N plans updated`

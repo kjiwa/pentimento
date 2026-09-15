@@ -24,6 +24,7 @@ from pentimento import (
     shortid,
     style,
     table,
+    vocabulary,
 )
 from pentimento import history as history_module
 from pentimento import hook as hook_module
@@ -285,8 +286,9 @@ def build_parser() -> argparse.ArgumentParser:
         "hook",
         "run as a Claude Code PostToolUse hook; reads the payload on stdin",
         description=(
-            "Read a Claude Code PostToolUse payload on stdin and record the session "
-            "touch. Wiring is in docs/integrations.md."
+            "Read a Claude Code PostToolUse payload on stdin and backfill frontmatter "
+            "for the plan just written, deriving status capped at partial. Wiring is "
+            "in docs/integrations.md."
         ),
     )
 
@@ -588,7 +590,7 @@ def _backfill(
     dry_run: bool = False,
     rederive: bool = False,
     recreate: bool = False,
-    derive_status: bool = True,
+    max_status: str | None = None,
     only=None,
     sessions=None,
     plans=None,
@@ -603,7 +605,7 @@ def _backfill(
         dry_run=dry_run,
         rederive=rederive,
         recreate=recreate,
-        derive_status=derive_status,
+        max_status=max_status,
         only=only,
     )
 
@@ -620,7 +622,9 @@ def cmd_hook(_args) -> int:
         target = corpus.by_id(plans, path.name)
         if target is None:
             return 0
-        changed = _backfill(only={target.id}, derive_status=False, sessions=sessions, plans=plans)
+        changed = _backfill(
+            only={target.id}, max_status=vocabulary.PARTIAL, sessions=sessions, plans=plans
+        )
         for plan_id in changed:
             print(plan_id)
     except Exception:

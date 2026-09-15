@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from pentimento import cli, corpus
-from tests import _header_block, _subparsers_action
+from tests import _header_block, _silenced, _subparsers_action
 
 
 def _write(directory: Path, name: str, text: str) -> None:
@@ -538,7 +538,8 @@ class CmdCheckTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
         )
         args = cli.build_parser().parse_args(["check"])
-        self.assertEqual(cli.cmd_check(args), 0)
+        with _silenced():
+            self.assertEqual(cli.cmd_check(args), 0)
 
     def test_dangling_parent_exits_one(self):
         _write(
@@ -547,7 +548,8 @@ class CmdCheckTests(unittest.TestCase):
             "---\nstatus: not-started\nintent: unset\nparent: no-such-plan\n---\n\n# Root\n",
         )
         args = cli.build_parser().parse_args(["check"])
-        self.assertEqual(cli.cmd_check(args), 1)
+        with _silenced():
+            self.assertEqual(cli.cmd_check(args), 1)
 
     def test_table_output_prints_a_code_plan_message_header(self):
         _write(
@@ -869,7 +871,7 @@ class CmdListSortTests(unittest.TestCase):
 
 class VersionTests(unittest.TestCase):
     def test_version_flag_exits_zero(self):
-        with self.assertRaises(SystemExit) as ctx:
+        with _silenced(), self.assertRaises(SystemExit) as ctx:
             cli.build_parser().parse_args(["--version"])
         self.assertEqual(ctx.exception.code, 0)
 
@@ -936,7 +938,8 @@ class BackfillFooterTests(unittest.TestCase):
     def test_no_changes_footer(self):
         _write(self.directory, "root-plan", "# Root\n")
         args = cli.build_parser().parse_args(["backfill"])
-        cli.cmd_backfill(args)
+        with _silenced():
+            cli.cmd_backfill(args)
 
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -960,7 +963,7 @@ class CmdHookTests(unittest.TestCase):
         _isolate_env(self, self.directory)
 
     def _run_hook(self, payload: str) -> int:
-        with mock.patch.object(sys, "stdin", io.StringIO(payload)):
+        with mock.patch.object(sys, "stdin", io.StringIO(payload)), _silenced():
             return cli.cmd_hook(None)
 
     def test_scoping_leaves_a_second_plan_byte_identical(self):

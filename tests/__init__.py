@@ -1,4 +1,13 @@
 import argparse
+import contextlib
+import io
+
+
+@contextlib.contextmanager
+def _silenced():
+    """Discard stdout from a call exercised only for its return value or side effects."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        yield
 
 
 def _header_block(lines: list[str]) -> list[str]:

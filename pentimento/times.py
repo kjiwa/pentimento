@@ -41,10 +41,27 @@ def parse_iso(text: str) -> datetime.datetime | None:
     return dt
 
 
-def local_date(dt: datetime.datetime | None) -> str | None:
+def parse_date(text: str) -> datetime.date | None:
+    """Parse a `YYYY-MM-DD` date, returning `None` for empty or invalid text."""
+    if not text:
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def local_day(dt: datetime.datetime | None) -> datetime.date | None:
     if dt is None:
         return None
-    return dt.astimezone().strftime("%Y-%m-%d")
+    return dt.astimezone().date()
+
+
+def local_date(dt: datetime.datetime | None) -> str | None:
+    day = local_day(dt)
+    if day is None:
+        return None
+    return day.strftime("%Y-%m-%d")
 
 
 def local_stamp(dt: datetime.datetime | None) -> str | None:

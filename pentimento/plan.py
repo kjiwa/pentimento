@@ -50,6 +50,11 @@ class Plan:
         return times.parse_iso(self.started)
 
     @property
+    def created_date(self) -> datetime.date | None:
+        """The `created` field, or the date `backfill` would have written."""
+        return times.parse_date(self.fields.get("created", "")) or times.local_day(self.created_at)
+
+    @property
     def title(self) -> str:
         return _first_h1(self.body) or self.id
 

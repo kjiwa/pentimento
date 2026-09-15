@@ -41,6 +41,7 @@ from pentimento import vocabulary as vocabulary_module
 
 STARRED_INTENTS = vocabulary_module.STARRED_INTENTS
 _MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+_MIN_DATE = datetime.date.min
 _UNRANKED_STATUS = len(vocabulary_module.STATUS_ORDER)
 
 
@@ -53,7 +54,7 @@ def _status_rank(status: str) -> int:
 
 SORT_KEYS = {
     "modified": lambda p: p.modified,
-    "created": lambda p: p.created_at or _MIN_INSTANT,
+    "created": lambda p: (p.created_date or _MIN_DATE, p.created_at or _MIN_INSTANT),
     "id": lambda p: p.id,
     "status": lambda p: _status_rank(p.status),
     "title": lambda p: p.title,

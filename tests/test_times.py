@@ -32,6 +32,26 @@ class ParseIsoTests(unittest.TestCase):
         self.assertEqual(times.relative(dt, now), "just now")
 
 
+class ParseDateTests(unittest.TestCase):
+    def test_parses_iso_date(self):
+        self.assertEqual(times.parse_date("2026-09-01"), datetime.date(2026, 9, 1))
+
+    def test_empty_string_is_none(self):
+        self.assertIsNone(times.parse_date(""))
+
+    def test_malformed_text_is_none(self):
+        self.assertIsNone(times.parse_date("not a date"))
+
+
+class LocalDayTests(unittest.TestCase):
+    def test_none_input_is_none(self):
+        self.assertIsNone(times.local_day(None))
+
+    def test_returns_a_date(self):
+        dt = datetime.datetime(2026, 9, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        self.assertIsInstance(times.local_day(dt), datetime.date)
+
+
 class LocalDateTests(unittest.TestCase):
     def test_none_input_is_none(self):
         self.assertIsNone(times.local_date(None))

@@ -972,6 +972,33 @@ class CmdListSortTests(unittest.TestCase):
         ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["new-plan", "done-plan"])
 
+    def test_created_sort_uses_the_printed_created_field(self):
+        # "recent-plan" is written (and so gets a birthtime) before
+        # "glowing-penguin", but its `created` field is the later date -- the
+        # sort must follow the field, not the file's own birthtime.
+        _write(self.directory, "recent-plan", "---\ncreated: 2026-09-01\n---\n\n# Recent\n")
+        _write(self.directory, "glowing-penguin", "---\ncreated: 2026-08-11\n---\n\n# Penguin\n")
+        args = cli.build_parser().parse_args(["list", "--sort", "created"])
+        plans = corpus.load_all(self.directory)
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual([p.id for p in ordered], ["glowing-penguin", "recent-plan"])
+
+    def test_created_sort_falls_back_to_created_at_on_a_tie(self):
+        _write(self.directory, "first-plan", "---\ncreated: 2026-09-01\n---\n\n# First\n")
+        _write(self.directory, "second-plan", "---\ncreated: 2026-09-01\n---\n\n# Second\n")
+        args = cli.build_parser().parse_args(["list", "--sort", "created"])
+        plans = corpus.load_all(self.directory)
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual([p.id for p in ordered], ["first-plan", "second-plan"])
+
+    def test_created_sort_does_not_raise_on_missing_or_junk_created(self):
+        _write(self.directory, "no-created-field", "# No field\n")
+        _write(self.directory, "junk-created", "---\ncreated: not-a-date\n---\n\n# Junk\n")
+        args = cli.build_parser().parse_args(["list", "--sort", "created"])
+        plans = corpus.load_all(self.directory)
+        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        self.assertEqual({p.id for p in ordered}, {"no-created-field", "junk-created"})
+
 
 class VersionTests(unittest.TestCase):
     def test_version_flag_exits_zero(self):

@@ -2,6 +2,10 @@
 
 Status, intent, and lineage over agent plan files.
 
+[![check](https://github.com/kjiwa/pentimento/actions/workflows/check.yml/badge.svg)](https://github.com/kjiwa/pentimento/actions/workflows/check.yml)
+[![PyPI](https://img.shields.io/pypi/v/pentimento)](https://pypi.org/project/pentimento/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pentimento)](https://pypi.org/project/pentimento/)
+
 ![demo](https://raw.githubusercontent.com/kjiwa/pentimento/main/demo/pentimento.gif)
 
 Claude Code and Cursor (and other harnesses) accumulate plan files with no
@@ -9,6 +13,8 @@ status, no starring, and no record of which plan supersedes which. pentimento
 reads a directory of plan markdown files, derives a small frontmatter block
 for each one, and gives you a CLI to list, filter, and render them as a
 lineage tree.
+
+Built with [Claude Code](https://claude.com/claude-code).
 
 ## Install
 

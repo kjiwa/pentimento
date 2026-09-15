@@ -6,10 +6,10 @@
 # Runs `pentimento list`, `tree`, `show`, and `check` against a fresh
 # `demo/fixture.sh` corpus and splices each result into README.md between
 # `<!-- sample:NAME -->` / `<!-- /sample -->` marker pairs, so the samples
-# are regenerable. Pins `PENTIMENTO_NOW` unconditionally, overriding any
-# value already in the environment, so the fixture's mtimes and the
-# captured relative times agree byte-for-byte no matter the real wall
-# clock at capture time.
+# are regenerable. Pins `PENTIMENTO_NOW` and `TZ` unconditionally, overriding
+# any value already in the environment, so the fixture's mtimes and the
+# captured relative and absolute times agree byte-for-byte no matter the
+# real wall clock or timezone at capture time.
 set -eu
 
 _capture() {
@@ -73,6 +73,9 @@ main() {
 
   PENTIMENTO_NOW=2026-09-14T12:30:00Z
   export PENTIMENTO_NOW
+
+  TZ=UTC
+  export TZ
 
   sh "$SCRIPT_DIR/fixture.sh" "$FIXTURE_DIR"
 

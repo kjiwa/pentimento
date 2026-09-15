@@ -225,9 +225,7 @@ class RoundTripPropertyTests(unittest.TestCase):
         )
 
     def test_top_level_blank_line(self):
-        self.assert_round_trips(
-            "---\n\npentimento:\n  status: complete\n---\nbody\n"
-        )
+        self.assert_round_trips("---\n\npentimento:\n  status: complete\n---\nbody\n")
 
     def test_crlf_line_endings(self):
         self.assert_round_trips(

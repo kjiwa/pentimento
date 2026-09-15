@@ -132,8 +132,7 @@ def _status_behind_progress(plans):
         if _PROGRESS_RANK[derived] <= _PROGRESS_RANK[p.status]:
             continue
         message = (
-            f"status {p.status!r} but '## Progress' derives {derived!r}; "
-            "run pentimento backfill"
+            f"status {p.status!r} but '## Progress' derives {derived!r}; run pentimento backfill"
         )
         findings.append(Finding(p.id, "status-behind-progress", message))
     return findings

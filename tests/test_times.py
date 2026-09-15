@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import unittest
+from unittest import mock
 
 from pentimento import times
 
@@ -79,6 +80,11 @@ class RelativeTests(unittest.TestCase):
         now = datetime.datetime(2027, 9, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
         dt = datetime.datetime(2026, 9, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
         self.assertEqual(times.relative(dt, now), "1y")
+
+    def test_pentimento_now_overrides_wall_clock(self):
+        dt = datetime.datetime(2026, 9, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        with mock.patch.dict("os.environ", {"PENTIMENTO_NOW": "2026-09-01T12:00:30Z"}):
+            self.assertEqual(times.relative(dt), "just now")
 
 
 if __name__ == "__main__":

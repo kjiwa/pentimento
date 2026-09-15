@@ -8,6 +8,19 @@ local zone at render time.
 from __future__ import annotations
 
 import datetime
+import os
+
+
+def _wall_clock() -> datetime.datetime:
+    override = parse_iso(os.environ.get("PENTIMENTO_NOW", ""))
+    if override is not None:
+        return override
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def now() -> datetime.datetime:
+    """Wall clock, overridable by `PENTIMENTO_NOW` (ISO-8601, UTC)."""
+    return _wall_clock()
 
 
 def parse_iso(text: str) -> datetime.datetime | None:
@@ -42,7 +55,8 @@ def local_stamp(dt: datetime.datetime | None) -> str | None:
 
 def relative(dt: datetime.datetime, now: datetime.datetime | None = None) -> str:
     """A short relative age: `just now`, `14m`, `2h`, `3d`, `5w`, `1y`."""
-    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if now is None:
+        now = _wall_clock()
     delta = (now - dt).total_seconds()
     if delta < 60:
         return "just now"

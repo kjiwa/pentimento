@@ -51,15 +51,15 @@ unique across the corpus, so `is-it-possible-to-abundant-rabbit` displays as
 
 <!-- sample:list -->
 ```
-STATUS       INTENT     PROJECT   PLAN                  TITLE                           UPDATED
-superseded   abandoned  platform  style-guide           Write a docs style guide             6w
-complete     abandoned  platform  auth-redesign         Redesign the auth API                5w
-complete     someday    billing   dunning-copy          Rewrite dunning email copy           3w
-partial      active     platform  auth-rollout          Roll out the new auth API            2w
-not-started  queued     platform  auth-cleanup          Remove the old auth API              2w
-unknown      unset      billing   invoice-retry         Retry failed invoice charges         1w
-not-started  active     billing   relevance-tuning      Tune search relevance                5d
-unknown      unset                onboarding-checklist  Write the onboarding checklist       1d
+STATUS       INTENT     PROJECT   SOURCE  PLAN                  TITLE                           UPDATED
+superseded   abandoned  platform  claude  style-guide           Write a docs style guide             6w
+complete     abandoned  platform  claude  auth-redesign         Redesign the auth API                5w
+complete     someday    billing   claude  dunning-copy          Rewrite dunning email copy           3w
+partial      active     platform  claude  auth-rollout          Roll out the new auth API            2w
+not-started  queued     platform  claude  auth-cleanup          Remove the old auth API              2w
+unknown      unset      billing   claude  invoice-retry         Retry failed invoice charges         1w
+not-started  active     billing   claude  relevance-tuning      Tune search relevance                5d
+unknown      unset                claude  onboarding-checklist  Write the onboarding checklist       1d
 
 8 plans
 ```

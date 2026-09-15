@@ -122,24 +122,14 @@ def render(
     glyphs=None,
     unicode_ok: bool = False,
     short_ids=None,
-    show_status=None,
-    show_intent=None,
+    show_status: bool = True,
+    show_intent: bool = True,
 ) -> str:
-    """Tree for one project's worth of plans (roots and descendants).
-
-    `show_status`/`show_intent`, when given, override the per-column
-    constancy check -- `render_grouped` computes them once over the whole
-    filtered set, the same set `listing.render` measures, so the two
-    commands never disagree about what is worth printing.
-    """
+    """Tree for one project's worth of plans (roots and descendants)."""
     glyphs = glyphs or style.GLYPHS_ASCII
     width = style.terminal_width()
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
-    if show_status is None:
-        show_status = len({p.status for p in plans}) > 1
-    if show_intent is None:
-        show_intent = len({p.intent for p in plans}) > 1
     children_by_parent = _children_by_parent(plans, key, reverse)
     roots = _roots(plans, children_by_parent, key, reverse)
     ids = {p.id for p in plans}
@@ -175,8 +165,6 @@ def render_grouped(
     """Group plans by project, then render each group's tree."""
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
-    show_status = len({p.status for p in plans}) > 1
-    show_intent = len({p.intent for p in plans}) > 1
     groups: dict[str, list] = {}
     for p in plans:
         groups.setdefault(p.project or "(no project)", []).append(p)
@@ -195,8 +183,6 @@ def render_grouped(
                 glyphs,
                 unicode_ok,
                 short_ids,
-                show_status,
-                show_intent,
             )
         )
     return "\n\n".join(blocks)

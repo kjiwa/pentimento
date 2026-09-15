@@ -35,7 +35,9 @@ class RenderTests(unittest.TestCase):
     def test_header_row_lists_columns(self):
         plans = [FakePlan(id="a", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertEqual(header.split(), ["PLAN", "TITLE", "UPDATED"])
+        self.assertEqual(
+            header.split(), ["STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TITLE", "UPDATED"]
+        )
 
     def test_plan_column_holds_the_id(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
@@ -69,19 +71,19 @@ class RenderTests(unittest.TestCase):
     def test_title_column_blank_when_plan_has_no_title(self):
         plans = [FakePlan(id="a-plan", title="a-plan", has_title=False)]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
-        # Only PLAN and UPDATED tokens should appear -- TITLE is blank,
-        # STATUS/INTENT dropped as uniform.
-        self.assertEqual(len(record_line.split()), 2)
+        # STATUS, INTENT, PROJECT, SOURCE, PLAN and UPDATED tokens should
+        # appear -- TITLE is blank.
+        self.assertEqual(len(record_line.split()), 6)
 
     def test_relative_age_column_is_rightmost(self):
         plans = [FakePlan(id="a-plan", title="Alpha")]
         record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
         self.assertTrue(record_line.rstrip().endswith("y") or "just now" in record_line)
 
-    def test_status_column_dropped_when_uniform(self):
+    def test_status_column_shown_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertNotIn("STATUS", header)
+        self.assertIn("STATUS", header)
 
     def test_status_column_shown_when_mixed(self):
         plans = [
@@ -91,10 +93,10 @@ class RenderTests(unittest.TestCase):
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("STATUS", header)
 
-    def test_intent_column_dropped_when_uniform(self):
+    def test_intent_column_shown_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertNotIn("INTENT", header)
+        self.assertIn("INTENT", header)
 
     def test_intent_column_shown_when_mixed(self):
         plans = [
@@ -104,10 +106,10 @@ class RenderTests(unittest.TestCase):
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("INTENT", header)
 
-    def test_project_column_dropped_when_uniform(self):
+    def test_project_column_shown_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertNotIn("PROJECT", header)
+        self.assertIn("PROJECT", header)
 
     def test_project_column_shown_when_mixed(self):
         plans = [
@@ -117,10 +119,10 @@ class RenderTests(unittest.TestCase):
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertIn("PROJECT", header)
 
-    def test_source_column_dropped_when_uniform(self):
+    def test_source_column_shown_when_uniform(self):
         plans = [FakePlan(id="a", title="Alpha"), FakePlan(id="b", title="Beta")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        self.assertNotIn("SOURCE", header)
+        self.assertIn("SOURCE", header)
 
     def test_source_column_shown_when_mixed(self):
         plans = [

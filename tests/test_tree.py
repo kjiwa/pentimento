@@ -76,19 +76,11 @@ class RenderTests(unittest.TestCase):
         rendered = _with_width(120, lambda: tree.render([a, b]))
         self.assertIn("(cycle)", rendered)
 
-    def test_render_grouped_drops_status_and_intent_when_uniform_across_the_whole_set(self):
+    def test_render_grouped_shows_status_and_intent_when_uniform_across_the_whole_set(self):
         root = FakePlan(id="root", title="Root", project="p1", status="not-started", intent="unset")
-        child = FakePlan(
-            id="child",
-            title="Child",
-            parent="root",
-            project="p2",
-            status="not-started",
-            intent="unset",
-        )
-        rendered = _with_width(120, lambda: tree.render_grouped([root, child]))
-        self.assertNotIn("not-started", rendered)
-        self.assertNotIn("unset", rendered)
+        rendered = _with_width(120, lambda: tree.render_grouped([root]))
+        self.assertIn("not-started", rendered)
+        self.assertIn("unset", rendered)
 
     def test_render_grouped_keeps_status_when_mixed_in_another_group(self):
         # A single project group is internally uniform, but the whole filtered set is

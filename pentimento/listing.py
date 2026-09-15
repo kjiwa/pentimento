@@ -8,22 +8,22 @@ from pentimento import shortid, style, table, times
 _SPECS = (
     (
         table.Column("STATUS", drop=6),
-        lambda plans: len({p.status for p in plans}) > 1,
+        lambda plans: True,
         lambda p, short_ids: (p.status, style.STATUS_CODES.get(p.status, ())),
     ),
     (
         table.Column("INTENT", drop=5),
-        lambda plans: len({p.intent for p in plans}) > 1,
+        lambda plans: True,
         lambda p, short_ids: (p.intent, style.INTENT_CODES.get(p.intent, ())),
     ),
     (
         table.Column("PROJECT", drop=4),
-        lambda plans: len({p.project for p in plans}) > 1,
+        lambda plans: True,
         lambda p, short_ids: (p.project or "", ()),
     ),
     (
         table.Column("SOURCE", drop=3),
-        lambda plans: len({p.source for p in plans}) > 1,
+        lambda plans: True,
         lambda p, short_ids: (p.source, style.SOURCE_CODES.get(p.source, ())),
     ),
     (

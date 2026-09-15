@@ -7,3 +7,5 @@ Run `sh demo/capture.sh` to refresh the README samples and `sh demo/record.sh`
 to regenerate `pentimento.gif` after changing output formatting.
 Recording needs a vhs that is not 0.12.0 (it silently drops the GIF); pass
 `VHS=/path/to/vhs` to select one.
+Run `sh demo/preview.sh` to build the 1280x640 social-preview PNG from a frame
+of `pentimento.gif`.

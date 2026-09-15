@@ -14,8 +14,6 @@ candidate wins.
 
 from __future__ import annotations
 
-import re
-
 
 def _preamble(body: str) -> str:
     lines = body.split("\n")
@@ -29,12 +27,11 @@ def _referenced_ids(text: str, candidates) -> set[str]:
     return {
         candidate.id
         for candidate in candidates
-        if re.search(re.escape(candidate.id) + r"(\.plan)?\.md", text)
+        if candidate.id + ".md" in text or candidate.id + ".plan.md" in text
     }
 
 
-def _eligible(plan, candidate_ids, candidates, project):
-    by_id = {c.id: c for c in candidates}
+def _eligible(plan, candidate_ids, by_id, project):
     eligible = []
     for candidate_id in candidate_ids:
         candidate = by_id.get(candidate_id)
@@ -57,9 +54,10 @@ def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
     session = sessions.get(plan.id)
     prompt_ids = _referenced_ids(session.prompt, candidates) if session else set()
     preamble_ids = _referenced_ids(_preamble(plan.body), candidates)
+    by_id = {c.id: c for c in candidates}
 
     for reference_ids in (prompt_ids, preamble_ids):
-        eligible = _eligible(plan, reference_ids, candidates, project)
+        eligible = _eligible(plan, reference_ids, by_id, project)
         if eligible:
             return max(eligible, key=lambda c: c.started).id
     return None

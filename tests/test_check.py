@@ -19,11 +19,13 @@ class FakePlan:
     source: str = "claude"
     has_title: bool = True
     body: str = "## Progress\n\n- [ ] todo\n"
+    started: str = ""
 
 
 @dataclasses.dataclass
 class FakeSession:
-    project: str
+    project: str = ""
+    prompt: str = ""
 
 
 class RunTests(unittest.TestCase):
@@ -251,6 +253,29 @@ class RunTests(unittest.TestCase):
 
     def test_no_skips_means_no_unreadable_file_findings(self):
         self.assertEqual(check.run([FakePlan(id="root")], skips=[]), [])
+
+    def test_unadopted_reference_fires_on_a_parentless_plan_with_an_eligible_reference(self):
+        parent = FakePlan(id="eager-bird", started="2026-09-01T00:00:00Z")
+        child = FakePlan(
+            id="slow-otter",
+            body="See eager-bird for background.\n\n## Progress\n\n- [ ] todo\n",
+            started="2026-09-02T00:00:00Z",
+        )
+        findings = check.run([parent, child])
+        self.assertTrue(
+            any(f.code == "unadopted-reference" and f.plan_id == "slow-otter" for f in findings)
+        )
+
+    def test_unadopted_reference_is_silent_when_parent_is_set(self):
+        parent = FakePlan(id="eager-bird", started="2026-09-01T00:00:00Z")
+        child = FakePlan(
+            id="slow-otter",
+            parent="eager-bird",
+            body="See eager-bird for background.\n\n## Progress\n\n- [ ] todo\n",
+            started="2026-09-02T00:00:00Z",
+        )
+        findings = check.run([parent, child])
+        self.assertFalse(any(f.code == "unadopted-reference" for f in findings))
 
 
 if __name__ == "__main__":

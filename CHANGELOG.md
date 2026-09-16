@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5
+
+`derive_parent` now resolves a session-prompt or body reference by its
+trailing codename (`wobbly-willow` for an id ending `...-wobbly-willow`),
+not just a literal `<id>.md`/`<id>.plan.md`. Within a tier, an exact
+`<id>.md` reference outranks a codename reference, and the earliest
+mention wins a tie. `check` gains an `unadopted-reference` finding for a
+parentless plan with an eligible reference it never adopted.
+
 ## 0.1.4
 
 Docs-only release: the README explains why pentimento exists (long-carried

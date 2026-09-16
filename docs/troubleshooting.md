@@ -24,12 +24,19 @@ anomaly worth investigating, not the steady state.
 ## `parent` is empty
 
 `derive_parent` ([lineage.py](../pentimento/lineage.py)) tries two signals in
-order, stopping at the first that finds a candidate: an `<id>.md` reference
-in the originating session's first prompt, then the same reference scan over
-the plan's body above its first `##` heading. Either way, the reference must
-also pass every one of these guards: not the plan itself, in the same
-project, from the same source, and strictly earlier by `started`. If no
-reference passes all four guards, `parent` stays unset rather than guessed.
+order, stopping at the first that finds a candidate: a reference in the
+originating session's first prompt, then the same reference scan over the
+plan's body above its first `##` heading. A reference is either an
+`<id>.md` / `<id>.plan.md` literal or a trailing codename — the same
+segment-aligned suffix `pentimento show` and `list` accept, e.g.
+`wobbly-willow` for an id ending `...-wobbly-willow`. A codename that
+matches more than one candidate id resolves to nothing. Either way, the
+reference must also pass every one of these guards: not the plan itself, in
+the same project, from the same source, and strictly earlier by `started`.
+Among references that pass, an exact `<id>.md` reference outranks a
+codename reference, and the earliest-mentioned reference wins a tie within
+that ranking. If no reference passes all four guards, `parent` stays unset
+rather than guessed; `check` flags this as `unadopted-reference`.
 
 ## `status: unknown`
 
@@ -69,6 +76,7 @@ Every finding's `code`, from [check.py](../pentimento/check.py):
 | `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (see [touches.py](../pentimento/touches.py)). | Run `pentimento history <id>` to see the sessions, then `pentimento set <id> --status <value>` on your own judgement — this finding never fires the other way, so a plan with no history isn't flagged as unworked. |
 | `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than what's stored. Skipped when `pinned` is set. | Run `pentimento backfill`. |
 | `pin-diverged` | `pinned` is set but the stored `status` disagrees with what `## Progress` would derive. | The pin is authoritative and nothing is fixed automatically; re-`set --status` or `--unpin` on your own judgement. |
+| `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | Run `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
 
 ## `history` is empty
 

@@ -1,18 +1,28 @@
 """Derive a plan's parent from explicit references, never guessed.
 
 Two signals, tried in order:
-1. Session prompt -- plan ids referenced as `<id>.md` in the originating
-   session's first user prompt.
+1. Session prompt -- plan ids referenced in the originating session's first
+   user prompt, either as `<id>.md` / `<id>.plan.md` or by a trailing
+   codename (the segment-aligned suffix `pentimento show` and `list` also
+   accept, e.g. `wobbly-willow` for `...-wobbly-willow`).
 2. Plan preamble -- the same reference scan over the body above the first
    `##` heading, so a parent's `## Progress` notes about executed children
    can no longer make those children its parents.
 
 Both are filtered by the same guards -- not the plan itself, same project,
-same source, strictly earlier `started` -- and the newest surviving
-candidate wins.
+same source, strictly earlier `started`. Within a tier, an exact `<id>.md`
+reference outranks a codename reference, and within a group the earliest
+mention wins; `max(started)` is only a fallback for a genuine positional
+tie.
 """
 
 from __future__ import annotations
+
+import re
+
+from pentimento import shortid
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
 
 
 def _preamble(body: str) -> str:
@@ -23,12 +33,29 @@ def _preamble(body: str) -> str:
     return body
 
 
-def _referenced_ids(text: str, candidates) -> set[str]:
-    return {
-        candidate.id
-        for candidate in candidates
-        if candidate.id + ".md" in text or candidate.id + ".plan.md" in text
-    }
+def _scan(text: str, candidate_ids):
+    """Ordered `(position, id, exact)` for tokens that resolve to exactly one id."""
+    hits = []
+    for match in _TOKEN_RE.finditer(text):
+        rest = text[match.end() :]
+        exact = rest.startswith(".plan.md") or rest.startswith(".md")
+        resolved = shortid.matches(candidate_ids, match.group())
+        if len(resolved) != 1:
+            continue
+        hits.append((match.start(), resolved[0], exact))
+    return hits
+
+
+def _order(hits, by_id):
+    """Ids best-first: exact before codename, then earliest mention, then newest `started`."""
+    best = {}
+    for position, candidate_id, exact in hits:
+        key = (not exact, position)
+        if candidate_id not in best or key < best[candidate_id]:
+            best[candidate_id] = key
+    ids = sorted(best, key=lambda cid: by_id[cid].started, reverse=True)
+    ids.sort(key=lambda cid: best[cid])
+    return ids
 
 
 def _eligible(plan, candidate_ids, by_id, project):
@@ -47,17 +74,26 @@ def _eligible(plan, candidate_ids, by_id, project):
     return eligible
 
 
-def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
-    """`project` overrides `plan.project` for callers deriving it in the same pass."""
+def references(plan, candidates, sessions, *, project=None) -> list[str]:
+    """Ordered eligible reference ids, best first; empty when there is no signal."""
     if project is None:
         project = plan.project
     session = sessions.get(plan.id)
-    prompt_ids = _referenced_ids(session.prompt, candidates) if session else set()
-    preamble_ids = _referenced_ids(_preamble(plan.body), candidates)
     by_id = {c.id: c for c in candidates}
+    candidate_ids = list(by_id)
 
-    for reference_ids in (prompt_ids, preamble_ids):
-        eligible = _eligible(plan, reference_ids, by_id, project)
+    prompt_hits = _scan(session.prompt, candidate_ids) if session else []
+    preamble_hits = _scan(_preamble(plan.body), candidate_ids)
+
+    for hits in (prompt_hits, preamble_hits):
+        ordered_ids = _order(hits, by_id)
+        eligible = _eligible(plan, ordered_ids, by_id, project)
         if eligible:
-            return max(eligible, key=lambda c: c.started).id
-    return None
+            return [c.id for c in eligible]
+    return []
+
+
+def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
+    """`project` overrides `plan.project` for callers deriving it in the same pass."""
+    ids = references(plan, candidates, sessions, project=project)
+    return ids[0] if ids else None

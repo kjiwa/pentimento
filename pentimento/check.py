@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from pentimento import counts
+from pentimento import counts, lineage
 from pentimento import status as status_module
 from pentimento import tags as tags_module
 from pentimento import touches as touches_module
@@ -153,6 +153,19 @@ def _pin_diverged(plans):
     return findings
 
 
+def _unadopted_reference(plans, sessions):
+    findings = []
+    for p in plans:
+        if p.parent:
+            continue
+        ids = lineage.references(p, plans, sessions)
+        if not ids:
+            continue
+        message = f"no parent, but {ids[0]!r} is an eligible reference; run pentimento backfill"
+        findings.append(Finding(p.id, "unadopted-reference", message))
+    return findings
+
+
 def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
@@ -209,5 +222,6 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     findings.extend(_status_behind_history(plans, touches))
     findings.extend(_status_behind_progress(plans))
     findings.extend(_pin_diverged(plans))
+    findings.extend(_unadopted_reference(plans, sessions))
 
     return findings

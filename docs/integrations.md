@@ -1,5 +1,8 @@
 # Integrations
 
+Wiring pentimento into Claude Code and Cursor, and `check` into CI. Start here
+to keep frontmatter current without running `backfill` by hand.
+
 ## Claude Code
 
 Two hooks, split by what each field needs to be trustworthy:
@@ -8,7 +11,7 @@ Two hooks, split by what each field needs to be trustworthy:
   plan-file write. It backfills `project` and `created` on the spot, and
   derives `status` capped at `partial` so a half-written `## Progress`
   section can't prematurely land `complete`.
-- A `SessionEnd` hook runs `pentimento backfill` as a sweep -- the only
+- A `SessionEnd` hook runs `pentimento backfill` as a sweep — the only
   thing that advances `status` all the way to `complete`. `SessionEnd`
   supports a `matcher` on the exit reason (`clear`, `resume`, `logout`,
   `prompt_input_exit`, `other`) if you want to filter which exits trigger
@@ -16,10 +19,10 @@ Two hooks, split by what each field needs to be trustworthy:
 
 Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
 into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to
-scope the hooks to that repo). Neither hook can block or report back to
-Claude, so keep each to the one command, and use `backfill --dry-run` from
-a terminal if you want to see what a sweep would change before it runs
-unattended.
+scope the hooks to that repo). `pentimento hook` always exits 0 and
+`backfill --quiet` prints nothing, so neither blocks a write or reports back
+to Claude; keep each to the one command, and use `backfill --dry-run` from a
+terminal to see what a sweep would change before it runs unattended.
 
 Two gaps the hooks don't close: `--rederive` is the correction for a `parent`
 that was derived from a transient preamble reference; and a wholesale
@@ -27,16 +30,33 @@ re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
 outright, dropping an operator-set `intent` until the next sweep gap-fills it
 back to the default.
 
-Both hooks run the plain, monotonic form of `backfill` -- never `--rederive`
--- so neither ever sets or clears `pinned`, and both leave a pinned `status`
+Both hooks run the plain, monotonic form of `backfill` — never `--rederive`
+— so neither ever sets or clears `pinned`, and both leave a pinned `status`
 alone. Pinning and unpinning are operator actions only, via `pentimento set`.
 
 A `/plans` slash command passes `$ARGUMENTS` straight through to
-`pentimento` -- `/plans` alone runs `pentimento list`, and `/plans tree
+`pentimento` — `/plans` alone runs `pentimento list`, and `/plans tree
 --project platform`, `/plans show <id>`, or `/plans set <id> --intent active`
 run verbatim; if `pentimento` isn't on `$PATH` it reports that and stops.
 Copy [integrations/claude/commands/plans.md](../integrations/claude/commands/plans.md)
 to `~/.claude/commands/plans.md`.
+
+### Triage nudge
+
+A plan is unfindable later when it has run (`status` is `partial` or
+`complete`) but has no `intent` (`unset`) or no `tags`. Neither field can be
+derived, and the end of execution is when nobody remembers to set them.
+
+A `PostToolUse` hook on `Write|Edit` can record each plan a session writes,
+and a `Stop` hook can check those plans against that rule with `pentimento
+list --format tsv` and exit 2, which blocks the stop and returns its stderr
+to Claude. Have the message name the plan and ask for a tag and an intent to
+propose to you; both are operator-owned, so Claude should not set them
+unasked. Drop each id from the record once raised so a plan nags once, which
+also keeps the `Stop` hook from re-firing on itself.
+
+This is a pattern to adapt, not a shipped script: the hooks depend on how
+your harness names sessions and where it keeps state.
 
 ## Cursor
 
@@ -45,7 +65,7 @@ Configure `CURSOR_PLANS_DIR` (see [docs/reference.md](reference.md)) and run
 `pentimento backfill` by hand, or on a schedule (e.g. a cron job or a CI
 job). Because Cursor keeps no session logs, a Cursor plan's `project` is
 never derived and its `parent` only ever comes from the body-preamble
-reference scan -- see [sources.py](../pentimento/sources.py) and
+reference scan — see [sources.py](../pentimento/sources.py) and
 [lineage.py](../pentimento/lineage.py).
 
 ## `check` in CI

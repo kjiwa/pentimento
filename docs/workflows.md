@@ -1,5 +1,8 @@
 # Workflows
 
+Task-oriented recipes: triage, supersession, lineage, auditing, scripting.
+Look here for what to do; for exact flags, see [reference.md](reference.md).
+
 ## Triage
 
 `pentimento list --starred` shows only `active`/`queued` intent — the
@@ -10,6 +13,27 @@ finds work that's underway and still wanted. `--grep PATTERN` narrows by a
 case-insensitive regex over title and body when a status/intent/tag filter
 isn't specific enough; `--project .` filters to the current directory's
 project without typing its name out.
+
+## Picking a plan back up
+
+A plan often finishes with findings worth following up that you will not
+chase today. Park it when execution ends, while you still know what it was
+about:
+
+```sh
+pentimento set some-plan-id --add-tag growthbook --intent someday
+```
+
+Weeks later, find it by tag, or by state if you never tagged it:
+
+```sh
+pentimento list --tag growthbook
+pentimento list --status partial --starred
+```
+
+`pentimento show <id> --full` reopens the whole plan, and `pentimento history
+<id>` lists the sessions that touched it since. When you resume, move it out
+of `someday` with `set <id> --intent active`.
 
 ## Recording supersession
 

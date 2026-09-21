@@ -14,13 +14,19 @@ replaced which — the filenames are random and the files say nothing about
 their own state. pentimento derives that state and gives you a CLI to list,
 filter, and render the lot as a lineage tree.
 
-The plans worth keeping are the long ones. An infrastructure migration you
-have been designing for months grows subplans, absorbs decisions made in
-discussion, and leaves behind the branches you rejected — which is the part
-you want back a quarter later. A superseded plan is a decision record, not
-garbage, which is why `superseded` is the one status no derivation produces
-or overwrites. A pentimento is the earlier composition showing through a
-repainted canvas; that is what a plans directory is.
+Two kinds of plan are worth finding again. The long one: an infrastructure
+migration designed over months grows subplans, absorbs decisions made in
+discussion, and leaves behind the branches you rejected — the part you want
+back a quarter later. A superseded plan is a decision record, not garbage,
+which is why `superseded` is the one status no derivation produces or
+overwrites.
+
+The finished one that is not over: execution ends with findings you will not
+act on today. Tag it and set an intent, and `list --tag` or `list --starred`
+brings it back when you are ready to pick the thread up again.
+
+A pentimento is the earlier composition showing through a repainted canvas;
+that is what a plans directory is.
 
 Built with [Claude Code](https://claude.com/claude-code).
 
@@ -43,6 +49,17 @@ pentimento list          # see the corpus
 pentimento set some-plan-id --intent active
 pentimento list --starred
 ```
+
+To park a finished plan you mean to return to, tag it and set an intent, then
+find it by tag later:
+
+```sh
+pentimento set some-plan-id --add-tag auth --intent someday
+pentimento list --tag auth
+```
+
+[docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
+walks both loops end to end.
 
 Sources and their default directories are covered in
 [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md);
@@ -233,6 +250,19 @@ frontmatter, and body-referenced `parent` survive a checkout anywhere;
 [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
 for the details, and `pentimento index` for an `INDEX.md` worth committing.
 
+## Prior art
+
+[planning-with-files](https://github.com/OthmanAdi/planning-with-files) keeps
+an agent's plan on disk while it works and recovers it after `/clear` or
+compaction; it manages the files it creates, not a directory of finished
+ones. [claude-log-viewer](https://github.com/InDate/claude-log-viewer) is a
+local web app for Claude Code projects and session logs, not plan files.
+[dela](https://github.com/A/dela) lists markdown todos from the CLI, with no
+status derived from checkboxes and no notion of supersession or lineage.
+pentimento reads a corpus it did not author and derives status, project, and
+parent across it. The longer comparison is in
+[Managing Claude Code plan files](https://dev.to/kjiwa/managing-claude-code-plan-files-lineage-status-and-existing-tools-37b6).
+
 ## Requirements and limitations
 
 Stdlib-only Python 3.9+, zero runtime dependencies, no PyYAML.
@@ -261,8 +291,9 @@ runs all three on Ubuntu and macOS.
   — every command's full flags, and the environment variables.
 - [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md)
   — wiring `backfill` and `pentimento hook` into Claude Code and Cursor, a
-  slash command, `check` in CI.
+  slash command, a triage-nudge pattern, `check` in CI.
 - [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
-  — triage, supersession, lineage trees, scripting with `--format json`.
+  — triage, picking a plan back up, supersession, lineage trees, scripting
+  with `--format json`.
 - [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
   — every empty field and `check` finding, explained.

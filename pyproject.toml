@@ -1,6 +1,6 @@
 [project]
 name = "pentimento"
-version = "0.1.5"
+version = "0.1.6"
 description = "Derives status and lineage for the plan files your coding agent leaves behind, with a CLI to list, filter, and render them as a tree."
 readme = "README.md"
 requires-python = ">=3.9"

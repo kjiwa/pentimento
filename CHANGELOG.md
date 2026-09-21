@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+`show --full` now pages through `$PAGER` (default `less`) when stdout is a
+tty and the plan is taller than the terminal, so colour and width resolve
+against the real terminal instead of a pipe. Redirects and pipes are
+byte-identical to before; `--no-pager` opts out on a tty. The README is
+reframed around long-carried plans and rediscovery, and each doc opens with
+a line saying when to reach for it.
+
 ## 0.1.5
 
 `derive_parent` now resolves a session-prompt or body reference by its

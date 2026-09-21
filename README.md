@@ -14,16 +14,17 @@ replaced which — the filenames are random and the files say nothing about
 their own state. pentimento derives that state and gives you a CLI to list,
 filter, and render the lot as a lineage tree.
 
-Two kinds of plan are worth finding again. The long one: an infrastructure
-migration designed over months grows subplans, absorbs decisions made in
-discussion, and leaves behind the branches you rejected — the part you want
-back a quarter later. A superseded plan is a decision record, not garbage,
-which is why `superseded` is the one status no derivation produces or
-overwrites.
+Two kinds of plan are worth finding again:
 
-The finished one that is not over: execution ends with findings you will not
-act on today. Tag it and set an intent, and `list --tag` or `list --starred`
-brings it back when you are ready to pick the thread up again.
+- The long one: an infrastructure migration designed over months grows
+  subplans, absorbs decisions made in discussion, and leaves behind the
+  branches you rejected — the part you want back a quarter later. A
+  superseded plan is a decision record, not garbage, which is why
+  `superseded` is the one status no derivation produces or overwrites.
+- The finished one that is not over: execution ends with findings you will
+  not act on today. Tag it and set an intent, and `list --tag` or
+  `list --starred` brings it back when you are ready to pick the thread up
+  again.
 
 A pentimento is the earlier composition showing through a repainted canvas;
 that is what a plans directory is.

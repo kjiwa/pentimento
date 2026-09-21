@@ -1,5 +1,8 @@
 # Troubleshooting
 
+Indexed by symptom: an empty field, a `check` finding, an exit 1. Look here
+when the output is not what you expected.
+
 ## No output at all
 
 `AGENT_PLANS_DIR` (default `~/.claude/plans`) or `CURSOR_PLANS_DIR` unset or
@@ -92,7 +95,8 @@ Absent history is not evidence of absent work.
 `--color` defaults to `auto`: off when stdout isn't a tty, when `NO_COLOR`
 is set, or when `TERM=dumb`
 ([style.py](../pentimento/style.py)). Pass `--color always` to force it,
-e.g. when piping through `less -R`.
+e.g. when piping `list` through `less -R`. `show --full` needs no flag: it
+pages with colour on its own.
 
 ## `set` or `show` exits 1
 

@@ -13,6 +13,15 @@ from pentimento import cli, corpus
 from tests import _header_block, _silenced, _subparsers_action
 
 
+class _TtyStream(io.StringIO):
+    def __init__(self, is_tty: bool):
+        super().__init__()
+        self._is_tty = is_tty
+
+    def isatty(self) -> bool:
+        return self._is_tty
+
+
 def _write(directory: Path, name: str, text: str) -> None:
     (directory / f"{name}.md").write_text(text)
 
@@ -579,6 +588,51 @@ class CmdShowTests(unittest.TestCase):
             cli.cmd_show(args)
 
         self.assertEqual(plain.getvalue(), full.getvalue())
+
+    def _show_on_a_tty(self, argv, *, height=3, is_tty=True):
+        """Run `show` against a fake tty, returning (stdout text, lines handed to the pager)."""
+        _write(
+            self.directory,
+            "root-plan",
+            "# Root\n\n## Progress\n\nNot started.\n\n## Context\n\nBackground details go here.\n",
+        )
+        out = _TtyStream(is_tty)
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            with mock.patch.object(cli.style, "terminal_height", return_value=height):
+                with mock.patch.object(cli.pager, "page") as page:
+                    cli.cmd_show(args)
+        paged = page.call_args.args[0] if page.called else None
+        return out.getvalue(), paged
+
+    def test_full_on_a_tty_pages_a_plan_taller_than_the_terminal(self):
+        printed, paged = self._show_on_a_tty(["show", "root-plan", "--full"])
+        self.assertEqual(printed, "")
+        self.assertIn("Background details go here.", "\n".join(paged))
+
+    def test_full_does_not_page_a_plan_that_fits(self):
+        printed, paged = self._show_on_a_tty(["show", "root-plan", "--full"], height=1000)
+        self.assertIsNone(paged)
+        self.assertIn("Background details go here.", printed)
+
+    def test_no_pager_prints_the_whole_body(self):
+        printed, paged = self._show_on_a_tty(["show", "root-plan", "--full", "--no-pager"])
+        self.assertIsNone(paged)
+        self.assertIn("Background details go here.", printed)
+
+    def test_plain_show_never_pages(self):
+        _, paged = self._show_on_a_tty(["show", "root-plan"])
+        self.assertIsNone(paged)
+
+    def test_redirected_output_never_pages(self):
+        printed, paged = self._show_on_a_tty(["show", "root-plan", "--full"], is_tty=False)
+        self.assertIsNone(paged)
+        self.assertIn("Background details go here.", printed)
+
+    def test_json_never_pages(self):
+        printed, paged = self._show_on_a_tty(["show", "root-plan", "--full", "--format", "json"])
+        self.assertIsNone(paged)
+        self.assertEqual(json.loads(printed)[0]["id"], "root-plan")
 
     def test_format_json_output_is_unchanged_by_full(self):
         _write(

@@ -21,6 +21,7 @@ from pentimento import (
     frontmatter,
     listing,
     markdown,
+    pager,
     shortid,
     style,
     table,
@@ -241,12 +242,17 @@ def build_parser() -> argparse.ArgumentParser:
         "H1, frontmatter, and the rendered body",
         description=(
             "One plan's H1, frontmatter, and body. On a tty the body clips to the "
-            "terminal height; --full prints it whole."
+            "terminal height; --full prints it whole, through $PAGER if it is longer "
+            "than the terminal."
         ),
-        epilog="Examples:\n  pentimento show api-auth-rollout --full",
+        epilog=(
+            "Examples:\n  pentimento show api-auth-rollout --full\n"
+            "  pentimento show api-auth-rollout --full --no-pager"
+        ),
     )
     p_show.add_argument("id", help="plan id (filename stem)")
     p_show.add_argument("--full", action="store_true", help="print the whole body, unclipped")
+    p_show.add_argument("--no-pager", action="store_true", help="with --full, never use a pager")
     _add_format_args(p_show)
 
     p_set = _add_command(
@@ -518,47 +524,55 @@ def _flow_pairs(pairs: list[tuple[str, str]], width: int) -> list[str]:
     return lines
 
 
+def _show_header(target, width: int, *, on_color: bool) -> list[str]:
+    lines = [style.paint(f"# {target.title}", style.BOLD, on=on_color), ""]
+    for group in _show_field_groups(target):
+        pairs = [
+            style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
+            for key, value, codes in group
+        ]
+        lines.extend(_flow_pairs(pairs, width))
+    lines.append("")
+    return lines
+
+
+def _should_page(args, line_count: int) -> bool:
+    return (
+        args.full
+        and not args.no_pager
+        and sys.stdout.isatty()
+        and line_count > style.terminal_height()
+    )
+
+
 def cmd_show(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
         print(_no_such_plan(plans, args.id), file=sys.stderr)
         return 1
-    if args.format == formats.TABLE:
-        on_color = style.enabled(sys.stdout, args.color)
-        unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-        header_lines = 0
-
-        def emit(text: str = "") -> None:
-            nonlocal header_lines
-            print(text)
-            header_lines += 1
-
-        width = min(style.terminal_width(), markdown.MAX_WIDTH)
-
-        emit(style.paint(f"# {target.title}", style.BOLD, on=on_color))
-        emit()
-        for group in _show_field_groups(target):
-            pairs = [
-                style.render_cells(
-                    [(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color
-                )
-                for key, value, codes in group
-            ]
-            for line in _flow_pairs(pairs, width):
-                emit(line)
-        emit()
-
-        body = plan_module.body_below_title(target.body)
-        lines = markdown.render(body, on_color=on_color, unicode_ok=unicode_ok, width=width)
-        limit = None
-        if sys.stdout.isatty() and not args.full:
-            limit = max(style.terminal_height() - header_lines - 2, markdown.MIN_BODY_LINES)
-        hint = f"pentimento show {args.id} --full"
-        for line in markdown.clip(lines, limit, hint, on_color=on_color, unicode_ok=unicode_ok):
-            print(line)
-    else:
+    if args.format != formats.TABLE:
         formats.emit([record_module.as_dict(target)], args.format, sys.stdout, record_module.FIELDS)
+        return 0
+
+    on_color = style.enabled(sys.stdout, args.color)
+    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
+    width = min(style.terminal_width(), markdown.MAX_WIDTH)
+
+    header = _show_header(target, width, on_color=on_color)
+    body_text = plan_module.body_below_title(target.body)
+    body = markdown.render(body_text, on_color=on_color, unicode_ok=unicode_ok, width=width)
+    if _should_page(args, len(header) + len(body)):
+        pager.page(header + body)
+        return 0
+
+    limit = None
+    if sys.stdout.isatty() and not args.full:
+        limit = max(style.terminal_height() - len(header) - 2, markdown.MIN_BODY_LINES)
+    hint = f"pentimento show {args.id} --full"
+    body = markdown.clip(body, limit, hint, on_color=on_color, unicode_ok=unicode_ok)
+    for line in header + body:
+        print(line)
     return 0
 
 

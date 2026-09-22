@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9
+
+`show --full` now allocates markdown table columns by water-fill instead of raw
+proportion: a column that fits inside an equal share keeps its natural width, and
+only the columns still contending for what's left split it, weighted by the square
+root of their natural width. A single long prose cell no longer starves every other
+column down to the four-character floor.
+
 ## 0.1.8
 
 `pentimento completion <bash|zsh|fish>` prints a tab-completion script for

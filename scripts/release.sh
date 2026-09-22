@@ -109,6 +109,19 @@ _bump_version() {
 }
 
 _run_release_check() {
+  # check-release.sh reads the version straight from pyproject.toml, which
+  # --dry-run never writes; simulate the bump for this one check, then
+  # restore the file, so a dry run actually exercises the real gate instead
+  # of failing on the version it deliberately didn't apply.
+  if [ "$DRY_RUN" -eq 1 ]; then
+    _run_release_check_tmp=$(mktemp "${TMPDIR:-/tmp}/release-pyproject.XXXXXX")
+    cp "$PYPROJECT" "$_run_release_check_tmp"
+    sed "s/^version = \".*\"\$/version = \"$VERSION\"/" "$_run_release_check_tmp" >"$PYPROJECT"
+    _run_release_check_status=0
+    sh "$REPO_ROOT/scripts/check-release.sh" "$TAG" "$TAG" || _run_release_check_status=$?
+    mv "$_run_release_check_tmp" "$PYPROJECT"
+    return "$_run_release_check_status"
+  fi
   sh "$REPO_ROOT/scripts/check-release.sh" "$TAG" "$TAG"
 }
 

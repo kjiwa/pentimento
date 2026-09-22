@@ -9,7 +9,8 @@
 # are regenerable. Pins `PENTIMENTO_NOW` and `TZ` unconditionally, overriding
 # any value already in the environment, so the fixture's mtimes and the
 # captured relative and absolute times agree byte-for-byte no matter the
-# real wall clock or timezone at capture time.
+# real wall clock or timezone at capture time. Rewrites the fixture's temp
+# directory to `~/.claude/plans` in each capture for the same reason.
 set -eu
 
 _capture() {
@@ -28,6 +29,10 @@ _capture() {
     echo "capture failed: pentimento $* (exit $_capture_status)" >&2
     return "$_capture_status"
   fi
+
+  sed "s|$FIXTURE_DIR|~/.claude/plans|g" "$CAPTURE_DIR/$_capture_name.txt" \
+    >"$CAPTURE_DIR/$_capture_name.norm"
+  mv "$CAPTURE_DIR/$_capture_name.norm" "$CAPTURE_DIR/$_capture_name.txt"
 }
 
 _splice() {

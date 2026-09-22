@@ -520,7 +520,7 @@ class CmdShowTests(unittest.TestCase):
             with contextlib.redirect_stdout(out):
                 cli.cmd_show(args)
         header = _header_block(out.getvalue().splitlines())
-        self.assertLessEqual(len(header), 4)
+        self.assertLessEqual(len(header), 5)
 
     def test_header_flows_onto_more_lines_at_a_narrow_width(self):
         _write(
@@ -666,6 +666,31 @@ class CmdShowTests(unittest.TestCase):
         self.assertIn("parent:", lineage_line)
         self.assertIn("source:", provenance_line)
         self.assertIn("modified:", provenance_line)
+
+    def _show_header_lines(self, plan_id, columns):
+        with mock.patch.dict(os.environ, {"COLUMNS": columns}):
+            out = io.StringIO()
+            args = cli.build_parser().parse_args(["show", plan_id])
+            with contextlib.redirect_stdout(out):
+                cli.cmd_show(args)
+        return _header_block(out.getvalue().splitlines())
+
+    def test_path_is_absolute_and_on_its_own_line_after_id(self):
+        _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
+        header = self._show_header_lines("root-plan", "200")
+        self.assertEqual(header[0], "id: root-plan")
+        self.assertEqual(header[1], f"path: {self.directory / 'root-plan.md'}")
+
+    def test_path_wider_than_the_terminal_is_never_truncated(self):
+        _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
+        expected = f"path: {self.directory / 'root-plan.md'}"
+        header = self._show_header_lines("root-plan", "20")
+        self.assertIn(expected, header)
+
+    def test_json_path_matches_the_rendered_path(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        record = json.loads(self._run_json(["show", "root-plan", "--format", "json"]))[0]
+        self.assertEqual(record["path"], str(self.directory / "root-plan.md"))
 
     def test_status_column_is_stable_regardless_of_id_length(self):
         short_id = "short-plan"

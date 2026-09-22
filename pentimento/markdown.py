@@ -12,6 +12,7 @@ correctly on both.
 
 from __future__ import annotations
 
+import math
 import re
 
 from pentimento import style
@@ -261,8 +262,25 @@ def _column_widths(rows: list[list[str]], width: int) -> list[int]:
 
     available = width - style.GUTTER * (ncols - 1)
     floor = max(min(_MIN_COLUMN, available // ncols), 1)
-    sum_natural = sum(natural) or 1
-    widths = [max(floor, round(n * available / sum_natural)) for n in natural]
+
+    widths = [0] * ncols
+    remaining = available
+    contending = list(range(ncols))
+    while contending:
+        share = remaining / len(contending)
+        settled = [i for i in contending if natural[i] <= share]
+        if not settled:
+            break
+        for i in settled:
+            widths[i] = natural[i]
+            remaining -= natural[i]
+        contending = [i for i in contending if i not in settled]
+
+    if contending:
+        sum_weight = sum(math.sqrt(natural[i]) for i in contending) or 1
+        for i in contending:
+            widths[i] = max(floor, round(math.sqrt(natural[i]) * remaining / sum_weight))
+
     overflow = sum(widths) - available
     while overflow > 0:
         widest = max(range(ncols), key=lambda i: widths[i])

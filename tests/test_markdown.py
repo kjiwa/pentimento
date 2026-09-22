@@ -184,6 +184,30 @@ class TableTests(unittest.TestCase):
         for line in lines:
             self.assertLessEqual(style.display_width(line), 20)
 
+    def test_short_column_is_not_starved_by_a_long_prose_column(self):
+        body = "| step | detail |\n| --- | --- |\n| Shell lint | " + "x" * 700 + " |"
+        lines = _render(body, width=100)
+        widths = markdown._column_widths([["step", "detail"], ["Shell lint", "x" * 700]], 100)
+        self.assertGreaterEqual(widths[0], len("Shell lint"))
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 100)
+
+    def test_table_that_fits_is_unchanged(self):
+        widths = markdown._column_widths([["a", "b"], ["1", "2"]], 100)
+        self.assertEqual(widths, [1, 1])
+
+    def test_multiple_long_columns_all_exceed_the_floor_and_fit_the_width(self):
+        cells = "p " * 150 + "|" + "q " * 200 + "|" + "r " * 250
+        body = "| a | b | c |\n| --- | --- | --- |\n| " + cells + " |"
+        lines = _render(body, width=100)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 100)
+        widths = markdown._column_widths(
+            [["a", "b", "c"], ["p " * 150, "q " * 200, "r " * 250]], 100
+        )
+        for w in widths:
+            self.assertGreater(w, markdown._MIN_COLUMN)
+
 
 class LinkTests(unittest.TestCase):
     def test_plain_link_is_painted_cyan_with_markers_removed(self):

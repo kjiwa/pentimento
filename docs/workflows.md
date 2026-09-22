@@ -134,7 +134,9 @@ the human-readable sentence the table format prints.
 id, title, status, pinned, intent, tags, parent, project, source, created, started, modified, path
 ```
 
-(see [record.py](../pentimento/record.py)). `tsv` drops non-scalar fields
+(see [record.py](../pentimento/record.py)). This schema is fixed regardless
+of `--columns`/`PENTIMENTO_COLUMNS`, which shape `list`'s `--format table`
+output only. `tsv` drops non-scalar fields
 — a `tree --format tsv` row has no `children` column, only the flat record
 — so use `json` when you need the nested tree structure
 ([formats.py](../pentimento/formats.py)). A common pattern:

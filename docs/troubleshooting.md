@@ -81,6 +81,18 @@ Every finding's `code`, from [check.py](../pentimento/check.py):
 | `pin-diverged` | `pinned` is set but the stored `status` disagrees with what `## Progress` would derive. | The pin is authoritative and nothing is fixed automatically; re-`set --status` or `--unpin` on your own judgement. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | Run `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
 
+## A `list` column I expected is missing
+
+`TAGS` and `CREATED` only appear when at least one plan in the result has
+tags or a `created` date; every other column always appears unless the
+table is too narrow, in which case columns drop right-to-left by rank
+(`created`, `tags`, `source`, `project`, `intent`, `status`, then `plan`)
+before any column is truncated -- `title` and `updated` never drop, only
+shrink ([docs/reference.md#columns](reference.md#columns)). `--columns`
+(or `PENTIMENTO_COLUMNS`) names exactly the columns you want, in order, and
+overrides both rules; the column the active `--sort` key uses never drops
+either way.
+
 ## `history` is empty
 
 `no session history for <id>` means no transcript under

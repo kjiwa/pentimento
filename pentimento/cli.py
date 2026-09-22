@@ -14,6 +14,7 @@ from pathlib import Path
 
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
+from pentimento import columns as columns_module
 from pentimento import (
     completion,
     corpus,
@@ -63,6 +64,17 @@ SORT_KEYS = {
 }
 SORT_CHOICES = tuple(SORT_KEYS)
 
+# The `list`/`tree` column each `--sort` key is about, so its column is
+# never dropped -- an order the row nearest the prompt doesn't show is
+# unverifiable.
+SORT_COLUMNS = {
+    "created": "created",
+    "status": "status",
+    "title": "title",
+    "id": "plan",
+    "modified": "updated",
+}
+
 _ORDER_ASC, _ORDER_DESC = "asc", "desc"
 ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
@@ -72,6 +84,13 @@ def _non_negative_int(value: str) -> int:
     if parsed < 0:
         raise argparse.ArgumentTypeError(f"limit must not be negative: {value}")
     return parsed
+
+
+def _column_spec(value: str) -> columns_module.Selection:
+    try:
+        return columns_module.parse(value, listing.NAMES)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def _add_filter_args(parser):
@@ -134,6 +153,7 @@ def _add_format_args(parser):
         action="store_true",
         help="force ASCII box-drawing glyphs, even on a UTF-8 terminal",
     )
+    return group
 
 
 def _resolve_project(value: str) -> str:
@@ -206,18 +226,32 @@ def build_parser() -> argparse.ArgumentParser:
         "list",
         "flat table of plans",
         description=(
-            "One line per plan. A column appears only when the corpus has more than "
-            "one value for it; the row nearest the prompt is the most recent."
+            "One line per plan; the row nearest the prompt is the most recent. TAGS "
+            "and CREATED appear only when the corpus has them; as the terminal "
+            "narrows, columns drop in this order: CREATED, TAGS, SOURCE, PROJECT, "
+            "INTENT, STATUS, then PLAN -- TITLE and UPDATED never drop. --columns "
+            "overrides both rules, and the --sort key's column never drops."
         ),
         epilog=(
             "Examples:\n"
             "  pentimento list --starred\n"
             "  pentimento list --project . --status partial\n"
-            "  pentimento list --grep auth -n 3"
+            "  pentimento list --grep auth -n 3\n"
+            "  pentimento list --columns status,title,created"
         ),
     )
     _add_filter_args(p_list)
-    _add_format_args(p_list)
+    format_group = _add_format_args(p_list)
+    format_group.add_argument(
+        "--columns",
+        type=_column_spec,
+        metavar="SPEC",
+        help=(
+            "which table columns to show and in what order: an absolute, comma-"
+            "separated list (e.g. status,title); +name/-name to add/remove from the "
+            "default set; or 'all'. Table format only; defaults to PENTIMENTO_COLUMNS"
+        ),
+    )
     sort_group = _add_sort_args(p_list)
     sort_group.add_argument(
         "-n",
@@ -427,7 +461,26 @@ def _render_table_or_empty(corpus_plans, plans, args, render):
     return 0
 
 
+def _columns_selection(args):
+    """The `--columns` selection, or `PENTIMENTO_COLUMNS` when the flag is
+    absent. Returns `(selection, error)`; `error` is a ready-to-print message
+    when the flag or the environment variable is invalid."""
+    if args.columns is not None:
+        return args.columns, None
+    env_value = os.environ.get("PENTIMENTO_COLUMNS")
+    if not env_value:
+        return None, None
+    try:
+        return _column_spec(env_value), None
+    except argparse.ArgumentTypeError as exc:
+        return None, f"PENTIMENTO_COLUMNS: {exc}"
+
+
 def cmd_list(args) -> int:
+    if args.columns is not None and args.format != formats.TABLE:
+        print("--columns only applies to --format table", file=sys.stderr)
+        return 1
+
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
     if plans is None:
@@ -439,12 +492,18 @@ def cmd_list(args) -> int:
             [record_module.as_dict(p) for p in plans], args.format, sys.stdout, record_module.FIELDS
         )
         return 0
+
+    selection, error = _columns_selection(args)
+    if error is not None:
+        print(error, file=sys.stderr)
+        return 1
+    pin = (SORT_COLUMNS[args.sort],)
     return _render_table_or_empty(
         corpus_plans,
         plans,
         args,
         lambda on_color, unicode_ok, short_ids: listing.render(
-            plans, on_color, unicode_ok, short_ids=short_ids
+            plans, on_color, unicode_ok, short_ids=short_ids, selection=selection, pin=pin
         ),
     )
 

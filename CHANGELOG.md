@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.10
+
+`list --columns SPEC` (default: `PENTIMENTO_COLUMNS`) picks the table's
+columns and their order explicitly: an absolute list (`created,title,status`),
+`+name`/`-name` modifiers on the content-derived default set, or `all`. A
+column named this way, or the active `--sort` key's column, never drops as
+the terminal narrows -- previously `CREATED` was the first column dropped,
+so `--sort created` could sort by a value the table didn't show. `--columns`
+applies to `--format table` only; combining it with `--format json|tsv` is
+now an error. The `CREATED` cell now prints the same derived date
+`--sort created` sorts by, instead of the raw (and sometimes blank)
+`created` frontmatter field.
+
 ## 0.1.9
 
 `show --full` now allocates markdown table columns by water-fill instead of raw

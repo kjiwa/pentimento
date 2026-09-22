@@ -688,6 +688,12 @@ class CmdShowTests(unittest.TestCase):
         record = json.loads(self._run_json(["show", "root-plan", "--format", "json"]))[0]
         self.assertEqual(record["path"], str(self.directory / "root-plan.md"))
 
+    def test_path_under_home_is_collapsed_to_a_tilde(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        with mock.patch("pentimento.cli.Path.home", return_value=self.directory):
+            header = self._show_header_lines("root-plan", "200")
+        self.assertEqual(header[1], "path: ~/root-plan.md")
+
     def test_status_column_is_stable_regardless_of_id_length(self):
         short_id = "short-plan"
         long_id = short_id + "x" * 40

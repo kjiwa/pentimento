@@ -8,15 +8,21 @@ Set FontSize 20
 Set Width 1320
 Set Height 800
 Set Theme "Builtin Dark"
-Set TypingSpeed 40ms
+Set TypingSpeed 30ms
 
-Type "pentimento --help"
+Hide
+Type 'export HOME="$DEMO_HOME"; cd "$HOME/.claude/plans"; clear'
 Enter
-Sleep 3500ms
+Show
 
-Type "clear"
+# Act 1: the problem
+Type "# plan files pile up; the names say nothing"
 Enter
-Sleep 500ms
+Sleep 1500ms
+
+Type "ls *.md"
+Enter
+Sleep 2000ms
 
 Type "pentimento backfill"
 Enter
@@ -26,26 +32,51 @@ Type "pentimento list"
 Enter
 Sleep 2500ms
 
-Type "pentimento list --starred"
+Type "clear"
 Enter
-Sleep 2000ms
+Sleep 500ms
 
-Type "pentimento list --tag auth"
+# Act 2: lineage
+Type "# which plan replaced which"
 Enter
-Sleep 2000ms
-
-Type "pentimento list --grep auth -n 3"
-Enter
-Sleep 2000ms
+Sleep 1500ms
 
 Type "pentimento tree"
 Enter
 Sleep 3000ms
 
+Screenshot demo/pentimento-tree.png
+
 Type "pentimento show api-auth-rollout"
 Enter
 Sleep 2500ms
 
+Type "clear"
+Enter
+Sleep 500ms
+
+# Act 3: drift
+Type "# the corpus drifts; check catches it"
+Enter
+Sleep 1500ms
+
 Type "pentimento check"
 Enter
 Sleep 2500ms
+
+Type "clear"
+Enter
+Sleep 500ms
+
+# Act 4: intent
+Type "# status is derived; intent is yours to set"
+Enter
+Sleep 1500ms
+
+Type "pentimento set billing-dunning-copy --intent active --add-tag followup"
+Enter
+Sleep 1500ms
+
+Type "pentimento list --starred"
+Enter
+Sleep 3000ms

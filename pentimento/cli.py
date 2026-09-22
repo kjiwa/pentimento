@@ -466,6 +466,7 @@ FIELD_GUTTER = 3
 
 _HEADER_GROUPS = (
     ("identity", ("id",)),
+    ("location", ("path",)),
     ("state", ("status", "intent", "tags")),
     ("lineage", ("parent", "project")),
     ("provenance", ("created", "source", "modified")),
@@ -476,6 +477,7 @@ def _show_field_groups(target):
     """Lists of (key, value, codes) per semantic group, skipping empty groups."""
     values = dict(target.fields)
     values["id"] = target.id
+    values["path"] = str(target.path)
     values["source"] = target.source
     values["modified"] = times_module.local_stamp(target.modified)
     grouped_keys = {key for _, keys in _HEADER_GROUPS for key in keys}

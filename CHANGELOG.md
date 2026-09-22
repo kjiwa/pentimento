@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7
+
+`show` now prints the plan file's absolute path on its own line under `id`,
+the same value `--format json` already emitted as `path`. The README's
+captured samples rewrite the fixture's temp directory to `~/.claude/plans`
+so they stay byte-stable across machines.
+
 ## 0.1.6
 
 `show --full` now pages through `$PAGER` (default `less`) when stdout is a

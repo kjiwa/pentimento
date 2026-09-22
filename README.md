@@ -128,6 +128,7 @@ platform
 # Roll out the new auth API
 
 id: api-auth-rollout
+path: ~/.claude/plans/api-auth-rollout.md
 status: partial   intent: active   tags: [auth, security]
 parent: api-auth-redesign   project: platform
 created: 2026-08-25   source: claude   modified: 2026-08-25 12:30

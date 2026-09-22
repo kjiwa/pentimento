@@ -41,6 +41,11 @@ class ReadmeShowSampleTests(unittest.TestCase):
         id_line = next(line for line in self.header if "id:" in line)
         self.assertNotIn("status:", id_line)
 
+    def test_path_follows_id_on_its_own_line(self):
+        path_line = next(line for line in self.header if "path:" in line)
+        self.assertTrue(path_line.startswith("path: ~/.claude/plans/"))
+        self.assertNotIn("id:", path_line)
+
     def test_status_and_intent_share_a_line(self):
         state_line = next(line for line in self.header if "status:" in line)
         self.assertIn("intent:", state_line)

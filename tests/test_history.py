@@ -7,7 +7,7 @@ from unittest import mock
 from pentimento import formats, history, touches
 
 
-def _touch(session, tool, at, plan_id="the-plan", cwd="/Users/kjiwa/example"):
+def _touch(session, tool, at, plan_id="the-plan", cwd="/home/user/example"):
     return touches.Touch(plan_id=plan_id, session=session, tool=tool, at=at, cwd=cwd)
 
 

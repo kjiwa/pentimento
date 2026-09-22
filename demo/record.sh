@@ -3,9 +3,11 @@
 #
 # Usage: sh demo/record.sh
 #
-# Builds a fresh demo/fixture.sh corpus, points AGENT_PLANS_DIR at it, and
-# runs the VHS tape against that corpus so the recording never touches a
-# real plans directory.
+# Builds a fresh demo/fixture.sh corpus under a sandboxed DEMO_HOME and runs
+# the VHS tape against it. The tape itself exports HOME="$DEMO_HOME" inside
+# the recorded shell, so pentimento's default ~/.claude/plans resolves to the
+# fixture -- the recording never touches a real plans directory, and the reel
+# shows the tool running on its own defaults rather than an env override.
 set -eu
 
 _gif_state() {
@@ -23,17 +25,17 @@ main() {
   VHS=${VHS:-vhs}
   GIF="$REPO_ROOT/demo/pentimento.gif"
 
-  FIXTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-record.XXXXXX")
-  trap 'rm -rf "$FIXTURE_DIR"' EXIT
+  DEMO_HOME=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-record.XXXXXX")
+  trap 'rm -rf "$DEMO_HOME"' EXIT
+  export DEMO_HOME
 
-  sh "$SCRIPT_DIR/fixture.sh" "$FIXTURE_DIR"
+  sh "$SCRIPT_DIR/fixture.sh" "$DEMO_HOME/.claude/plans"
 
   _before=$(_gif_state "$GIF")
 
   (
     cd "$REPO_ROOT" && \
-    AGENT_PLANS_DIR="$FIXTURE_DIR" \
-      AGENT_SESSIONS_DIR="$FIXTURE_DIR/no-such-sessions-dir" \
+    AGENT_SESSIONS_DIR="$DEMO_HOME/.claude/plans/sessions" \
       CURSOR_PLANS_DIR=/nonexistent \
       "$VHS" "$SCRIPT_DIR/pentimento.tape"
   )

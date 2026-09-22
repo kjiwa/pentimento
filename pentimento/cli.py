@@ -462,6 +462,13 @@ def cmd_tree(args) -> int:
     )
 
 
+def _display_path(path: Path) -> str:
+    """Renders path with $HOME collapsed to ~, else the plain string."""
+    if path.is_relative_to(Path.home()):
+        return f"~/{path.relative_to(Path.home())}"
+    return str(path)
+
+
 FIELD_GUTTER = 3
 
 _HEADER_GROUPS = (
@@ -477,7 +484,7 @@ def _show_field_groups(target):
     """Lists of (key, value, codes) per semantic group, skipping empty groups."""
     values = dict(target.fields)
     values["id"] = target.id
-    values["path"] = str(target.path)
+    values["path"] = _display_path(target.path)
     values["source"] = target.source
     values["modified"] = times_module.local_stamp(target.modified)
     grouped_keys = {key for _, keys in _HEADER_GROUPS for key in keys}

@@ -3,3 +3,4 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
+demo/pentimento-tree.png

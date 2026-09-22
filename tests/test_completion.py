@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pentimento import cli, completion, vocabulary
+from pentimento import cli, completion, listing, vocabulary
 
 
 def _write(directory: Path, name: str, text: str) -> None:
@@ -88,6 +88,12 @@ class ChoicesFlagTests(_CorpusTestCase):
     def test_source_choices(self):
         values = {value for value, _ in completion.candidates(["list", "--source", ""])}
         self.assertEqual(values, {"claude", "cursor"})
+
+
+class ColumnsChoicesTests(_CorpusTestCase):
+    def test_columns_offers_column_names_plus_all(self):
+        values = {value for value, _ in completion.candidates(["list", "--columns", ""])}
+        self.assertEqual(values, set(listing.NAMES) | {"all"})
 
 
 class ProjectTagTests(_CorpusTestCase):

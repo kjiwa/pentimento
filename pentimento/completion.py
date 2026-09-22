@@ -13,7 +13,7 @@ import contextlib
 import io
 
 from pentimento import cli as cli_module
-from pentimento import corpus, shortid
+from pentimento import corpus, listing, shortid
 from pentimento import tags as tags_module
 
 SHELLS = ("bash", "zsh", "fish")
@@ -204,6 +204,8 @@ def _option_value_candidates(
         return _remove_tag_candidates(plans(), subparser, prior_words, word)
     if dest in ("parent", "only"):
         return _plan_candidates(plans(), word)
+    if dest == "columns":
+        return [(c, "") for c in listing.NAMES + ("all",) if c.startswith(word)]
     return []
 
 

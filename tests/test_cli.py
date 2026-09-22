@@ -1118,6 +1118,75 @@ class CmdListSortTests(unittest.TestCase):
         self.assertEqual({p.id for p in ordered}, {"no-created-field", "junk-created"})
 
 
+class CmdListColumnsTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        previous = os.environ.pop("PENTIMENTO_COLUMNS", None)
+        self.addCleanup(_restore_env, "PENTIMENTO_COLUMNS", previous)
+
+    def _run(self, argv):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            result = cli.cmd_list(args)
+        return result, out.getvalue()
+
+    def test_columns_flag_selects_and_orders_columns(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        _, output = self._run(["list", "--columns", "title,status", "--color", "never"])
+        self.assertEqual(output.splitlines()[0].split(), ["TITLE", "STATUS"])
+
+    def test_invalid_columns_value_is_rejected_by_argparse(self):
+        with self.assertRaises(SystemExit):
+            with _silenced(), contextlib.redirect_stderr(io.StringIO()):
+                cli.build_parser().parse_args(["list", "--columns", "bogus"])
+
+    def test_columns_flag_with_json_format_is_rejected(self):
+        args = cli.build_parser().parse_args(["list", "--columns", "title", "--format", "json"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = cli.cmd_list(args)
+        self.assertEqual(result, 1)
+        self.assertIn("--columns", err.getvalue())
+
+    def test_env_var_supplies_the_default_when_flag_is_absent(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        os.environ["PENTIMENTO_COLUMNS"] = "title,status"
+        _, output = self._run(["list", "--color", "never"])
+        self.assertEqual(output.splitlines()[0].split(), ["TITLE", "STATUS"])
+
+    def test_explicit_flag_overrides_the_env_var(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        os.environ["PENTIMENTO_COLUMNS"] = "title"
+        _, output = self._run(["list", "--columns", "status", "--color", "never"])
+        self.assertEqual(output.splitlines()[0].split(), ["STATUS"])
+
+    def test_bad_env_var_message_and_exit_code_on_stderr(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        os.environ["PENTIMENTO_COLUMNS"] = "bogus"
+        args = cli.build_parser().parse_args(["list"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), _silenced():
+            result = cli.cmd_list(args)
+        self.assertEqual(result, 1)
+        self.assertTrue(err.getvalue().startswith("PENTIMENTO_COLUMNS:"))
+
+    def test_env_var_ignored_for_json_format(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        os.environ["PENTIMENTO_COLUMNS"] = "bogus"
+        result, output = self._run(["list", "--format", "json"])
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(output)[0]["id"], "root-plan")
+
+    def test_sort_created_pins_the_created_column(self):
+        _write(self.directory, "root-plan", "---\ncreated: 2026-01-01\n---\n\n# Root\n")
+        _, output = self._run(["list", "--sort", "created", "--color", "never"])
+        self.assertIn("CREATED", output.splitlines()[0])
+
+
 class VersionTests(unittest.TestCase):
     def test_version_flag_exits_zero(self):
         with _silenced(), self.assertRaises(SystemExit) as ctx:

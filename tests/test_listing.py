@@ -5,7 +5,7 @@ import datetime
 import unittest
 from unittest import mock
 
-from pentimento import listing, style
+from pentimento import columns, listing, style
 
 
 @dataclasses.dataclass
@@ -21,6 +21,7 @@ class FakePlan:
     source: str = "claude"
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
+    created_date: datetime.date | None = None
 
     @property
     def modified(self) -> datetime.datetime:
@@ -145,7 +146,7 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("TAGS", header)
 
     def test_created_column_shown_when_any_plan_has_it(self):
-        plans = [FakePlan(id="a-plan", title="Alpha", fields={"created": "2026-01-01"})]
+        plans = [FakePlan(id="a-plan", title="Alpha", created_date=datetime.date(2026, 1, 1))]
         rendered = _with_width(120, lambda: listing.render(plans, on_color=False))
         self.assertIn("CREATED", rendered.split("\n")[0])
         self.assertIn("2026-01-01", rendered.split("\n")[1])
@@ -154,6 +155,19 @@ class RenderTests(unittest.TestCase):
         plans = [FakePlan(id="a-plan", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("CREATED", header)
+
+    def test_created_cell_prints_the_derived_date_not_the_raw_field(self):
+        plans = [
+            FakePlan(
+                id="a-plan",
+                title="Alpha",
+                fields={"created": "not-a-date"},
+                created_date=datetime.date(2026, 3, 4),
+            )
+        ]
+        record_line = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[1]
+        self.assertIn("2026-03-04", record_line)
+        self.assertNotIn("not-a-date", record_line)
 
     def test_no_ansi_bytes_when_color_off(self):
         plans = [FakePlan(id="a", title="Alpha")]
@@ -174,7 +188,7 @@ class FitGuaranteeTests(unittest.TestCase):
                 title="Redesign the auth API",
                 status="complete",
                 mtime=1,
-                fields={"created": "2026-01-01"},
+                created_date=datetime.date(2026, 1, 1),
             ),
             FakePlan(
                 id="api-auth-rollout",
@@ -184,7 +198,7 @@ class FitGuaranteeTests(unittest.TestCase):
                 tags=["auth", "security"],
                 project="platform",
                 mtime=2,
-                fields={"created": "2026-01-02"},
+                created_date=datetime.date(2026, 1, 2),
             ),
             FakePlan(
                 id="billing-invoice-retry",
@@ -193,7 +207,7 @@ class FitGuaranteeTests(unittest.TestCase):
                 project="billing",
                 source="cursor",
                 mtime=3,
-                fields={"created": "2026-01-03"},
+                created_date=datetime.date(2026, 1, 3),
             ),
         ]
 
@@ -252,6 +266,62 @@ class FitGuaranteeTests(unittest.TestCase):
         )[0]
         self.assertIn("TITLE", narrower_header)
         self.assertNotIn("PLAN", narrower_header)
+
+
+class ColumnSelectionTests(unittest.TestCase):
+    def _plans(self):
+        return [
+            FakePlan(
+                id="api-auth-redesign",
+                title="Redesign the auth API",
+                status="complete",
+                mtime=1,
+                created_date=datetime.date(2026, 1, 1),
+            ),
+            FakePlan(
+                id="api-auth-rollout",
+                title="Roll out the new auth API",
+                status="partial",
+                mtime=2,
+                created_date=datetime.date(2026, 1, 2),
+            ),
+        ]
+
+    def test_absolute_selection_renders_in_the_given_order(self):
+        selection = columns.parse("created,title,status", listing.NAMES)
+        header = _with_width(
+            120, lambda: listing.render(self._plans(), on_color=False, selection=selection)
+        ).split("\n")[0]
+        self.assertEqual(header.split(), ["CREATED", "TITLE", "STATUS"])
+
+    def test_explicit_column_survives_a_width_that_would_otherwise_drop_it(self):
+        plans = self._plans()
+        without_selection = _with_width(90, lambda: listing.render(plans, on_color=False)).split(
+            "\n"
+        )[0]
+        self.assertNotIn("CREATED", without_selection)
+
+        selection = columns.parse("all", listing.NAMES)
+        header = _with_width(
+            90, lambda: listing.render(plans, on_color=False, selection=selection)
+        ).split("\n")[0]
+        self.assertIn("CREATED", header)
+
+    def test_sort_key_pins_its_column_without_an_explicit_selection(self):
+        header = _with_width(
+            90, lambda: listing.render(self._plans(), on_color=False, pin=("created",))
+        ).split("\n")[0]
+        self.assertIn("CREATED", header)
+
+    def test_absolute_selection_beats_the_sort_pin(self):
+        selection = columns.parse("title", listing.NAMES)
+        header = _with_width(
+            120,
+            lambda: listing.render(
+                self._plans(), on_color=False, selection=selection, pin=("created",)
+            ),
+        ).split("\n")[0]
+        self.assertEqual(header.split(), ["TITLE"])
 
 
 if __name__ == "__main__":

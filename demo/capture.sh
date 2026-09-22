@@ -10,7 +10,9 @@
 # any value already in the environment, so the fixture's mtimes and the
 # captured relative and absolute times agree byte-for-byte no matter the
 # real wall clock or timezone at capture time. Rewrites the fixture's temp
-# directory to `~/.claude/plans` in each capture for the same reason.
+# directory to `~/.claude/plans` in each capture for the same reason, in
+# both the absolute form and the `~`-collapsed form `show` prints when the
+# temp directory falls under `$HOME`.
 set -eu
 
 _capture() {
@@ -30,7 +32,9 @@ _capture() {
     return "$_capture_status"
   fi
 
-  sed "s|$FIXTURE_DIR|~/.claude/plans|g" "$CAPTURE_DIR/$_capture_name.txt" \
+  sed -e "s|$FIXTURE_DIR|~/.claude/plans|g" \
+      -e "s|$FIXTURE_DISPLAY|~/.claude/plans|g" \
+    "$CAPTURE_DIR/$_capture_name.txt" \
     >"$CAPTURE_DIR/$_capture_name.norm"
   mv "$CAPTURE_DIR/$_capture_name.norm" "$CAPTURE_DIR/$_capture_name.txt"
 }
@@ -75,6 +79,14 @@ main() {
   FIXTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-fixture.XXXXXX")
   CAPTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-capture.XXXXXX")
   trap 'rm -rf "$FIXTURE_DIR" "$CAPTURE_DIR"' EXIT
+
+  # `show` collapses $HOME to ~ before printing a path (cli.py:_display_path),
+  # so a fixture under $HOME appears in captured output in this form too.
+  FIXTURE_DISPLAY=$FIXTURE_DIR
+  # shellcheck disable=SC2088 # literal ~ prefix, not meant to expand
+  case $FIXTURE_DIR in
+    "$HOME"/*) FIXTURE_DISPLAY="~/${FIXTURE_DIR#"$HOME"/}" ;;
+  esac
 
   PENTIMENTO_NOW=2026-09-14T12:30:00Z
   export PENTIMENTO_NOW

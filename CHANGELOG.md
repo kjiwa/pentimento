@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.8
+
+`pentimento completion <bash|zsh|fish>` prints a tab-completion script for
+subcommands, flags, `choices=` values, corpus-derived projects and tags, and
+plan ids — the same short ids `list` prints, reaching the full id on a
+longer prefix. A hidden `pentimento __complete` does the actual candidate
+work so the three scripts stay thin. The demo reel is now a four-act
+narrative (#10), and releases are cut with `scripts/release.sh`, gated on
+publish by `scripts/check-release.sh` (#11). `docs/reference.md`'s env-var
+table and short-id prose now cover `history` and the `PENTIMENTO_NOW`,
+`PENTIMENTO_DEBUG`, and `XDG_CACHE_HOME` variables it was missing.
+
 ## 0.1.7
 
 `show` now prints the plan file's absolute path on its own line under `id`,

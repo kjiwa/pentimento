@@ -15,6 +15,7 @@ pentimento hook
 pentimento index
 pentimento check [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento completion <bash|zsh|fish>
 pentimento --version
 ```
 
@@ -26,7 +27,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | --- | --- |
 | `--format table\|json\|tsv` | Defaults to `table` (human-readable); `json` and `tsv` are for scripting. |
 | `--color auto\|always\|never` | Defaults to `auto`: ANSI colour on a tty, off when piped, when `NO_COLOR` is set, or when `TERM=dumb`. |
-| `--ascii` | Forces `+- `/`` `- ``/`\|  ` box-drawing instead of the Unicode `├─ `/`└─ `/`│  `. `list`, `tree`, `show`, and `check` use Unicode by default whenever the output stream's encoding is UTF-8 and `TERM` isn't `dumb`. |
+| `--ascii` | Forces `+- `/`` `- ``/`\|  ` box-drawing instead of the Unicode `├─ `/`└─ `/`│  `. `list`, `tree`, `show`, `check`, and `history` use Unicode by default whenever the output stream's encoding is UTF-8 and `TERM` isn't `dumb`. |
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
 | `--grep PATTERN` | Case-insensitive regex over title and body. An invalid pattern exits 1 with the regex error on stderr. |
@@ -36,7 +37,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true` — an operator statement is immune to every future `backfill`, including `--rederive`, until `set --unpin` releases it. |
 
-`list`, `tree`, `check`, and `show`'s tables display the short id: the
+`list`, `tree`, `check`, `show`, and `history`'s tables display the short id: the
 shortest trailing run of at least two hyphen-separated segments that's
 unique across the corpus (`shortid.MIN_SEGMENTS = 2`). `show`, `set`,
 `history`, and `set --parent` all accept either the short id or the full id
@@ -50,3 +51,20 @@ as input; `check`'s `--format json|tsv` output always emits the full id.
 | `AGENT_SESSIONS_DIR` | `~/.claude/projects` | Claude Code's session transcripts, the source for `project`, `parent`, `modified`, and `history`. |
 | `CURSOR_PLANS_DIR` | `~/.cursor/plans` and `~/Library/Application Support/Cursor/User/plans` (both searched) | Cursor's plan directory. Set to override the defaults; the value is an `os.pathsep`-separated list of paths, so more than one directory can be searched at once ([sources.py](../pentimento/sources.py)). |
 | `PAGER` | `less` | Pager for `show --full`. Split with shell quoting, so `PAGER="less -S"` works. Empty disables paging. When it is `less` and `LESS` is unset, pentimento sets `LESS=FRX` so colour survives and short output does not open the pager. |
+| `PENTIMENTO_NOW` | current time | ISO 8601 instant overriding "now" for relative-time rendering (`list`/`tree`'s `UPDATED` column, `history`'s `WHEN`). Set for reproducible output, e.g. in `demo/capture.sh`. |
+| `PENTIMENTO_DEBUG` | unset | When set, `pentimento hook` prints a traceback to stderr on an internal error instead of failing silently. |
+| `XDG_CACHE_HOME` | `~/.cache` | Where session transcripts are cached between runs ([cache.py](../pentimento/cache.py)). |
+
+## Shell completion
+
+```sh
+pentimento completion bash >> ~/.bashrc
+pentimento completion zsh  # add to an fpath directory, or eval "$(pentimento completion zsh)"
+pentimento completion fish > ~/.config/fish/completions/pentimento.fish
+```
+
+Each script is a thin, static wrapper that shells out to a hidden
+`pentimento __complete <words>` for every actual candidate decision:
+subcommand names, `choices=` flags, corpus-derived projects and tags, and
+plan ids (the same short ids `list` prints, plus any full id the typed
+prefix reaches).

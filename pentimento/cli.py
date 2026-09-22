@@ -15,6 +15,7 @@ from pathlib import Path
 from pentimento import backfill as backfill_module
 from pentimento import check as check_module
 from pentimento import (
+    completion,
     corpus,
     counts,
     formats,
@@ -363,6 +364,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_history.add_argument("id", help="plan id (filename stem)")
     _add_format_args(p_history)
+
+    p_completion = _add_command(
+        sub,
+        "completion",
+        "print a shell integration script",
+        description=(
+            "Print an integration script for SHELL to stdout. Source it, or eval its "
+            "output, to get tab completion for subcommands, flags, and plan ids."
+        ),
+        epilog=("Examples:\n  pentimento completion bash\n  pentimento completion zsh"),
+    )
+    p_completion.add_argument("shell", choices=completion.SHELLS, help="bash, zsh, or fish")
 
     return parser
 
@@ -831,6 +844,11 @@ def cmd_history(args) -> int:
     return 0
 
 
+def cmd_completion(args) -> int:
+    sys.stdout.write(completion.script(args.shell))
+    return 0
+
+
 COMMANDS = {
     "list": cmd_list,
     "tree": cmd_tree,
@@ -841,10 +859,15 @@ COMMANDS = {
     "index": cmd_index,
     "check": cmd_check,
     "history": cmd_history,
+    "completion": cmd_completion,
 }
 
 
 def main(argv=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "__complete":
+        return completion.complete(argv[1:])
     args = build_parser().parse_args(argv)
     try:
         return COMMANDS[args.command](args)

@@ -39,6 +39,9 @@ pip install pentimento
 pip install git+https://github.com/kjiwa/pentimento.git
 ```
 
+Tab completion for `bash`, `zsh`, and `fish` is in
+[docs/reference.md#shell-completion](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#shell-completion).
+
 ## Quick start
 
 Point `AGENT_PLANS_DIR` at your plans directory (it defaults to
@@ -231,6 +234,7 @@ Cursor plans get body-only lineage and no `project` at all.
 | `index` | Write `INDEX.md` into the plans directory. |
 | `check` | Validate lineage and vocabulary; exits 1 on any finding. |
 | `history <id>` | Every session that touched one plan, oldest first. |
+| `completion <shell>` | Print a `bash`/`zsh`/`fish` tab-completion script. |
 
 Full flags for every command, plus the environment variables, are in
 [docs/reference.md](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md).

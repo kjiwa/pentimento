@@ -118,6 +118,19 @@ clearing — `--project ""` writes a literal empty string, and `--parent ""`
 looks up a plan with the empty string as its id and fails with `no such
 plan`.
 
+## Completions don't fire
+
+Restart the shell after installing a completion script — `bash`/`zsh` only
+read `complete`/`compdef` registrations at startup. For zsh, the directory
+holding `pentimento completion zsh`'s output must be on `fpath` *before*
+`compinit` runs, or autoload never finds `_pentimento`; `eval
+"$(pentimento completion zsh)"` sidesteps `fpath` entirely and works either
+way. On macOS system bash (3.2), install `bash-completion` (Homebrew:
+`brew install bash-completion@2`) and source it before
+`pentimento completion bash`'s output — bash's `complete -F` registration
+works without it, but interactive `<TAB>` handling on a stock macOS shell is
+otherwise unreliable.
+
 ## Frontmatter isn't recognized
 
 A frontmatter block is only recognized when the file's first three bytes

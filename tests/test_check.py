@@ -156,7 +156,7 @@ class RunTests(unittest.TestCase):
                     session="implement-it-later",
                     tool="Read",
                     at="2026-09-05T00:00:00.000Z",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                 )
             ]
         }
@@ -181,7 +181,7 @@ class RunTests(unittest.TestCase):
                     session="not-started-but-done",
                     tool="Write",
                     at="2026-09-01T00:00:00.000Z",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                 )
             ]
         }
@@ -196,7 +196,7 @@ class RunTests(unittest.TestCase):
                     session="implement-it-later",
                     tool="Read",
                     at="2026-09-05T00:00:00.000Z",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                 )
             ]
         }

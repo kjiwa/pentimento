@@ -391,23 +391,19 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
         self.assertTrue(err.getvalue())
 
     def test_project_dot_resolves_to_the_current_directory_name(self):
-        _write(self.directory, "root-plan", "---\nproject: pentimento\n---\n\n# Root\n")
-        with mock.patch(
-            "pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")
-        ):
+        _write(self.directory, "root-plan", "---\nproject: example\n---\n\n# Root\n")
+        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/home/user/src/example")):
             matched = json.loads(self._run_json(["list", "--project", ".", "--format", "json"]))
         self.assertEqual([p["id"] for p in matched], ["root-plan"])
 
     def test_set_project_dot_writes_the_current_directory_name(self):
         _write(self.directory, "root-plan", "# Root\n")
-        with mock.patch(
-            "pentimento.cli.Path.cwd", return_value=Path("/Users/kjiwa/src/github/kjiwa/pentimento")
-        ):
+        with mock.patch("pentimento.cli.Path.cwd", return_value=Path("/home/user/src/example")):
             args = cli.build_parser().parse_args(["set", "root-plan", "--project", "."])
             with _silenced():
                 self.assertEqual(cli.cmd_set(args), 0)
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
-        self.assertEqual(reloaded.fields["project"], "pentimento")
+        self.assertEqual(reloaded.fields["project"], "example")
 
     def test_limit_keeps_the_tail_under_ascending_order(self):
         for name in ("a-plan", "b-plan", "c-plan"):

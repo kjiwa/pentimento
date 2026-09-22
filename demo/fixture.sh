@@ -139,8 +139,8 @@ main() {
 - [x] Migrate existing sessions' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-redesign-session.jsonl \
-    api-auth-redesign /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
-    Write /Users/kjiwa/.claude/plans/api-auth-redesign.md
+    api-auth-redesign /home/user/src/example "$FIXTURE_SESSION_TS" \
+    Write /home/user/.claude/plans/api-auth-redesign.md
 
   _write_plan api-auth-rollout "Roll out the new auth API" partial active \
     platform api-auth-redesign 20 \
@@ -160,8 +160,8 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
 | beta | in progress |' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-rollout-session.jsonl \
-    api-auth-rollout /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
-    Write /Users/kjiwa/.claude/plans/api-auth-rollout.md
+    api-auth-rollout /home/user/src/example "$FIXTURE_SESSION_TS" \
+    Write /home/user/.claude/plans/api-auth-rollout.md
 
   _write_plan api-auth-cleanup "Remove the old auth API" not-started queued \
     platform api-auth-rollout 15 \
@@ -171,13 +171,13 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
 - [ ] Drop the compatibility shim' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-cleanup-session.jsonl \
-    api-auth-cleanup /Users/kjiwa/src/github/kjiwa/pentimento "$FIXTURE_SESSION_TS" \
-    Write /Users/kjiwa/.claude/plans/api-auth-cleanup.md
+    api-auth-cleanup /home/user/src/example "$FIXTURE_SESSION_TS" \
+    Write /home/user/.claude/plans/api-auth-cleanup.md
 
   _fixture_worked_ts=$(_stamp_days_ago 3 | sed -n '3p')
   _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \
-    implement-api-auth-cleanup-eager-wolf /Users/kjiwa/src/github/kjiwa/pentimento "$_fixture_worked_ts" \
-    Read /Users/kjiwa/.claude/plans/api-auth-cleanup.md
+    implement-api-auth-cleanup-eager-wolf /home/user/src/example "$_fixture_worked_ts" \
+    Read /home/user/.claude/plans/api-auth-cleanup.md
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \
     billing no-such-plan 10 \

@@ -50,17 +50,17 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_write_of_the_plan_itself_is_authored(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 _tool_use_record(
                     slug="some-plan-eager-bird",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-01T00:00:00.000Z",
                     tool="Write",
-                    input_={"file_path": "/Users/kjiwa/.claude/plans/some-plan-eager-bird.md"},
+                    input_={"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"},
                 ),
             ],
         )
@@ -76,17 +76,17 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [])
 
     def test_read_from_a_later_differently_slugged_session_is_worked(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 _tool_use_record(
                     slug="implement-the-plan-later-fox",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-05T00:00:00.000Z",
                     tool="Read",
-                    input_={"file_path": "/Users/kjiwa/.claude/plans/some-plan-eager-bird.md"},
+                    input_={"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"},
                 ),
             ],
         )
@@ -98,17 +98,17 @@ class LoadTests(unittest.TestCase):
         )
 
     def test_cursor_plan_suffix_resolves_to_the_bare_id(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 _tool_use_record(
                     slug="some-session",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-01T00:00:00.000Z",
                     tool="Edit",
-                    input_={"file_path": "/Users/kjiwa/.cursor/plans/cursor-plan.plan.md"},
+                    input_={"file_path": "/home/user/.cursor/plans/cursor-plan.plan.md"},
                 ),
             ],
         )
@@ -116,17 +116,17 @@ class LoadTests(unittest.TestCase):
         self.assertIn("cursor-plan", result)
 
     def test_tool_outside_the_watched_set_is_ignored(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 _tool_use_record(
                     slug="some-session",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-01T00:00:00.000Z",
                     tool="Bash",
-                    input_={"command": "cat /Users/kjiwa/.claude/plans/some-plan.md"},
+                    input_={"command": "cat /home/user/.claude/plans/some-plan.md"},
                 ),
             ],
         )
@@ -134,14 +134,14 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_free_text_mention_without_tool_use_is_ignored(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 {
                     "slug": "some-session",
-                    "cwd": "/Users/kjiwa/example",
+                    "cwd": "/home/user/example",
                     "timestamp": "2026-09-01T00:00:00.000Z",
                     "message": {
                         "role": "user",
@@ -154,19 +154,17 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
     def test_subagent_transcripts_under_a_session_directory_are_included(self):
-        session_dir = self.directory / "-Users-kjiwa-example" / "some-uuid" / "subagents"
+        session_dir = self.directory / "-home-user-example" / "some-uuid" / "subagents"
         session_dir.mkdir(parents=True)
         _write_jsonl(
             session_dir / "agent-abc.jsonl",
             [
                 _tool_use_record(
                     slug="implement-plan-later-fox",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-05T00:00:00.000Z",
                     tool="Task",
-                    input_={
-                        "prompt": "Execute the plan at /Users/kjiwa/.claude/plans/some-plan.md"
-                    },
+                    input_={"prompt": "Execute the plan at /home/user/.claude/plans/some-plan.md"},
                 ),
             ],
         )
@@ -174,24 +172,24 @@ class LoadTests(unittest.TestCase):
         self.assertIn("some-plan", result)
 
     def test_touches_for_a_plan_are_sorted_by_timestamp(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
             project_dir / "session.jsonl",
             [
                 _tool_use_record(
                     slug="second-session",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-05T00:00:00.000Z",
                     tool="Read",
-                    input_={"file_path": "/Users/kjiwa/.claude/plans/some-plan.md"},
+                    input_={"file_path": "/home/user/.claude/plans/some-plan.md"},
                 ),
                 _tool_use_record(
                     slug="some-plan",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-01T00:00:00.000Z",
                     tool="Write",
-                    input_={"file_path": "/Users/kjiwa/.claude/plans/some-plan.md"},
+                    input_={"file_path": "/home/user/.claude/plans/some-plan.md"},
                 ),
             ],
         )
@@ -202,17 +200,17 @@ class LoadTests(unittest.TestCase):
         )
 
     def test_malformed_json_lines_are_skipped(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         (project_dir / "session.jsonl").write_text(
             "not json but mentions /plans/ anyway\n"
             + json.dumps(
                 _tool_use_record(
                     slug="some-session",
-                    cwd="/Users/kjiwa/example",
+                    cwd="/home/user/example",
                     timestamp="2026-09-01T00:00:00.000Z",
                     tool="Read",
-                    input_={"file_path": "/Users/kjiwa/.claude/plans/some-plan.md"},
+                    input_={"file_path": "/home/user/.claude/plans/some-plan.md"},
                 )
             )
             + "\n"
@@ -221,7 +219,7 @@ class LoadTests(unittest.TestCase):
         self.assertIn("some-plan", result)
 
     def test_unreadable_or_corrupted_file_does_not_crash(self):
-        project_dir = self.directory / "-Users-kjiwa-example"
+        project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         (project_dir / "bad.jsonl").write_bytes(b"\xff\xfe\x00\x00 /plans/ not valid json\n")
         result = touches.load(self.directory)

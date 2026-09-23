@@ -349,6 +349,129 @@ class CmdListTagFilterTests(unittest.TestCase):
         self.assertEqual(json.loads(output), [])
 
 
+class CmdTreeLineageTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _run(self, argv):
+        out = io.StringIO()
+        args = cli.build_parser().parse_args(argv)
+        with contextlib.redirect_stdout(out):
+            result = cli.COMMANDS[args.command](args)
+        return result, out.getvalue()
+
+    def _write_thread(self):
+        _write(self.directory, "root", "---\nproject: p\n---\n\n# Root\n")
+        _write(self.directory, "child", "---\nproject: p\nparent: root\n---\n\n# Child\n")
+        _write(
+            self.directory,
+            "untagged-child",
+            "---\nproject: p\nparent: root\n---\n\n# Untagged Child\n",
+        )
+        _write(self.directory, "unrelated", "---\nproject: p\n---\n\n# Unrelated\n")
+
+    def test_tree_id_renders_the_subtree_and_omits_unrelated_plans(self):
+        self._write_thread()
+        _, output = self._run(["tree", "root", "--color", "never"])
+        self.assertIn("Root", output)
+        self.assertIn("Child", output)
+        self.assertNotIn("Unrelated", output)
+
+    def test_tree_id_keeps_untagged_subplan_that_tag_would_drop(self):
+        _write(self.directory, "root", "---\nproject: p\ntags: [publish]\n---\n\n# Root\n")
+        _write(
+            self.directory,
+            "untagged-child",
+            "---\nproject: p\nparent: root\n---\n\n# Untagged Child\n",
+        )
+        _, output = self._run(["tree", "root", "--color", "never"])
+        self.assertIn("Untagged Child", output)
+
+    def test_tree_accepts_a_short_id(self):
+        _write(self.directory, "is-it-possible-to-abundant-rabbit", "---\nproject: p\n---\n\n# R\n")
+        _, output = self._run(["tree", "abundant-rabbit", "--color", "never"])
+        self.assertIn("R", output)
+
+    def test_ancestors_includes_the_spine_and_excludes_spine_siblings(self):
+        _write(self.directory, "grandparent", "---\nproject: p\n---\n\n# Grandparent\n")
+        _write(
+            self.directory,
+            "gp-sibling",
+            "---\nproject: p\nparent: grandparent\n---\n\n# GP Sibling\n",
+        )
+        _write(
+            self.directory,
+            "parent",
+            "---\nproject: p\nparent: grandparent\n---\n\n# Parent\n",
+        )
+        _write(self.directory, "target", "---\nproject: p\nparent: parent\n---\n\n# Target\n")
+        _, output = self._run(["tree", "target", "--ancestors", "--color", "never"])
+        self.assertIn("Grandparent", output)
+        self.assertIn("Parent", output)
+        self.assertIn("Target", output)
+        self.assertNotIn("GP Sibling", output)
+
+    def test_annotates_parent_elided_on_the_cut_parent(self):
+        self._write_thread()
+        _, output = self._run(["tree", "child", "--color", "never"])
+        self.assertIn("(parent elided: root)", output)
+
+    def test_status_filter_applies_within_the_selection(self):
+        _write(self.directory, "root", "---\nproject: p\nstatus: not-started\n---\n\n# Root\n")
+        _write(
+            self.directory,
+            "child",
+            "---\nproject: p\nparent: root\nstatus: partial\n---\n\n# Child\n",
+        )
+        _, output = self._run(["tree", "root", "--status", "partial", "--color", "never"])
+        self.assertNotIn("Root\n", output)
+        self.assertIn("Child", output)
+
+    def test_ancestors_without_id_exits_one_with_message_on_stderr(self):
+        args = cli.build_parser().parse_args(["tree", "--ancestors"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = cli.cmd_tree(args)
+        self.assertEqual(result, 1)
+        self.assertIn("--ancestors requires a plan id", err.getvalue())
+
+    def test_no_such_plan_exits_one_with_suggestion(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        args = cli.build_parser().parse_args(["tree", "nope-nope"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = cli.cmd_tree(args)
+        self.assertEqual(result, 1)
+        self.assertIn("no such plan", err.getvalue())
+
+    def test_ambiguous_short_id_exits_one(self):
+        _write(self.directory, "foo-abundant-rabbit", "# Foo\n")
+        _write(self.directory, "bar-abundant-rabbit", "# Bar\n")
+        args = cli.build_parser().parse_args(["tree", "abundant-rabbit"])
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            result = cli.cmd_tree(args)
+        self.assertEqual(result, 1)
+        self.assertIn("ambiguous plan id", err.getvalue())
+
+    def test_json_format_nests_only_the_selected_plans(self):
+        self._write_thread()
+        _, output = self._run(["tree", "root", "--format", "json"])
+        records = json.loads(output)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["id"], "root")
+        child_ids = {c["id"] for c in records[0]["children"]}
+        self.assertEqual(child_ids, {"child", "untagged-child"})
+
+    def test_footer_reports_selected_of_corpus_not_selected_of_selected(self):
+        self._write_thread()
+        _, output = self._run(["tree", "root", "--color", "never"])
+        self.assertIn("3 of 4 plans", output.splitlines()[-1])
+
+
 class CmdGrepProjectLimitTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

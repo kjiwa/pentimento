@@ -37,7 +37,7 @@ Enter
 Sleep 500ms
 
 # Act 2: lineage
-Type "# which plan replaced which"
+Type "# which plan replaced which, and pulling one thread out"
 Enter
 Sleep 1500ms
 
@@ -46,6 +46,10 @@ Enter
 Sleep 3000ms
 
 Screenshot demo/pentimento-tree.png
+
+Type "pentimento tree api-auth-rollout --ancestors"
+Enter
+Sleep 3000ms
 
 Type "pentimento show api-auth-rollout"
 Enter

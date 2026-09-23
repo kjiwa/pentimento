@@ -1,4 +1,4 @@
-"""Render plan lineage as a tree, grouped by project."""
+"""Render plan lineage as a tree, grouped by project, and select a thread by lineage."""
 
 from __future__ import annotations
 
@@ -35,6 +35,25 @@ def _reachable_ids(root, children_by_parent):
     return reachable
 
 
+def subtree(plans, root):
+    """`root` plus every plan beneath it."""
+    reachable = _reachable_ids(root, _children_by_parent(plans))
+    return [p for p in plans if p.id in reachable]
+
+
+def spine(plans, plan):
+    """`plan`'s ancestors, nearest first -- the path down to it with every
+    sibling branch left out. Stops at the topmost ancestor, or at a cycle."""
+    by_id = {p.id: p for p in plans}
+    chain, seen = [], {plan.id}
+    current = by_id.get(plan.parent) if plan.parent else None
+    while current is not None and current.id not in seen:
+        seen.add(current.id)
+        chain.append(current)
+        current = by_id.get(current.parent) if current.parent else None
+    return chain
+
+
 def _roots(plans, children_by_parent, key=_id_key, reverse=False):
     ids = {p.id for p in plans}
     genuine = sorted(
@@ -64,8 +83,6 @@ class _RenderContext:
     unicode_ok: bool
     width: int
     short_ids: dict
-    show_status: bool
-    show_intent: bool
 
 
 def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
@@ -84,10 +101,8 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     child_prefix = prefix + (ctx.glyphs["space"] if is_last else ctx.glyphs["vertical"])
     is_repeat = plan.id in ctx.visited
     cells: list[style.Cell] = [(ctx.short_ids[plan.id], ())]
-    if ctx.show_status:
-        cells.append((plan.status, style.STATUS_CODES.get(plan.status, ())))
-    if ctx.show_intent:
-        cells.append((plan.intent, style.INTENT_CODES.get(plan.intent, ())))
+    cells.append((plan.status, style.STATUS_CODES.get(plan.status, ())))
+    cells.append((plan.intent, style.INTENT_CODES.get(plan.intent, ())))
     if plan.tags:
         cells.append((tags_module.render(plan.tags), ()))
     created = plan.fields.get("created")
@@ -122,8 +137,6 @@ def render(
     glyphs=None,
     unicode_ok: bool = False,
     short_ids=None,
-    show_status: bool = True,
-    show_intent: bool = True,
 ) -> str:
     """Tree for one project's worth of plans (roots and descendants)."""
     glyphs = glyphs or style.GLYPHS_ASCII
@@ -142,8 +155,6 @@ def render(
         unicode_ok=unicode_ok,
         width=width,
         short_ids=short_ids,
-        show_status=show_status,
-        show_intent=show_intent,
     )
     for index, root in enumerate(roots):
         annotation = (

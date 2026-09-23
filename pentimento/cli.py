@@ -302,7 +302,7 @@ def _add_command(sub, name, help, description=None, epilog=None):
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(
         prog="pentimento",
-        description="Status, intent, and lineage over agent plan files.",
+        description="Status, intent, and lineage for Claude Code and Cursor plan files.",
         epilog=(
             "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
             "CURSOR_PLANS_DIR; session history from AGENT_SESSIONS_DIR (default:\n"

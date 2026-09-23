@@ -1,6 +1,6 @@
 # pentimento
 
-Status, intent, and lineage over agent plan files.
+Status, intent, and lineage for Claude Code and Cursor plan files.
 
 [![check](https://github.com/kjiwa/pentimento/actions/workflows/check.yml/badge.svg)](https://github.com/kjiwa/pentimento/actions/workflows/check.yml)
 [![PyPI](https://img.shields.io/pypi/v/pentimento)](https://pypi.org/project/pentimento/)
@@ -8,11 +8,11 @@ Status, intent, and lineage over agent plan files.
 
 ![demo](https://raw.githubusercontent.com/kjiwa/pentimento/main/demo/pentimento.gif)
 
-Coding agents leave plan files behind. After a few hundred of them you
-cannot tell which finished, which you still care about, or which plan
-replaced which — the filenames are random and the files say nothing about
-their own state. pentimento derives that state and gives you a CLI to list,
-filter, and render the lot as a lineage tree.
+Claude Code and Cursor leave plan files behind. After a few hundred of
+them you cannot tell which finished, which you still care about, or which
+plan replaced which — the filenames are random and the files say nothing
+about their own state. pentimento derives that state and gives you a CLI to
+list, filter, and render the lot as a lineage tree.
 
 Three kinds of plan are worth finding again:
 
@@ -312,15 +312,17 @@ for the details, and `pentimento index` for an `INDEX.md` worth committing.
 
 ## Prior art
 
+[ccplan](https://github.com/sorafujitani/ccplan) and
+[planc](https://github.com/jakebf/planc) track Claude Code plans by a status
+you set by hand, ccplan in a sidecar file and planc in frontmatter through a
+TUI. [claude-plan-viewer](https://github.com/HelgeSverre/claude-plan-viewer)
+browses and searches them in a web UI.
 [planning-with-files](https://github.com/OthmanAdi/planning-with-files) keeps
 an agent's plan on disk while it works and recovers it after `/clear` or
 compaction; it manages the files it creates, not a directory of finished
-ones. [claude-log-viewer](https://github.com/InDate/claude-log-viewer) is a
-local web app for Claude Code projects and session logs, not plan files.
-[dela](https://github.com/A/dela) lists markdown todos from the CLI, with no
-status derived from checkboxes and no notion of supersession or lineage.
-pentimento reads a corpus it did not author and derives status, project, and
-parent across it. The longer comparison is in
+ones. None of them records which plan replaced which. pentimento reads a
+corpus it did not author and derives status, project, and parent across it.
+The longer comparison is in
 [Managing Claude Code plan files](https://dev.to/kjiwa/managing-claude-code-plan-files-lineage-status-and-existing-tools-37b6).
 
 ## Requirements and limitations

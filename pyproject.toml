@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Kamil Jiwa", email = "kamil.jiwa@gmail.com" }]
-keywords = ["plans", "claude-code", "cursor", "cli", "lineage"]
+keywords = ["plans", "claude-code", "cursor", "cli", "lineage", "agent", "markdown", "frontmatter"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

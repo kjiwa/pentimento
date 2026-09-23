@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.1.12
 
 `list` and `tree` gain `--title PATTERN`, a case-insensitive regex over the
 title alone (`--grep` still covers title and body), and `--since WHEN` /

@@ -7,7 +7,7 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 
 ```sh
 pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n LIMIT]
-pentimento tree [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--sort modified|created|id|status|title] [--order asc|desc] [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--sort modified|created|id|status|title] [--order asc|desc] [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento set <id> [--status STATUS] [--unpin] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
@@ -31,6 +31,8 @@ Run `pentimento <command> --help` for that command's own examples.
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. The sorted-on column (`created`→`CREATED`, `status`→`STATUS`, `title`→`TITLE`, `id`→`PLAN`, `modified`→`UPDATED`) never drops, so the order it produces is always visible in `list`'s table. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
+| `tree <id>` | Roots the tree at that plan: it plus every plan beneath it, resolved against the whole corpus, so `--project` is unnecessary. Filters apply inside the selection. |
+| `tree --ancestors` | Also walks up from `<id>` to its topmost ancestor, spine only -- the ancestors' other children stay out. Requires `<id>`; without one, exits 1 with `--ancestors requires a plan id`. |
 | `--grep PATTERN` | Case-insensitive regex over title and body. An invalid pattern exits 1 with the regex error on stderr. |
 | `-n`/`--limit` (`list` only) | Keeps the `N` rows nearest the prompt: the last `N` under `--order asc`, the first `N` under `--order desc`. Applied before rendering or emitting, so scripting matches what you see. `0` means zero rows in either order; negative values are rejected. |
 | `show --full` | Prints the whole body unclipped. Plain `show` clips to the terminal height on a tty and prints a hint to rerun with `--full`. |
@@ -41,8 +43,9 @@ Run `pentimento <command> --help` for that command's own examples.
 `list`, `tree`, `check`, `show`, and `history`'s tables display the short id: the
 shortest trailing run of at least two hyphen-separated segments that's
 unique across the corpus (`shortid.MIN_SEGMENTS = 2`). `show`, `set`,
-`history`, and `set --parent` all accept either the short id or the full id
-as input; `check`'s `--format json|tsv` output always emits the full id.
+`history`, `tree`, and `set --parent` all accept either the short id or the
+full id as input; `check`'s `--format json|tsv` output always emits the full
+id.
 
 ## Columns
 

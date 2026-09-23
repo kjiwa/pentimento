@@ -57,16 +57,34 @@ ownership rules.
 tags — repeated `--tag` is an AND filter, like every other filter. Tags are
 operator-owned and cross-cutting, so they group plans across projects in a
 way `--project` can't; use `set --add-tag`/`--remove-tag`/`--clear-tags` to
-maintain them.
+maintain them. Lineage is structural, not cross-cutting: pulling a single
+thread of subplans back out is `tree <id>`'s job, not a tag's.
 
-## Reading lineage
+## Following a thread
 
-`pentimento tree --project platform` groups a project's plans into Unicode
-trees, root to leaf, so you can see which plan is a re-attempt of which
-(`--ascii` for plain-text glyphs). A plan whose recorded parent isn't in the
-filtered set gets a `(parent elided: <id>)` annotation on its root line
-rather than silently becoming a root — run `tree` without `--project` to see
-the whole chain.
+A topic often outgrows one plan and spawns subplans, but tagging them is
+manual and easy to leave inconsistent — a plan filter like `--tag` then
+drops whichever subplan didn't get tagged. `tree <id>` sidesteps that by
+selecting the thread structurally: `<id>` plus every plan beneath it,
+resolved against the whole corpus, so `--project` is unnecessary.
+
+```sh
+pentimento tree wobbly-willow
+pentimento tree wobbly-willow --ancestors
+pentimento tree wobbly-willow --status partial
+```
+
+Plain `tree wobbly-willow` shows the thread from that plan down.
+`--ancestors` also walks up to the topmost ancestor, spine only — the
+ancestors' other children stay out. `--status partial` filters within the
+selection, so `tree <id> --status partial` answers "what's left on this
+thread". A plan whose recorded parent isn't in the selection gets a
+`(parent elided: <id>)` annotation on its root line: the thread continues
+above — `--ancestors` shows it.
+
+`pentimento tree --project platform` still groups a whole project's plans
+into Unicode trees, root to leaf (`--ascii` for plain-text glyphs), for
+when the unit you want is a project rather than a thread.
 
 ## Backfilling safely
 
@@ -139,7 +157,8 @@ of `--columns`/`PENTIMENTO_COLUMNS`, which shape `list`'s `--format table`
 output only. `tsv` drops non-scalar fields
 — a `tree --format tsv` row has no `children` column, only the flat record
 — so use `json` when you need the nested tree structure
-([formats.py](../pentimento/formats.py)). A common pattern:
+([formats.py](../pentimento/formats.py)). `tree <id> --format json` is the
+scriptable "everything on this thread" query. A common pattern:
 
 ```sh
 pentimento list --format json | jq -r '.[] | select(.status == "not-started") | .id'

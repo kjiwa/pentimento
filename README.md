@@ -20,7 +20,8 @@ Two kinds of plan are worth finding again:
   subplans, absorbs decisions made in discussion, and leaves behind the
   branches you rejected — the part you want back a quarter later. A
   superseded plan is a decision record, not garbage, which is why
-  `superseded` is the one status no derivation produces or overwrites.
+  `superseded` is the one status no derivation produces or overwrites; `tree
+  <id>` brings the whole thread back, tags or no tags.
 - The finished one that is not over: execution ends with findings you will
   not act on today. Tag it and set an intent, and `list --tag` or
   `list --starred` brings it back when you are ready to pick the thread up
@@ -62,8 +63,15 @@ pentimento set some-plan-id --add-tag auth --intent someday
 pentimento list --tag auth
 ```
 
+To pull one thread of subplans back out by lineage, rather than by tag:
+
+```sh
+pentimento tree some-plan-id
+pentimento tree some-plan-id --ancestors
+```
+
 [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
-walks both loops end to end.
+walks all three loops end to end.
 
 Sources and their default directories are covered in
 [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md);
@@ -99,6 +107,12 @@ unknown      unset                claude  onboarding-checklist  Write the onboar
 
 ### tree
 
+Plans nested under their parents, grouped by project. Plain `tree` renders
+the whole corpus this way; `tree <id>` roots it at one plan instead — that
+plan plus everything beneath it, resolved against the whole corpus, so
+`--project` is unnecessary. `--ancestors` also walks up to `<id>`'s topmost
+ancestor, spine only, for pulling a single thread out of a larger forest.
+
 <!-- sample:tree -->
 ```
 (no project)
@@ -124,6 +138,20 @@ platform
            auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
 
 8 plans
+```
+<!-- /sample -->
+
+<!-- sample:tree-thread -->
+```
+platform
+└─ Redesign the auth API
+     auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
+   └─ Roll out the new auth API
+        auth-rollout  partial  active  [auth, security]  2026-08-25  2w
+      └─ Remove the old auth API
+           auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+
+3 of 8 plans
 ```
 <!-- /sample -->
 
@@ -213,7 +241,7 @@ The vocabulary lives in one place:
 | `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived. `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
-| `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference (an `<id>.md` literal or a trailing codename) to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. |
+| `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference (an `<id>.md` literal or a trailing codename) to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |
 | `project` | derived, or operator | `backfill` derives it from a session's `cwd`. `set --project`/`--clear-project` set or clear it directly; `--project .` resolves to the current directory's name. |
 | `created` | derived once | A local date, set once and then immutable except through `backfill --recreate`. |
 | `modified` | derived, not stored | Not a frontmatter field: `max(session end time, file mtime)`. Neither `backfill` nor `set` bumps it when the write only touches frontmatter bookkeeping. |
@@ -229,7 +257,7 @@ Cursor plans get body-only lineage and no `project` at all.
 | Command | Does |
 | --- | --- |
 | `list` | Flat table of plans, one line each. |
-| `tree` | Plans nested under their parents, grouped by project. |
+| `tree [<id>]` | Plans nested under their parents, grouped by project; `<id>` roots the tree at one plan's thread instead, `--ancestors` walking up to its topmost ancestor. |
 | `show <id>` | One plan's title, frontmatter, and rendered body. |
 | `set <id>` | Rewrite one plan's frontmatter in place. |
 | `backfill` | Derive and write missing frontmatter across the corpus. |

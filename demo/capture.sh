@@ -98,11 +98,12 @@ main() {
 
   _capture list list
   _capture tree tree
+  _capture tree-thread tree auth-rollout --ancestors
   _capture show show api-auth-rollout
   _capture check check
   _capture history history api-auth-cleanup
 
-  for _name in list tree show check history; do
+  for _name in list tree tree-thread show check history; do
     _splice "$_name"
   done
 }

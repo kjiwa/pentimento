@@ -77,21 +77,14 @@ class RenderTests(unittest.TestCase):
         rendered = _with_width(120, lambda: tree.render([a, b]))
         self.assertIn("(cycle)", rendered)
 
-    def test_render_grouped_shows_status_and_intent_when_uniform_across_the_whole_set(self):
-        root = FakePlan(id="root", title="Root", project="p1", status="not-started", intent="unset")
-        rendered = _with_width(120, lambda: tree.render_grouped([root]))
-        self.assertIn("not-started", rendered)
-        self.assertIn("unset", rendered)
-
-    def test_render_grouped_keeps_status_when_mixed_in_another_group(self):
-        # A single project group is internally uniform, but the whole filtered set is
-        # not -- render_grouped must compute constancy once, over the whole set, not
-        # per project, so the two groups agree on what's worth printing.
-        p1 = FakePlan(id="p1a", title="P1A", project="p1", status="not-started")
-        p2 = FakePlan(id="p2a", title="P2A", project="p2", status="complete")
+    def test_render_grouped_always_shows_status_and_intent(self):
+        p1 = FakePlan(id="p1a", title="P1A", project="p1", status="not-started", intent="unset")
+        p2 = FakePlan(id="p2a", title="P2A", project="p2", status="complete", intent="active")
         rendered = _with_width(120, lambda: tree.render_grouped([p1, p2]))
         self.assertIn("not-started", rendered)
+        self.assertIn("unset", rendered)
         self.assertIn("complete", rendered)
+        self.assertIn("active", rendered)
 
     def test_render_grouped_headings_are_sorted_with_blank_line_between(self):
         p1 = FakePlan(id="p1", title="P1", project="zeta")
@@ -121,9 +114,7 @@ class RenderTests(unittest.TestCase):
 
     def test_status_and_intent_are_painted_when_color_on(self):
         root = FakePlan(id="root", title="Root", status="complete", intent="active")
-        lines = _with_width(
-            120, lambda: tree.render([root], on_color=True, show_status=True, show_intent=True)
-        ).split("\n")
+        lines = _with_width(120, lambda: tree.render([root], on_color=True)).split("\n")
         self.assertIn(style.GREEN, lines[1])
         self.assertIn(style.MAGENTA, lines[1])
 
@@ -140,9 +131,7 @@ class RenderTests(unittest.TestCase):
             fields={"created": "2026-01-01"},
             mtime=1,
         )
-        lines = _with_width(
-            120, lambda: tree.render([root], show_status=True, show_intent=True)
-        ).split("\n")
+        lines = _with_width(120, lambda: tree.render([root])).split("\n")
         meta = lines[1]
         self.assertLess(meta.index("root"), meta.index("not-started"))
         self.assertLess(meta.index("not-started"), meta.index("unset"))
@@ -218,6 +207,65 @@ class AsRecordsTests(unittest.TestCase):
         b = FakePlan(id="b", title="B", parent="a")
         records = tree.as_records([a, b])
         self.assertTrue(records)
+
+
+class SubtreeTests(unittest.TestCase):
+    def test_returns_root_plus_all_descendants(self):
+        root = FakePlan(id="root", title="Root")
+        child = FakePlan(id="child", title="Child", parent="root")
+        grandchild = FakePlan(id="grandchild", title="Grandchild", parent="child")
+        result = tree.subtree([root, child, grandchild], root)
+        self.assertEqual({p.id for p in result}, {"root", "child", "grandchild"})
+
+    def test_excludes_siblings_and_ancestors(self):
+        grandparent = FakePlan(id="grandparent", title="Grandparent")
+        parent = FakePlan(id="parent", title="Parent", parent="grandparent")
+        sibling = FakePlan(id="sibling", title="Sibling", parent="grandparent")
+        target = FakePlan(id="target", title="Target", parent="parent")
+        result = tree.subtree([grandparent, parent, sibling, target], parent)
+        self.assertEqual({p.id for p in result}, {"parent", "target"})
+
+    def test_leaf_returns_itself_alone(self):
+        leaf = FakePlan(id="leaf", title="Leaf")
+        other = FakePlan(id="other", title="Other")
+        result = tree.subtree([leaf, other], leaf)
+        self.assertEqual({p.id for p in result}, {"leaf"})
+
+    def test_terminates_on_a_parent_cycle(self):
+        a = FakePlan(id="a", title="A", parent="b")
+        b = FakePlan(id="b", title="B", parent="a")
+        result = tree.subtree([a, b], a)
+        self.assertEqual({p.id for p in result}, {"a", "b"})
+
+
+class SpineTests(unittest.TestCase):
+    def test_returns_ancestors_nearest_first(self):
+        grandparent = FakePlan(id="grandparent", title="Grandparent")
+        parent = FakePlan(id="parent", title="Parent", parent="grandparent")
+        child = FakePlan(id="child", title="Child", parent="parent")
+        chain = tree.spine([grandparent, parent, child], child)
+        self.assertEqual([p.id for p in chain], ["parent", "grandparent"])
+
+    def test_root_has_empty_spine(self):
+        root = FakePlan(id="root", title="Root")
+        self.assertEqual(tree.spine([root], root), [])
+
+    def test_omits_ancestors_other_children(self):
+        parent = FakePlan(id="parent", title="Parent")
+        child = FakePlan(id="child", title="Child", parent="parent")
+        sibling = FakePlan(id="sibling", title="Sibling", parent="parent")
+        chain = tree.spine([parent, child, sibling], child)
+        self.assertEqual([p.id for p in chain], ["parent"])
+
+    def test_terminates_on_a_cycle(self):
+        a = FakePlan(id="a", title="A", parent="b")
+        b = FakePlan(id="b", title="B", parent="a")
+        chain = tree.spine([a, b], a)
+        self.assertEqual([p.id for p in chain], ["b"])
+
+    def test_stops_where_parent_names_a_plan_outside_the_corpus(self):
+        orphan = FakePlan(id="orphan", title="Orphan", parent="missing-parent")
+        self.assertEqual(tree.spine([orphan], orphan), [])
 
 
 if __name__ == "__main__":

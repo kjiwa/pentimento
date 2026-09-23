@@ -187,6 +187,23 @@ def _apply_filters(plans, args):
     return plans
 
 
+def _select_lineage(corpus_plans, args):
+    """The plan `args.id` names plus its descendants, and with `--ancestors`
+    the path down from its topmost ancestor. The whole corpus when no id is
+    given. Returns `(plans, error)`; `error` is a ready-to-print message."""
+    if args.id is None:
+        if args.ancestors:
+            return None, "--ancestors requires a plan id"
+        return corpus_plans, None
+    target = corpus.by_id(corpus_plans, args.id)
+    if target is None:
+        return None, _no_such_plan(corpus_plans, args.id)
+    selected = tree_module.subtree(corpus_plans, target)
+    if args.ancestors:
+        selected = tree_module.spine(corpus_plans, target) + selected
+    return selected, None
+
+
 def _version() -> str:
     try:
         return importlib.metadata.version("pentimento")
@@ -264,8 +281,22 @@ def build_parser() -> argparse.ArgumentParser:
         sub,
         "tree",
         "lineage tree, grouped by project",
-        description="Plans nested under their parents, grouped by project.",
-        epilog=("Examples:\n  pentimento tree --project .\n  pentimento tree --starred --ascii"),
+        description=(
+            "Plans nested under their parents, grouped by project. <id> selects a "
+            "lineage thread whatever its subplans are tagged."
+        ),
+        epilog=(
+            "Examples:\n  pentimento tree --project .\n  pentimento tree --starred --ascii\n"
+            "  pentimento tree wobbly-willow\n  pentimento tree wobbly-willow --ancestors"
+        ),
+    )
+    p_tree.add_argument(
+        "id", nargs="?", help="root the tree at this plan: it plus every plan beneath it"
+    )
+    p_tree.add_argument(
+        "--ancestors",
+        action="store_true",
+        help="also show the path down from this plan's topmost ancestor",
     )
     _add_filter_args(p_tree)
     _add_format_args(p_tree)
@@ -510,7 +541,11 @@ def cmd_list(args) -> int:
 
 def cmd_tree(args) -> int:
     corpus_plans = corpus.load_all()
-    plans = _apply_filters(corpus_plans, args)
+    plans, error = _select_lineage(corpus_plans, args)
+    if error is not None:
+        print(error, file=sys.stderr)
+        return 1
+    plans = _apply_filters(plans, args)
     if plans is None:
         return 1
     key, reverse = _sort_key(args), _sort_descending(args)

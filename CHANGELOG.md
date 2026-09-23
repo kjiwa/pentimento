@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.11
+
+`tree` now takes an optional `<id>` that roots the tree at that plan --
+it plus every plan beneath it, resolved against the whole corpus rather
+than filtered first, so `--project` is unnecessary and a subplan can no
+longer fall out of the thread for lacking a tag. `--ancestors` extends the
+selection with the path down from `<id>`'s topmost ancestor, spine only,
+leaving the ancestors' other children out; it requires `<id>` and exits 1
+without one. Existing filters, sort, and `--format` all apply within the
+selection, so `tree <id> --status partial` answers what's left on a thread.
+`show`, `set`, `history`, and now `tree` all accept either the short id or
+the full id.
+
 ## 0.1.10
 
 `list --columns SPEC` (default: `PENTIMENTO_COLUMNS`) picks the table's

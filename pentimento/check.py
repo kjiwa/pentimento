@@ -15,8 +15,8 @@ _HISTORY_ELIGIBLE_STATUSES = vocabulary_module.UNWORKED_STATUSES
 
 @dataclasses.dataclass
 class Finding:
-    plan_id: str
     code: str
+    id: str
     message: str
 
 
@@ -114,7 +114,7 @@ def _status_behind_history(plans, touches):
             f"{counts.plural(sessions_worked, 'later session')} worked this plan; "
             f"see `pentimento history {p.id}`"
         )
-        findings.append(Finding(p.id, "status-behind-history", message))
+        findings.append(Finding("status-behind-history", p.id, message))
     return findings
 
 
@@ -136,7 +136,7 @@ def _status_behind_progress(plans):
         message = (
             f"status {p.status!r} but '## Progress' derives {derived!r}; run pentimento backfill"
         )
-        findings.append(Finding(p.id, "status-behind-progress", message))
+        findings.append(Finding("status-behind-progress", p.id, message))
     return findings
 
 
@@ -149,7 +149,7 @@ def _pin_diverged(plans):
         if derived == p.status:
             continue
         message = f"pinned status {p.status!r} disagrees with derived {derived!r}"
-        findings.append(Finding(p.id, "pin-diverged", message))
+        findings.append(Finding("pin-diverged", p.id, message))
     return findings
 
 
@@ -162,7 +162,7 @@ def _unadopted_reference(plans, sessions):
         if not ids:
             continue
         message = f"no parent, but {ids[0]!r} is an eligible reference; run pentimento backfill"
-        findings.append(Finding(p.id, "unadopted-reference", message))
+        findings.append(Finding("unadopted-reference", p.id, message))
     return findings
 
 
@@ -184,41 +184,41 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
 
     for _source, path, exc in skips:
         message = f"could not read {path}: {exc}"
-        findings.append(Finding(path.name, "unreadable-file", message))
+        findings.append(Finding("unreadable-file", path.name, message))
 
     for p in _dangling_parents(plans, by_id):
         message = f"parent {p.parent!r} does not resolve to a plan"
-        findings.append(Finding(p.id, "dangling-parent", message))
+        findings.append(Finding("dangling-parent", p.id, message))
     for p in _self_parents(plans):
-        findings.append(Finding(p.id, "self-parent", "parent is itself"))
+        findings.append(Finding("self-parent", p.id, "parent is itself"))
     for p in _cross_project_parents(plans, by_id):
         message = f"parent {p.parent!r} is in a different project"
-        findings.append(Finding(p.id, "cross-project-parent", message))
+        findings.append(Finding("cross-project-parent", p.id, message))
     for p in _cycle_members(plans, by_id):
         message = "parent chain cycles back to itself"
-        findings.append(Finding(p.id, "cycle", message))
+        findings.append(Finding("cycle", p.id, message))
     for p in duplicate_ids(plans):
         message = f"duplicate id across sources (second occurrence from {p.source})"
-        findings.append(Finding(p.id, "duplicate-id", message))
+        findings.append(Finding("duplicate-id", p.id, message))
     for p in _off_vocabulary_status(plans):
         message = f"status {p.status!r} is outside {vocabulary_module.STATUS_ORDER}"
-        findings.append(Finding(p.id, "off-vocabulary-status", message))
+        findings.append(Finding("off-vocabulary-status", p.id, message))
     for p in _off_vocabulary_intent(plans):
         message = f"intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
-        findings.append(Finding(p.id, "off-vocabulary-intent", message))
+        findings.append(Finding("off-vocabulary-intent", p.id, message))
     for p in _missing_title(plans):
         message = "body has no H1 title; falling back to the plan id"
-        findings.append(Finding(p.id, "missing-title", message))
+        findings.append(Finding("missing-title", p.id, message))
     for p in _malformed_tags(plans):
         bad = [t for t in p.tags if not tags_module.is_valid(t)]
         message = f"malformed tag(s) {bad!r}"
-        findings.append(Finding(p.id, "malformed-tag", message))
+        findings.append(Finding("malformed-tag", p.id, message))
     for p in _missing_progress(plans):
         message = "body has no '## Progress' heading; status can't be derived"
-        findings.append(Finding(p.id, "missing-progress", message))
+        findings.append(Finding("missing-progress", p.id, message))
     for p in _underived_project(plans, sessions):
         message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
-        findings.append(Finding(p.id, "underived-project", message))
+        findings.append(Finding("underived-project", p.id, message))
     findings.extend(_status_behind_history(plans, touches))
     findings.extend(_status_behind_progress(plans))
     findings.extend(_pin_diverged(plans))

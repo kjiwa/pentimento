@@ -268,5 +268,23 @@ class SpineTests(unittest.TestCase):
         self.assertEqual(tree.spine([orphan], orphan), [])
 
 
+class CycleRootTests(unittest.TestCase):
+    def setUp(self):
+        self.a = FakePlan(id="loop-a", title="A", parent="loop-b")
+        self.b = FakePlan(id="loop-b", title="B", parent="loop-a")
+
+    def test_records_root_at_the_requested_plan(self):
+        records = tree.as_records([self.a, self.b], root_id="loop-b")
+        self.assertEqual([r["id"] for r in records], ["loop-b"])
+
+    def test_default_root_is_the_first_by_key(self):
+        records = tree.as_records([self.a, self.b])
+        self.assertEqual([r["id"] for r in records], ["loop-a"])
+
+    def test_render_roots_at_the_requested_plan(self):
+        rendered = _with_width(120, lambda: tree.render([self.a, self.b], root_id="loop-b"))
+        self.assertTrue(rendered.split("\n")[0].endswith("B"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -195,6 +195,42 @@ class SerializeTests(unittest.TestCase):
             frontmatter.serialize({"project": "foo: bar"}, "body\n")
 
 
+class UnknownValueTests(unittest.TestCase):
+    def test_hash_inside_a_value_is_not_a_comment(self):
+        fields, _, _ = frontmatter.parse("---\nurl: http://x/#a\n---\nbody\n")
+        self.assertEqual(fields["url"], "http://x/#a")
+
+    def test_hash_after_whitespace_still_starts_a_comment(self):
+        fields, _, _ = frontmatter.parse("---\nurl: http://x/ # note\n---\nbody\n")
+        self.assertEqual(fields["url"], "http://x/")
+
+    def test_fragment_survives_a_round_trip(self):
+        text = "---\nurl: http://x/#a\npentimento:\n  status: complete\n---\nbody\n"
+        fields, body, extras = frontmatter.parse(text)
+        fields["status"] = "partial"
+        rewritten = frontmatter.serialize(fields, body, extras)
+        self.assertIn("url: http://x/#a", rewritten)
+
+    def test_unknown_value_with_colon_space_is_passed_through(self):
+        text = "---\npentimento:\n  status: complete\nname: Plan: the sequel\n---\nbody\n"
+        fields, body, extras = frontmatter.parse(text)
+        self.assertEqual(frontmatter.serialize(fields, body, extras), text)
+        fields["status"] = "partial"
+        self.assertIn("name: Plan: the sequel", frontmatter.serialize(fields, body, extras))
+
+    def test_unknown_quoted_value_keeps_its_quotes(self):
+        text = '---\nname: "Plan # one"\npentimento:\n  status: complete\n---\nbody\n'
+        fields, body, extras = frontmatter.parse(text)
+        fields["status"] = "partial"
+        self.assertIn('name: "Plan # one"', frontmatter.serialize(fields, body, extras))
+
+    def test_known_field_values_are_still_validated(self):
+        text = "---\npentimento:\n  project: a: b\n---\nbody\n"
+        fields, body, extras = frontmatter.parse(text)
+        with self.assertRaises(ValueError):
+            frontmatter.serialize(fields, body, extras)
+
+
 class IsValidValueTests(unittest.TestCase):
     def test_plain_value_is_valid(self):
         self.assertTrue(frontmatter.is_valid_value("pentimento"))

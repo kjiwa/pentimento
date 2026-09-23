@@ -64,26 +64,53 @@ SORT_KEYS = {
 }
 SORT_CHOICES = tuple(SORT_KEYS)
 
-# The `list`/`tree` column each `--sort` key is about, so its column is
-# never dropped -- an order the row nearest the prompt doesn't show is
-# unverifiable.
-SORT_COLUMNS = {
-    "created": "created",
-    "status": "status",
-    "title": "title",
-    "id": "plan",
-    "modified": "updated",
-}
+_DOCS_URL = "https://github.com/kjiwa/pentimento/blob/main/docs"
 
 _ORDER_ASC, _ORDER_DESC = "asc", "desc"
 ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
+DATE_CHOICES = ("created", "modified")
+
+
+class UsageError(Exception):
+    """Invalid arguments found after parsing; `main` reports it as a usage error."""
+
+
+def _report(message: str) -> None:
+    print(f"pentimento: {message}", file=sys.stderr)
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        _report(message)
+        sys.exit(2)
+
 
 def _non_negative_int(value: str) -> int:
-    parsed = int(value)
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an integer: {value}") from None
     if parsed < 0:
         raise argparse.ArgumentTypeError(f"limit must not be negative: {value}")
     return parsed
+
+
+def _regex(value: str) -> re.Pattern:
+    try:
+        return re.compile(value, re.IGNORECASE)
+    except re.error as exc:
+        raise argparse.ArgumentTypeError(f"invalid regex: {exc}") from exc
+
+
+def _when(value: str) -> datetime.date:
+    day = times_module.parse_when(value)
+    if day is None:
+        raise argparse.ArgumentTypeError(
+            f"invalid date or age: {value} -- use YYYY-MM-DD or an age like 14m, 5h, 3d, 2w, 1y"
+        )
+    return day
 
 
 def _column_spec(value: str) -> columns_module.Selection:
@@ -108,7 +135,31 @@ def _add_filter_args(parser):
     group.add_argument(
         "--grep",
         metavar="PATTERN",
+        type=_regex,
         help="filter by a case-insensitive regex over title and body",
+    )
+    group.add_argument(
+        "--title",
+        metavar="PATTERN",
+        type=_regex,
+        help="filter by a case-insensitive regex over the title",
+    )
+    group.add_argument(
+        "--since",
+        metavar="WHEN",
+        type=_when,
+        help="only plans on or after WHEN: YYYY-MM-DD or an age (14m, 5h, 3d, 2w, 1y)",
+    )
+    group.add_argument(
+        "--until",
+        metavar="WHEN",
+        type=_when,
+        help="only plans on or before WHEN; same forms as --since",
+    )
+    group.add_argument(
+        "--date",
+        choices=DATE_CHOICES,
+        help="which date --since/--until compare (default: modified)",
     )
 
 
@@ -162,12 +213,41 @@ def _resolve_project(value: str) -> str:
     return Path.cwd().name if value == "." else value
 
 
+def _plan_day(plan, which: str):
+    if which == "created":
+        return plan.created_date
+    return times_module.local_day(plan.modified)
+
+
+def _require_valid_dates(args) -> None:
+    if args.date is not None and args.since is None and args.until is None:
+        raise UsageError("--date needs --since or --until")
+    if args.since is not None and args.until is not None and args.since > args.until:
+        raise UsageError(f"--since {args.since} is after --until {args.until}")
+
+
+def _within_dates(plans, args):
+    which = args.date or "modified"
+    kept = []
+    for plan in plans:
+        day = _plan_day(plan, which)
+        if day is None:
+            continue
+        if args.since is not None and day < args.since:
+            continue
+        if args.until is not None and day > args.until:
+            continue
+        kept.append(plan)
+    return kept
+
+
 def _apply_filters(plans, args):
+    _require_valid_dates(args)
     if args.status:
         plans = [p for p in plans if p.status == args.status]
     if args.intent:
         plans = [p for p in plans if p.intent == args.intent]
-    if args.project:
+    if args.project is not None:
         project = _resolve_project(args.project)
         plans = [p for p in plans if p.project == project]
     if args.source:
@@ -177,31 +257,27 @@ def _apply_filters(plans, args):
     if args.tag:
         wanted = {tags_module.normalize(t) for t in args.tag}
         plans = [p for p in plans if wanted <= {tags_module.normalize(t) for t in p.tags}]
-    if args.grep:
-        try:
-            pattern = re.compile(args.grep, re.IGNORECASE)
-        except re.error as exc:
-            print(str(exc), file=sys.stderr)
-            return None
-        plans = [p for p in plans if pattern.search(p.title + p.body)]
+    if args.grep is not None:
+        plans = [p for p in plans if args.grep.search(p.title + p.body)]
+    if args.title is not None:
+        plans = [p for p in plans if args.title.search(p.title)]
+    if args.since is not None or args.until is not None:
+        plans = _within_dates(plans, args)
     return plans
 
 
-def _select_lineage(corpus_plans, args):
-    """The plan `args.id` names plus its descendants, and with `--ancestors`
-    the path down from its topmost ancestor. The whole corpus when no id is
-    given. Returns `(plans, error)`; `error` is a ready-to-print message."""
-    if args.id is None:
-        if args.ancestors:
-            return None, "--ancestors requires a plan id"
-        return corpus_plans, None
-    target = corpus.by_id(corpus_plans, args.id)
+def _select_lineage(corpus_plans, target, args):
+    """`target` plus its descendants, and with `--ancestors` the path down
+    from its topmost ancestor. The whole corpus when there is no target."""
     if target is None:
-        return None, _no_such_plan(corpus_plans, args.id)
+        return corpus_plans
     selected = tree_module.subtree(corpus_plans, target)
     if args.ancestors:
-        selected = tree_module.spine(corpus_plans, target) + selected
-    return selected, None
+        below = {p.id for p in selected}
+        selected = [
+            p for p in tree_module.spine(corpus_plans, target) if p.id not in below
+        ] + selected
+    return selected
 
 
 def _version() -> str:
@@ -212,17 +288,19 @@ def _version() -> str:
 
 
 def _add_command(sub, name, help, description=None, epilog=None):
-    return sub.add_parser(
+    command_parser = sub.add_parser(
         name,
         help=help,
         description=description or help,
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    command_parser.set_defaults(command_parser=command_parser)
+    return command_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog="pentimento",
         description="Status, intent, and lineage over agent plan files.",
         epilog=(
@@ -254,6 +332,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  pentimento list --starred\n"
             "  pentimento list --project . --status partial\n"
             "  pentimento list --grep auth -n 3\n"
+            "  pentimento list --title 'github actions|\\bGHA\\b'\n"
+            "  pentimento list --since 1w --status complete\n"
             "  pentimento list --columns status,title,created"
         ),
     )
@@ -266,13 +346,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "which table columns to show and in what order: an absolute, comma-"
             "separated list (e.g. status,title); +name/-name to add/remove from the "
-            "default set; or 'all'. Table format only; defaults to PENTIMENTO_COLUMNS"
+            "default set (write -name as --columns=-name); or 'all'. Names are the "
+            "record fields: status, intent, project, source, id, title, tags, created, "
+            "modified. Table format only; defaults to PENTIMENTO_COLUMNS"
         ),
     )
     sort_group = _add_sort_args(p_list)
     sort_group.add_argument(
         "-n",
         "--limit",
+        metavar="N",
         type=_non_negative_int,
         help="keep only the N rows nearest the prompt (before rendering or emitting); 0 means none",
     )
@@ -334,28 +417,35 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_set.add_argument("id", help="plan id (filename stem)")
-    p_set.add_argument(
+    pin_group = p_set.add_mutually_exclusive_group()
+    pin_group.add_argument(
         "--status",
         choices=vocabulary_module.STATUS_ORDER,
         help="new status; pins it against derivation",
     )
-    p_set.add_argument(
+    pin_group.add_argument(
         "--unpin", action="store_true", help="release a pinned status back to derivation"
     )
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
-    p_set.add_argument(
+    parent_group = p_set.add_mutually_exclusive_group()
+    parent_group.add_argument(
         "--parent", metavar="ID", help="new parent plan id; rejected if it would create a cycle"
     )
-    p_set.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
-    p_set.add_argument(
+    parent_group.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
+    project_group = p_set.add_mutually_exclusive_group()
+    project_group.add_argument(
         "--project", help="new project; '.' resolves to the current directory's name"
     )
-    p_set.add_argument("--clear-project", action="store_true", help="clear project")
+    project_group.add_argument("--clear-project", action="store_true", help="clear project")
     p_set.add_argument("--add-tag", metavar="TAG", action="append", help="add a tag; repeatable")
     p_set.add_argument(
         "--remove-tag", metavar="TAG", action="append", help="remove a tag; repeatable"
     )
-    p_set.add_argument("--clear-tags", action="store_true", help="remove all tags")
+    p_set.add_argument(
+        "--clear-tags",
+        action="store_true",
+        help="remove all tags; not combinable with --add-tag or --remove-tag",
+    )
     p_set.add_argument(
         "--dry-run", action="store_true", help="report what would change, without writing"
     )
@@ -373,12 +463,14 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="Examples:\n  pentimento backfill --dry-run",
     )
     p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
-    p_backfill.add_argument("--quiet", action="store_true", help="suppress changed-id output")
+    p_backfill.add_argument(
+        "--quiet", action="store_true", help="suppress changed-id and field-change output"
+    )
     p_backfill.add_argument(
         "--only",
         metavar="ID",
         action="append",
-        help="restrict writes to this plan id; repeatable",
+        help="restrict writes to this plan (id, short id, filename, or path); repeatable",
     )
     p_backfill.add_argument(
         "--rederive",
@@ -396,7 +488,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Read a Claude Code PostToolUse payload on stdin and backfill frontmatter "
             "for the plan just written, deriving status capped at partial. Wiring is "
-            "in docs/integrations.md."
+            f"in {_DOCS_URL}/integrations.md."
         ),
     )
 
@@ -415,7 +507,7 @@ def build_parser() -> argparse.ArgumentParser:
         "validate lineage and vocabulary; exits 1 on any finding",
         description=(
             "Validate lineage and vocabulary across the corpus. Exits 1 when "
-            "anything is found; finding codes are in docs/troubleshooting.md."
+            f"anything is found; finding codes are in {_DOCS_URL}/troubleshooting.md."
         ),
     )
     _add_format_args(p_check)
@@ -477,7 +569,7 @@ def _render_table_or_empty(corpus_plans, plans, args, render):
     summary, or `render(on_color, unicode_ok, short_ids)` followed by the
     filtered/total summary line."""
     if not corpus_plans:
-        print(_empty_corpus_hint(), file=sys.stderr)
+        _report(_empty_corpus_hint())
         return 0
     if not plans:
         on_color = style.enabled(sys.stdout, args.color)
@@ -494,28 +586,24 @@ def _render_table_or_empty(corpus_plans, plans, args, render):
 
 def _columns_selection(args):
     """The `--columns` selection, or `PENTIMENTO_COLUMNS` when the flag is
-    absent. Returns `(selection, error)`; `error` is a ready-to-print message
-    when the flag or the environment variable is invalid."""
+    absent; `UsageError` when the environment variable is invalid."""
     if args.columns is not None:
-        return args.columns, None
+        return args.columns
     env_value = os.environ.get("PENTIMENTO_COLUMNS")
     if not env_value:
-        return None, None
+        return None
     try:
-        return _column_spec(env_value), None
+        return _column_spec(env_value)
     except argparse.ArgumentTypeError as exc:
-        return None, f"PENTIMENTO_COLUMNS: {exc}"
+        raise UsageError(f"PENTIMENTO_COLUMNS: {exc}") from exc
 
 
 def cmd_list(args) -> int:
     if args.columns is not None and args.format != formats.TABLE:
-        print("--columns only applies to --format table", file=sys.stderr)
-        return 1
+        raise UsageError("--columns only applies to --format table")
 
     corpus_plans = corpus.load_all()
     plans = _apply_filters(corpus_plans, args)
-    if plans is None:
-        return 1
     plans = sorted(plans, key=_sort_key(args), reverse=_sort_descending(args))
     plans = _apply_limit(plans, args)
     if args.format != formats.TABLE:
@@ -524,11 +612,8 @@ def cmd_list(args) -> int:
         )
         return 0
 
-    selection, error = _columns_selection(args)
-    if error is not None:
-        print(error, file=sys.stderr)
-        return 1
-    pin = (SORT_COLUMNS[args.sort],)
+    selection = _columns_selection(args)
+    pin = (args.sort,)
     return _render_table_or_empty(
         corpus_plans,
         plans,
@@ -540,17 +625,20 @@ def cmd_list(args) -> int:
 
 
 def cmd_tree(args) -> int:
+    if args.id is None and args.ancestors:
+        raise UsageError("--ancestors requires a plan id")
     corpus_plans = corpus.load_all()
-    plans, error = _select_lineage(corpus_plans, args)
-    if error is not None:
-        print(error, file=sys.stderr)
-        return 1
-    plans = _apply_filters(plans, args)
-    if plans is None:
-        return 1
+    target = None
+    if args.id is not None:
+        target = corpus.by_id(corpus_plans, args.id)
+        if target is None:
+            _report(_no_such_plan(corpus_plans, args.id))
+            return 1
+    plans = _apply_filters(_select_lineage(corpus_plans, target, args), args)
+    root_id = target.id if target else None
     key, reverse = _sort_key(args), _sort_descending(args)
     if args.format != formats.TABLE:
-        records = tree_module.as_records(plans, key=key, reverse=reverse)
+        records = tree_module.as_records(plans, key=key, reverse=reverse, root_id=root_id)
         formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
         return 0
     return _render_table_or_empty(
@@ -565,6 +653,7 @@ def cmd_tree(args) -> int:
             glyphs=style.glyphs(unicode_ok),
             unicode_ok=unicode_ok,
             short_ids=short_ids,
+            root_id=root_id,
         ),
     )
 
@@ -665,10 +754,11 @@ def cmd_show(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
-        print(_no_such_plan(plans, args.id), file=sys.stderr)
+        _report(_no_such_plan(plans, args.id))
         return 1
     if args.format != formats.TABLE:
-        formats.emit([record_module.as_dict(target)], args.format, sys.stdout, record_module.FIELDS)
+        record = {**record_module.as_dict(target), "body": target.body}
+        formats.emit([record], args.format, sys.stdout, (*record_module.FIELDS, "body"))
         return 0
 
     on_color = style.enabled(sys.stdout, args.color)
@@ -732,11 +822,31 @@ def _describe_field_changes(before: dict, after: dict) -> list[str]:
     return changes
 
 
+def _require_set_changes(args) -> None:
+    if args.clear_tags and (args.add_tag or args.remove_tag):
+        raise UsageError("--clear-tags cannot be combined with --add-tag or --remove-tag")
+    requested = (
+        args.status,
+        args.unpin,
+        args.intent,
+        args.parent,
+        args.clear_parent,
+        args.project,
+        args.clear_project,
+        args.add_tag,
+        args.remove_tag,
+        args.clear_tags,
+    )
+    if all(value in (None, False) for value in requested):
+        raise UsageError("nothing to set; name a field flag such as --status or --add-tag")
+
+
 def cmd_set(args) -> int:
+    _require_set_changes(args)
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
-        print(_no_such_plan(plans, args.id), file=sys.stderr)
+        _report(_no_such_plan(plans, args.id))
         return 1
 
     before_fields = dict(target.fields)
@@ -746,7 +856,7 @@ def cmd_set(args) -> int:
     elif args.project is not None:
         resolved = _resolve_project(args.project)
         if not frontmatter.is_valid_value(resolved):
-            print(f"invalid project: {resolved!r}", file=sys.stderr)
+            _report(f"invalid project: {resolved!r}")
             return 1
         target.fields["project"] = resolved
 
@@ -755,19 +865,19 @@ def cmd_set(args) -> int:
     elif args.parent is not None:
         parent_plan = corpus.by_id(plans, args.parent)
         if parent_plan is None:
-            print(_no_such_plan(plans, args.parent), file=sys.stderr)
+            _report(_no_such_plan(plans, args.parent))
             return 1
         fields_by_id = {p.id: p.fields for p in plans}
         fields_by_id[target.id] = {**target.fields, "parent": parent_plan.id}
         if backfill_module._resolves_to_cycle(target.id, parent_plan.id, fields_by_id):
-            print(f"pentimento: --parent {parent_plan.id} would create a cycle", file=sys.stderr)
+            _report(f"--parent {parent_plan.id} would create a cycle")
             return 1
         target.fields["parent"] = parent_plan.id
 
     if args.clear_tags or args.remove_tag or args.add_tag:
         invalid = _apply_tag_edits(target, args)
         if invalid is not None:
-            print(f"invalid tag: {invalid!r}", file=sys.stderr)
+            _report(f"invalid tag: {invalid!r}")
             return 1
 
     for field in ("status", "intent"):
@@ -802,6 +912,7 @@ def _backfill(
     only=None,
     sessions=None,
     plans=None,
+    details=None,
 ) -> list[str]:
     if sessions is None:
         sessions = sessions_module.load()
@@ -815,6 +926,7 @@ def _backfill(
         recreate=recreate,
         max_status=max_status,
         only=only,
+        details=details,
     )
 
 
@@ -841,29 +953,51 @@ def cmd_hook(_args) -> int:
     return 0
 
 
+def _resolve_only(plans, values):
+    """The full ids `--only` names, or the `_no_such_plan` message for the
+    first value that resolves to none."""
+    ids = set()
+    for value in values:
+        target = corpus.by_id(plans, value)
+        if target is None:
+            return None, _no_such_plan(plans, value)
+        ids.add(target.id)
+    return ids, None
+
+
 def cmd_backfill(args) -> int:
     sessions = sessions_module.load()
     plans = corpus.load_all(sessions=sessions)
     duplicates = sorted({p.id for p in check_module.duplicate_ids(plans)})
     if duplicates:
-        print(
-            f"pentimento: duplicate plan id(s): {', '.join(duplicates)} -- "
-            "run `pentimento check` and resolve before backfilling",
-            file=sys.stderr,
+        _report(
+            f"duplicate plan id(s): {', '.join(duplicates)} -- "
+            "run `pentimento check` and resolve before backfilling"
         )
         return 1
 
+    only = None
+    if args.only:
+        only, error = _resolve_only(plans, args.only)
+        if error is not None:
+            _report(error)
+            return 1
+
+    details = {}
     changed = _backfill(
         dry_run=args.dry_run,
         rederive=args.rederive,
         recreate=args.recreate,
-        only=set(args.only) if args.only else None,
+        only=only,
         sessions=sessions,
         plans=plans,
+        details=details,
     )
     if not args.quiet:
         for plan_id in changed:
             print(plan_id)
+            for change in _describe_field_changes(*details[plan_id]):
+                print(f"  {change}")
         if not changed:
             print("no changes")
         elif args.dry_run:
@@ -885,6 +1019,8 @@ def cmd_check(args) -> int:
     touches = touches_module.load()
     skips = []
     plans = corpus.load_all(sessions=sessions, skips=skips)
+    if not plans:
+        _report(_empty_corpus_hint())
     findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
@@ -897,7 +1033,7 @@ def cmd_check(args) -> int:
             )
             short = shortid.shorten(p.id for p in plans)
             rows = [
-                ((f.code, (style.RED,)), (short.get(f.plan_id, f.plan_id), ()), (f.message, ()))
+                ((f.code, (style.RED,)), (short.get(f.id, f.id), ()), (f.message, ()))
                 for f in findings
             ]
             width = style.terminal_width()
@@ -917,7 +1053,7 @@ def cmd_history(args) -> int:
     plans = corpus.load_all()
     target = corpus.by_id(plans, args.id)
     if target is None:
-        print(_no_such_plan(plans, args.id), file=sys.stderr)
+        _report(_no_such_plan(plans, args.id))
         return 1
 
     plan_touches = touches_module.load().get(target.id, [])
@@ -957,17 +1093,38 @@ COMMANDS = {
 }
 
 
+def _silence_stdout() -> None:
+    """Point stdout at devnull so the interpreter's exit-time flush of a broken pipe stays quiet."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, sys.stdout.fileno())
+    os.close(devnull)
+
+
+def _dispatch(argv) -> int:
+    if argv and argv[0] == "__complete":
+        code = completion.complete(argv[1:])
+    else:
+        parser = build_parser()
+        args = parser.parse_args(argv)
+        try:
+            code = COMMANDS[args.command](args)
+        except UsageError as exc:
+            args.command_parser.error(str(exc))
+    sys.stdout.flush()
+    return code
+
+
 def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
-    if argv and argv[0] == "__complete":
-        return completion.complete(argv[1:])
-    args = build_parser().parse_args(argv)
     try:
-        return COMMANDS[args.command](args)
-    except (OSError, UnicodeDecodeError) as exc:
-        print(f"pentimento: {exc}", file=sys.stderr)
-        return 1
+        return _dispatch(argv)
+    except BrokenPipeError:
+        _silence_stdout()
+        return 141
+    except (OSError, ValueError) as exc:
+        _report(exc)
+        return 2
 
 
 if __name__ == "__main__":

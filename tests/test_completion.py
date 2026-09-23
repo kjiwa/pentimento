@@ -150,6 +150,17 @@ class FreeformFlagTests(_CorpusTestCase):
     def test_grep_offers_nothing(self):
         self.assertEqual(completion.candidates(["list", "--grep", ""]), [])
 
+    def test_title_offers_nothing(self):
+        self.assertEqual(completion.candidates(["list", "--title", ""]), [])
+
+    def test_since_and_until_offer_nothing(self):
+        self.assertEqual(completion.candidates(["list", "--since", ""]), [])
+        self.assertEqual(completion.candidates(["tree", "--until", ""]), [])
+
+    def test_date_offers_its_choices(self):
+        values = {value for value, _ in completion.candidates(["list", "--date", ""])}
+        self.assertEqual(values, {"created", "modified"})
+
     def test_limit_offers_nothing(self):
         self.assertEqual(completion.candidates(["list", "-n", ""]), [])
 

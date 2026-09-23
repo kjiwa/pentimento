@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 
 
 def _wall_clock() -> datetime.datetime:
@@ -51,6 +52,27 @@ def parse_date(text: str) -> datetime.date | None:
         return None
 
 
+_AGE_SECONDS = {"m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
+_AGE = re.compile(r"(\d+)([mhdwy])")
+
+
+def parse_when(text: str) -> datetime.date | None:
+    """Parse a `YYYY-MM-DD` date or an age in `relative`'s units (`14m`, `5h`,
+    `3d`, `2w`, `1y`) into a local day, or `None` for anything else. An age
+    counts back from `now()`."""
+    day = parse_date(text)
+    if day is not None:
+        return day
+    match = _AGE.fullmatch(text)
+    if match is None:
+        return None
+    seconds = int(match.group(1)) * _AGE_SECONDS[match.group(2)]
+    try:
+        return local_day(now() - datetime.timedelta(seconds=seconds))
+    except OverflowError:
+        return None
+
+
 def local_day(dt: datetime.datetime | None) -> datetime.date | None:
     if dt is None:
         return None
@@ -62,6 +84,13 @@ def local_date(dt: datetime.datetime | None) -> str | None:
     if day is None:
         return None
     return day.strftime("%Y-%m-%d")
+
+
+def utc_stamp(dt: datetime.datetime | None) -> str | None:
+    """The machine-format instant: UTC, whole seconds, trailing `Z`."""
+    if dt is None:
+        return None
+    return dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def local_stamp(dt: datetime.datetime | None) -> str | None:

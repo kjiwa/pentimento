@@ -93,8 +93,12 @@ def run(
     recreate: bool = False,
     max_status: str | None = None,
     only=None,
+    details: dict | None = None,
 ) -> list[str]:
     """Backfill frontmatter across `plans`. Returns ids that were changed.
+
+    `details`, when given, receives `id -> (fields before, fields after)` for
+    each changed plan.
 
     `only`, when given, restricts writes to those ids; derivation still spans
     `plans` entire, because `lineage.derive_parent` resolves against the whole
@@ -133,6 +137,8 @@ def run(
         if frontmatter.serialize(new_fields, target.body, target.extras) == target.text:
             continue
         changed.append(target.id)
+        if details is not None:
+            details[target.id] = (dict(target.fields), new_fields)
         if not dry_run:
             target.fields = new_fields
             plan_module.save(target, keep_mtime=True)

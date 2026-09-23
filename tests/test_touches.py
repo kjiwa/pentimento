@@ -226,5 +226,37 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class HostileRecordTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_cache(self)
+
+    def test_non_object_lines_and_string_messages_are_skipped(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        (project_dir / "s.jsonl").write_text(
+            "\n".join(
+                [
+                    '["/plans/x.md"]',
+                    '"/plans/x.md"',
+                    json.dumps({"slug": "s", "message": "/plans/x.md"}),
+                    json.dumps(
+                        _tool_use_record(
+                            slug="s",
+                            cwd="/home/user/example",
+                            timestamp="2026-09-01T00:00:00.000Z",
+                            tool="Read",
+                            input_={"file_path": "/home/user/.claude/plans/some-plan.md"},
+                        )
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        self.assertEqual(list(touches.load(self.directory)), ["some-plan"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -54,7 +54,9 @@ def spine(plans, plan):
     return chain
 
 
-def _roots(plans, children_by_parent, key=_id_key, reverse=False):
+def _roots(plans, children_by_parent, key=_id_key, reverse=False, first=None):
+    """Genuine roots, then one root per cycle. `first` names the plan a cycle
+    should be entered at, when it sits in one."""
     ids = {p.id for p in plans}
     genuine = sorted(
         (p for p in plans if not p.parent or p.parent not in ids), key=key, reverse=reverse
@@ -65,7 +67,9 @@ def _roots(plans, children_by_parent, key=_id_key, reverse=False):
         reachable |= _reachable_ids(root, children_by_parent)
 
     roots = list(genuine)
-    for plan in sorted(plans, key=key, reverse=reverse):
+    remaining = sorted(plans, key=key, reverse=reverse)
+    remaining.sort(key=lambda p: p.id != first)
+    for plan in remaining:
         if plan.id in reachable:
             continue
         roots.append(plan)
@@ -137,6 +141,7 @@ def render(
     glyphs=None,
     unicode_ok: bool = False,
     short_ids=None,
+    root_id=None,
 ) -> str:
     """Tree for one project's worth of plans (roots and descendants)."""
     glyphs = glyphs or style.GLYPHS_ASCII
@@ -144,7 +149,7 @@ def render(
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
     children_by_parent = _children_by_parent(plans, key, reverse)
-    roots = _roots(plans, children_by_parent, key, reverse)
+    roots = _roots(plans, children_by_parent, key, reverse, root_id)
     ids = {p.id for p in plans}
     ctx = _RenderContext(
         children_by_parent=children_by_parent,
@@ -172,6 +177,7 @@ def render_grouped(
     glyphs=None,
     unicode_ok: bool = False,
     short_ids=None,
+    root_id=None,
 ) -> str:
     """Group plans by project, then render each group's tree."""
     if short_ids is None:
@@ -194,15 +200,16 @@ def render_grouped(
                 glyphs,
                 unicode_ok,
                 short_ids,
+                root_id,
             )
         )
     return "\n\n".join(blocks)
 
 
-def as_records(plans, key=_id_key, reverse: bool = False) -> list[dict]:
+def as_records(plans, key=_id_key, reverse: bool = False, root_id=None) -> list[dict]:
     """Nested {record, children} tree for `formats.emit`, mirroring `render`."""
     children_by_parent = _children_by_parent(plans, key, reverse)
-    roots = _roots(plans, children_by_parent, key, reverse)
+    roots = _roots(plans, children_by_parent, key, reverse, root_id)
     visited: set[str] = set()
 
     def build(plan):

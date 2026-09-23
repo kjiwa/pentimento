@@ -221,6 +221,41 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class HostileRecordTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_cache(self)
+
+    def test_non_object_lines_and_string_messages_are_skipped(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        (project_dir / "s.jsonl").write_text(
+            "\n".join(
+                [
+                    "[1, 2]",
+                    '"just a string"',
+                    "42",
+                    "null",
+                    json.dumps(
+                        {
+                            "type": "user",
+                            "slug": "ok-plan",
+                            "cwd": "/home/user/example",
+                            "timestamp": "2026-09-01T00:00:00.000Z",
+                            "message": "not an object",
+                        }
+                    ),
+                ]
+            )
+            + "\n"
+        )
+        result = sessions.load(self.directory)
+        self.assertEqual(result["ok-plan"].project, "example")
+        self.assertEqual(result["ok-plan"].prompt, "")
+
+
 class ProjectNameTests(unittest.TestCase):
     def test_malformed_relative_cwd_mixed_with_absolute_does_not_crash(self):
         name = sessions._project_name(["not/absolute", "/home/user/src/project-a"])

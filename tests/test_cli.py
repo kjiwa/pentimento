@@ -1,8 +1,10 @@
 import contextlib
+import datetime
 import io
 import json
 import os
 import shlex
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -24,6 +26,27 @@ class _TtyStream(io.StringIO):
 
 def _write(directory: Path, name: str, text: str) -> None:
     (directory / f"{name}.md").write_text(text)
+
+
+def _main(argv):
+    """`cli.main(argv)` as `(exit code, stdout, stderr)`, including argparse's `SystemExit`."""
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            code = cli.main(argv)
+        except SystemExit as exc:
+            code = exc.code
+    return code, out.getvalue(), err.getvalue()
+
+
+@contextlib.contextmanager
+def _fake_stdout(flush_error=None):
+    """A stdout stand-in on fd 99, with `os.dup2` captured so the real fd survives."""
+    fake = mock.Mock()
+    fake.fileno.return_value = 99
+    fake.flush.side_effect = flush_error
+    with mock.patch.object(cli.sys, "stdout", fake), mock.patch.object(cli.os, "dup2") as dup2:
+        yield dup2
 
 
 def _restore_env(key, previous):
@@ -430,13 +453,14 @@ class CmdTreeLineageTests(unittest.TestCase):
         self.assertNotIn("Root\n", output)
         self.assertIn("Child", output)
 
-    def test_ancestors_without_id_exits_one_with_message_on_stderr(self):
-        args = cli.build_parser().parse_args(["tree", "--ancestors"])
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            result = cli.cmd_tree(args)
-        self.assertEqual(result, 1)
-        self.assertIn("--ancestors requires a plan id", err.getvalue())
+    def test_ancestors_without_id_is_a_usage_error(self):
+        code, _, err = _main(["tree", "--ancestors"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: --ancestors requires a plan id", err)
+
+    def test_post_parse_usage_error_shows_the_subcommands_usage(self):
+        _, _, err = _main(["tree", "--ancestors"])
+        self.assertIn("usage: pentimento tree", err)
 
     def test_no_such_plan_exits_one_with_suggestion(self):
         _write(self.directory, "root-plan", "# Root\n")
@@ -504,14 +528,48 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
         matched = json.loads(self._run_json(["list", "--grep", r"auth-\d+", "--format", "json"]))
         self.assertEqual([p["id"] for p in matched], ["root-plan"])
 
-    def test_invalid_grep_pattern_exits_one_with_re_error_on_stderr(self):
+    def test_invalid_grep_pattern_is_a_usage_error(self):
         _write(self.directory, "root-plan", "# Root\n")
-        args = cli.build_parser().parse_args(["list", "--grep", "(unclosed"])
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            result = cli.cmd_list(args)
-        self.assertEqual(result, 1)
-        self.assertTrue(err.getvalue())
+        code, _, err = _main(["list", "--grep", "(unclosed"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: argument --grep: invalid regex", err)
+
+    def test_title_matches_case_insensitively(self):
+        _write(self.directory, "auth-plan", "# Auth Redesign\n")
+        _write(self.directory, "billing-plan", "# Billing\n")
+        matched = json.loads(self._run_json(["list", "--title", "AUTH", "--format", "json"]))
+        self.assertEqual([p["id"] for p in matched], ["auth-plan"])
+
+    def test_title_does_not_match_body_only_text(self):
+        _write(self.directory, "root-plan", "# Root\n\nMentions authentication.\n")
+        matched = json.loads(
+            self._run_json(["list", "--title", "authentication", "--format", "json"])
+        )
+        self.assertEqual(matched, [])
+
+    def test_title_ands_with_other_filters(self):
+        _write(self.directory, "one", "---\nstatus: complete\n---\n\n# Auth one\n")
+        _write(self.directory, "two", "---\nstatus: partial\n---\n\n# Auth two\n")
+        matched = json.loads(
+            self._run_json(["list", "--title", "auth", "--status", "partial", "--format", "json"])
+        )
+        self.assertEqual([p["id"] for p in matched], ["two"])
+
+    def test_invalid_title_pattern_is_a_usage_error(self):
+        code, _, err = _main(["list", "--title", "(unclosed"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: argument --title: invalid regex", err)
+
+    def test_empty_project_filter_matches_nothing(self):
+        _write(self.directory, "root-plan", "---\nproject: example\n---\n\n# Root\n")
+        matched = json.loads(self._run_json(["list", "--project", "", "--format", "json"]))
+        self.assertEqual(matched, [])
+
+    def test_non_integer_limit_has_a_plain_message(self):
+        code, _, err = _main(["list", "-n", "abc"])
+        self.assertEqual(code, 2)
+        self.assertIn("not an integer: abc", err)
+        self.assertNotIn("_non_negative_int", err)
 
     def test_project_dot_resolves_to_the_current_directory_name(self):
         _write(self.directory, "root-plan", "---\nproject: example\n---\n\n# Root\n")
@@ -974,7 +1032,7 @@ class MainTopLevelHandlerTests(unittest.TestCase):
         with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=OSError("boom"))}):
             with contextlib.redirect_stderr(err):
                 result = cli.main(["list"])
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 2)
         self.assertIn("pentimento: boom", err.getvalue())
 
     def test_unicodedecodeerror_from_a_command_is_caught_and_reported(self):
@@ -983,8 +1041,48 @@ class MainTopLevelHandlerTests(unittest.TestCase):
         with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=exc)}):
             with contextlib.redirect_stderr(err):
                 result = cli.main(["list"])
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 2)
         self.assertIn("pentimento:", err.getvalue())
+
+    def test_value_error_from_a_command_exits_two(self):
+        err = io.StringIO()
+        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=ValueError("bad"))}):
+            with contextlib.redirect_stderr(err):
+                result = cli.main(["list"])
+        self.assertEqual(result, 2)
+        self.assertIn("pentimento: bad", err.getvalue())
+
+    def test_broken_pipe_exits_141_and_repoints_stdout(self):
+        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=BrokenPipeError())}):
+            with _fake_stdout() as dup2:
+                result = cli.main(["list"])
+        self.assertEqual(result, 141)
+        self.assertEqual(dup2.call_args.args[1], 99)
+
+    def test_broken_pipe_on_the_final_flush_is_caught(self):
+        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(return_value=0)}):
+            with _fake_stdout(flush_error=BrokenPipeError()):
+                self.assertEqual(cli.main(["list"]), 141)
+
+    def test_broken_pipe_covers_the_completion_branch(self):
+        with mock.patch.object(cli.completion, "complete", side_effect=BrokenPipeError()):
+            with _fake_stdout():
+                self.assertEqual(cli.main(["__complete", "list", ""]), 141)
+
+    def test_closed_pipe_leaves_stderr_quiet_end_to_end(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        repo = Path(cli.__file__).resolve().parent.parent
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "pentimento", "list", "--format", "json"],
+            cwd=repo,
+            env=os.environ.copy(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        proc.stdout.close()
+        _, stderr = proc.communicate()
+        self.assertEqual(proc.returncode, 141)
+        self.assertEqual(stderr, b"")
 
 
 class CmdHistoryTests(unittest.TestCase):
@@ -1267,13 +1365,25 @@ class CmdListColumnsTests(unittest.TestCase):
             with _silenced(), contextlib.redirect_stderr(io.StringIO()):
                 cli.build_parser().parse_args(["list", "--columns", "bogus"])
 
-    def test_columns_flag_with_json_format_is_rejected(self):
-        args = cli.build_parser().parse_args(["list", "--columns", "title", "--format", "json"])
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            result = cli.cmd_list(args)
-        self.assertEqual(result, 1)
-        self.assertIn("--columns", err.getvalue())
+    def test_columns_flag_with_json_format_is_a_usage_error(self):
+        code, _, err = _main(["list", "--columns", "title", "--format", "json"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: --columns only applies", err)
+
+    def test_columns_accept_record_field_names(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        _, output = self._run(["list", "--columns", "id,modified", "--color", "never"])
+        self.assertEqual(output.splitlines()[0].split(), ["PLAN", "UPDATED"])
+
+    def test_columns_reject_the_old_display_names(self):
+        code, _, err = _main(["list", "--columns", "updated"])
+        self.assertEqual(code, 2)
+        self.assertIn("unknown column: updated", err)
+
+    def test_bare_plus_reports_a_missing_name(self):
+        code, _, err = _main(["list", "--columns", "+"])
+        self.assertEqual(code, 2)
+        self.assertIn("missing column name", err)
 
     def test_env_var_supplies_the_default_when_flag_is_absent(self):
         _write(self.directory, "root-plan", "# Root\n")
@@ -1290,12 +1400,9 @@ class CmdListColumnsTests(unittest.TestCase):
     def test_bad_env_var_message_and_exit_code_on_stderr(self):
         _write(self.directory, "root-plan", "# Root\n")
         os.environ["PENTIMENTO_COLUMNS"] = "bogus"
-        args = cli.build_parser().parse_args(["list"])
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err), _silenced():
-            result = cli.cmd_list(args)
-        self.assertEqual(result, 1)
-        self.assertTrue(err.getvalue().startswith("PENTIMENTO_COLUMNS:"))
+        code, _, err = _main(["list"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: PENTIMENTO_COLUMNS:", err)
 
     def test_env_var_ignored_for_json_format(self):
         _write(self.directory, "root-plan", "# Root\n")
@@ -1492,6 +1599,240 @@ class CmdHookTests(unittest.TestCase):
 
         reloaded = corpus.by_id(corpus.load_all(self.directory, sessions={}), "root-plan")
         self.assertEqual(reloaded.fields, {})
+
+
+class DateFilterTests(unittest.TestCase):
+    """Three plans whose created and modified days diverge, with "now" fixed at 2026-09-23."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        previous = os.environ.get("PENTIMENTO_NOW")
+        os.environ["PENTIMENTO_NOW"] = "2026-09-23T12:00:00Z"
+        self.addCleanup(_restore_env, "PENTIMENTO_NOW", previous)
+        for name, created, modified in (
+            ("plan-a", "2026-09-01", "2026-09-02"),
+            ("plan-b", "2026-09-10", "2026-09-20"),
+            ("plan-c", "2026-09-20", "2026-09-22"),
+        ):
+            _write(self.directory, name, f"---\ncreated: {created}\n---\n\n# {name}\n")
+            stamp = datetime.datetime.fromisoformat(f"{modified}T12:00:00+00:00").timestamp()
+            os.utime(self.directory / f"{name}.md", (stamp, stamp))
+
+    def _ids(self, argv):
+        code, out, err = _main(["list", "--format", "json", *argv])
+        self.assertEqual(code, 0, msg=err)
+        return {p["id"] for p in json.loads(out)}
+
+    def test_iso_range_is_inclusive_at_both_ends(self):
+        self.assertEqual(
+            self._ids(["--since", "2026-09-02", "--until", "2026-09-20"]), {"plan-a", "plan-b"}
+        )
+
+    def test_since_alone(self):
+        self.assertEqual(self._ids(["--since", "2026-09-21"]), {"plan-c"})
+
+    def test_until_alone(self):
+        self.assertEqual(self._ids(["--until", "2026-09-02"]), {"plan-a"})
+
+    def test_age_form_counts_back_from_now(self):
+        self.assertEqual(self._ids(["--since", "3d"]), {"plan-b", "plan-c"})
+
+    def test_week_age_form(self):
+        self.assertEqual(self._ids(["--since", "1w"]), {"plan-b", "plan-c"})
+
+    def test_date_created_diverges_from_modified(self):
+        window = ["--since", "2026-09-10", "--until", "2026-09-19"]
+        self.assertEqual(self._ids([*window, "--date", "created"]), {"plan-b"})
+        self.assertEqual(self._ids([*window, "--date", "modified"]), set())
+
+    def test_tree_takes_the_same_filters(self):
+        code, out, _ = _main(["tree", "--format", "json", "--since", "3d"])
+        self.assertEqual(code, 0)
+        self.assertEqual({r["id"] for r in json.loads(out)}, {"plan-b", "plan-c"})
+
+    def test_inverted_range_is_a_usage_error(self):
+        code, _, err = _main(["list", "--since", "2026-09-20", "--until", "2026-09-02"])
+        self.assertEqual(code, 2)
+        self.assertIn("pentimento: --since 2026-09-20 is after --until 2026-09-02", err)
+
+    def test_invalid_value_names_both_forms(self):
+        code, _, err = _main(["list", "--since", "yesterday"])
+        self.assertEqual(code, 2)
+        self.assertIn("YYYY-MM-DD", err)
+        self.assertIn("3d", err)
+
+    def test_date_without_a_bound_is_a_usage_error(self):
+        code, _, err = _main(["list", "--date", "created"])
+        self.assertEqual(code, 2)
+        self.assertIn("--date needs --since or --until", err)
+
+
+class UsageErrorTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "root-plan", "# Root\n")
+        _write(self.directory, "other-plan", "# Other\n")
+
+    def test_set_conflicting_flags_are_rejected(self):
+        for flags in (
+            ["--parent", "other-plan", "--clear-parent"],
+            ["--project", "x", "--clear-project"],
+            ["--status", "complete", "--unpin"],
+            ["--clear-tags", "--add-tag", "auth"],
+            ["--clear-tags", "--remove-tag", "auth"],
+        ):
+            code, _, err = _main(["set", "root-plan", *flags])
+            self.assertEqual(code, 2, msg=flags)
+            self.assertIn("pentimento:", err)
+
+    def test_set_without_a_field_flag_is_a_usage_error(self):
+        code, _, err = _main(["set", "root-plan"])
+        self.assertEqual(code, 2)
+        self.assertIn("nothing to set", err)
+
+    def test_set_dry_run_alone_is_still_nothing_to_set(self):
+        code, _, _ = _main(["set", "root-plan", "--dry-run"])
+        self.assertEqual(code, 2)
+
+    def test_unknown_plan_still_exits_one_with_the_prefix(self):
+        code, _, err = _main(["show", "no-such-plan"])
+        self.assertEqual(code, 1)
+        self.assertTrue(err.startswith("pentimento: no such plan"))
+
+    def test_tree_of_an_unknown_plan_exits_one(self):
+        self.assertEqual(_main(["tree", "no-such-plan"])[0], 1)
+
+    def test_check_findings_still_exit_one(self):
+        _write(self.directory, "dangler", "---\nparent: nope\n---\n\n# D\n")
+        self.assertEqual(_main(["check"])[0], 1)
+
+
+class MachineFormatTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_tsv_prints_pinned_as_lowercase_boolean(self):
+        _write(self.directory, "pinned-plan", "---\nstatus: complete\npinned: true\n---\n\n# P\n")
+        _write(self.directory, "loose-plan", "# L\n")
+        _, out, _ = _main(["list", "--format", "tsv"])
+        rows = [line.split("\t") for line in out.splitlines()]
+        pinned_at = rows[0].index("pinned")
+        self.assertEqual({r[pinned_at] for r in rows[1:]}, {"true", "false"})
+
+    def test_json_timestamps_are_utc_whole_seconds(self):
+        _write(self.directory, "root-plan", "---\ncreated: 2026-09-01\n---\n\n# Root\n")
+        record = json.loads(_main(["list", "--format", "json"])[1])[0]
+        self.assertRegex(record["modified"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertRegex(record["started"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual(record["created"], "2026-09-01")
+
+    def test_show_json_and_tsv_include_the_body(self):
+        _write(self.directory, "root-plan", "# Root\n\nthe body text\n")
+        record = json.loads(_main(["show", "root-plan", "--format", "json"])[1])[0]
+        self.assertIn("the body text", record["body"])
+        header, row = _main(["show", "root-plan", "--format", "tsv"])[1].splitlines()[:2]
+        self.assertEqual(header.split("\t")[-1], "body")
+        self.assertIn("the body text", row)
+
+    def test_check_records_use_id_in_table_column_order(self):
+        _write(self.directory, "dangler", "---\nparent: nope\n---\n\n# D\n")
+        _, out, _ = _main(["check", "--format", "json"])
+        record = json.loads(out)[0]
+        self.assertEqual(list(record), ["code", "id", "message"])
+        self.assertEqual(record["id"], "dangler")
+        header = _main(["check", "--format", "tsv"])[1].splitlines()[0]
+        self.assertEqual(header, "code\tid\tmessage")
+
+    def test_check_on_an_empty_corpus_prints_the_list_hint(self):
+        empty = self.directory / "no-such-plans-dir"
+        os.environ["AGENT_PLANS_DIR"] = str(empty)
+        _, _, err = _main(["check"])
+        self.assertIn("pentimento: no plans found; searched:", err)
+
+    def test_empty_corpus_hint_carries_the_prefix(self):
+        os.environ["AGENT_PLANS_DIR"] = str(self.directory / "no-such-plans-dir")
+        _, _, err = _main(["list"])
+        self.assertTrue(err.startswith("pentimento: no plans found"))
+
+
+class BackfillOnlyTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "what-s-left-to-do-federated-tower", "# Tower\n")
+        _write(self.directory, "other-plan", "# Other\n")
+
+    def test_only_resolves_short_ids_filenames_and_paths(self):
+        full = "what-s-left-to-do-federated-tower"
+        for value in (
+            "federated-tower",
+            f"{full}.md",
+            str(self.directory / f"{full}.md"),
+            full,
+        ):
+            code, out, _ = _main(["backfill", "--dry-run", "--only", value])
+            self.assertEqual(code, 0, msg=value)
+            self.assertIn("1 plan would change", out, msg=value)
+            self.assertIn(full, out, msg=value)
+            self.assertNotIn("other-plan", out, msg=value)
+
+    def test_only_with_an_unknown_value_reports_no_such_plan(self):
+        code, _, err = _main(["backfill", "--only", "no-such-plan"])
+        self.assertEqual(code, 1)
+        self.assertIn("pentimento: no such plan: no-such-plan", err)
+
+    def test_dry_run_lists_field_changes_under_each_id(self):
+        code, out, _ = _main(["backfill", "--dry-run", "--only", "other-plan"])
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "other-plan")
+        self.assertIn("  status: set to 'unknown'", lines)
+        self.assertTrue(any(line.startswith("  intent: set to") for line in lines))
+
+    def test_real_run_lists_field_changes_and_quiet_suppresses_them(self):
+        _, out, _ = _main(["backfill", "--only", "other-plan"])
+        self.assertIn("  status: set to 'unknown'", out.splitlines())
+        _write(self.directory, "quiet-plan", "# Q\n")
+        _, out, _ = _main(["backfill", "--quiet", "--only", "quiet-plan"])
+        self.assertEqual(out, "")
+
+    def test_rederive_preview_shows_the_old_and_new_value(self):
+        _write(
+            self.directory,
+            "done-plan",
+            "---\nstatus: not-started\n---\n\n# Done\n\n## Progress\n- [x] all\n",
+        )
+        _, out, _ = _main(["backfill", "--dry-run", "--rederive", "--only", "done-plan"])
+        self.assertIn("  status: 'not-started' -> 'complete'", out.splitlines())
+
+
+class TreeCycleRootTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "loop-a", "---\nproject: p\nparent: loop-b\n---\n\n# Loop A\n")
+        _write(self.directory, "loop-b", "---\nproject: p\nparent: loop-a\n---\n\n# Loop B\n")
+
+    def test_requested_plan_roots_its_cycle(self):
+        for target in ("loop-a", "loop-b"):
+            _, out, _ = _main(["tree", target, "--format", "json"])
+            self.assertEqual([r["id"] for r in json.loads(out)], [target])
+
+    def test_ancestors_on_a_cycle_does_not_repeat_plans(self):
+        _, out, _ = _main(["tree", "loop-b", "--ancestors", "--color", "never"])
+        self.assertEqual(out.splitlines()[-1], "2 plans")
 
 
 class HelpTextTests(unittest.TestCase):

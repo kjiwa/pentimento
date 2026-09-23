@@ -39,28 +39,26 @@ class RunTests(unittest.TestCase):
         findings = check.run([plan])
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "dangling-parent")
-        self.assertEqual(findings[0].plan_id, "orphan")
+        self.assertEqual(findings[0].id, "orphan")
         self.assertNotIn("orphan", findings[0].message)
 
     def test_self_parent_is_reported(self):
         plan = FakePlan(id="loopy", parent="loopy")
         findings = check.run([plan])
-        self.assertTrue(any(f.code == "self-parent" and f.plan_id == "loopy" for f in findings))
+        self.assertTrue(any(f.code == "self-parent" and f.id == "loopy" for f in findings))
 
     def test_cross_project_parent_is_reported(self):
         parent = FakePlan(id="parent", project="project-a")
         child = FakePlan(id="child", parent="parent", project="project-b")
         findings = check.run([parent, child])
-        self.assertTrue(
-            any(f.code == "cross-project-parent" and f.plan_id == "child" for f in findings)
-        )
+        self.assertTrue(any(f.code == "cross-project-parent" and f.id == "child" for f in findings))
 
     def test_cycle_is_reported(self):
         a = FakePlan(id="a", parent="b")
         b = FakePlan(id="b", parent="a")
         findings = check.run([a, b])
-        self.assertTrue(any(f.code == "cycle" and f.plan_id == "a" for f in findings))
-        self.assertTrue(any(f.code == "cycle" and f.plan_id == "b" for f in findings))
+        self.assertTrue(any(f.code == "cycle" and f.id == "a" for f in findings))
+        self.assertTrue(any(f.code == "cycle" and f.id == "b" for f in findings))
 
     def test_self_parent_is_reported_once_without_cycle_duplicate(self):
         plan = FakePlan(id="loopy", parent="loopy")
@@ -73,7 +71,7 @@ class RunTests(unittest.TestCase):
         b = FakePlan(id="b", parent="a")
         x = FakePlan(id="x", parent="a")
         findings = check.run([a, b, x])
-        cycle_ids = [f.plan_id for f in findings if f.code == "cycle"]
+        cycle_ids = [f.id for f in findings if f.code == "cycle"]
         self.assertIn("a", cycle_ids)
         self.assertIn("b", cycle_ids)
         self.assertNotIn("x", cycle_ids)
@@ -82,28 +80,28 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="weird-status", status="bogus")
         findings = check.run([plan])
         self.assertTrue(
-            any(f.code == "off-vocabulary-status" and f.plan_id == "weird-status" for f in findings)
+            any(f.code == "off-vocabulary-status" and f.id == "weird-status" for f in findings)
         )
 
     def test_off_vocabulary_intent_is_reported(self):
         plan = FakePlan(id="weird-intent", intent="bogus")
         findings = check.run([plan])
         self.assertTrue(
-            any(f.code == "off-vocabulary-intent" and f.plan_id == "weird-intent" for f in findings)
+            any(f.code == "off-vocabulary-intent" and f.id == "weird-intent" for f in findings)
         )
 
     def test_duplicate_id_across_sources_is_reported(self):
         claude_plan = FakePlan(id="same-id", source="claude")
         cursor_plan = FakePlan(id="same-id", source="cursor")
         findings = check.run([claude_plan, cursor_plan])
-        self.assertTrue(any(f.code == "duplicate-id" and f.plan_id == "same-id" for f in findings))
+        self.assertTrue(any(f.code == "duplicate-id" and f.id == "same-id" for f in findings))
 
     def test_missing_title_is_reported(self):
         plan = FakePlan(id="no-title", has_title=False)
         findings = check.run([plan])
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "missing-title")
-        self.assertEqual(findings[0].plan_id, "no-title")
+        self.assertEqual(findings[0].id, "no-title")
         self.assertNotIn("no-title", findings[0].message)
 
     def test_malformed_tag_is_reported(self):
@@ -111,7 +109,7 @@ class RunTests(unittest.TestCase):
         findings = check.run([plan])
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "malformed-tag")
-        self.assertEqual(findings[0].plan_id, "bad-tags")
+        self.assertEqual(findings[0].id, "bad-tags")
         self.assertIn("Auth", findings[0].message)
 
     def test_valid_tags_are_not_reported(self):
@@ -123,7 +121,7 @@ class RunTests(unittest.TestCase):
         findings = check.run([plan])
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "missing-progress")
-        self.assertEqual(findings[0].plan_id, "no-progress")
+        self.assertEqual(findings[0].id, "no-progress")
         self.assertNotIn("no-progress", findings[0].message)
 
     def test_missing_progress_is_silent_when_heading_is_present(self):
@@ -135,7 +133,7 @@ class RunTests(unittest.TestCase):
         sessions = {"no-project": FakeSession(project="real-project")}
         findings = check.run([plan], sessions)
         self.assertTrue(
-            any(f.code == "underived-project" and f.plan_id == "no-project" for f in findings)
+            any(f.code == "underived-project" and f.id == "no-project" for f in findings)
         )
 
     def test_underived_project_is_silent_without_a_session(self):
@@ -163,7 +161,7 @@ class RunTests(unittest.TestCase):
         findings = check.run([plan], touches=touches)
         self.assertTrue(
             any(
-                f.code == "status-behind-history" and f.plan_id == "not-started-but-done"
+                f.code == "status-behind-history" and f.id == "not-started-but-done"
                 for f in findings
             )
         )
@@ -206,7 +204,7 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="stale", status="not-started", body="## Progress\n\n- [x] done\n")
         findings = check.run([plan])
         self.assertTrue(
-            any(f.code == "status-behind-progress" and f.plan_id == "stale" for f in findings)
+            any(f.code == "status-behind-progress" and f.id == "stale" for f in findings)
         )
 
     def test_status_behind_progress_is_silent_for_superseded(self):
@@ -229,7 +227,7 @@ class RunTests(unittest.TestCase):
             id="stale", status="not-started", pinned=True, body="## Progress\n\n- [x] done\n"
         )
         findings = check.run([plan])
-        self.assertTrue(any(f.code == "pin-diverged" and f.plan_id == "stale" for f in findings))
+        self.assertTrue(any(f.code == "pin-diverged" and f.id == "stale" for f in findings))
 
     def test_pin_diverged_is_silent_when_pinned_status_agrees(self):
         plan = FakePlan(
@@ -249,7 +247,7 @@ class RunTests(unittest.TestCase):
         findings = check.run([], skips=skips)
         self.assertEqual(len(findings), 1)
         self.assertEqual(findings[0].code, "unreadable-file")
-        self.assertEqual(findings[0].plan_id, "secret.md")
+        self.assertEqual(findings[0].id, "secret.md")
 
     def test_no_skips_means_no_unreadable_file_findings(self):
         self.assertEqual(check.run([FakePlan(id="root")], skips=[]), [])
@@ -263,7 +261,7 @@ class RunTests(unittest.TestCase):
         )
         findings = check.run([parent, child])
         self.assertTrue(
-            any(f.code == "unadopted-reference" and f.plan_id == "slow-otter" for f in findings)
+            any(f.code == "unadopted-reference" and f.id == "slow-otter" for f in findings)
         )
 
     def test_unadopted_reference_is_silent_when_parent_is_set(self):

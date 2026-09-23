@@ -23,6 +23,37 @@ class BodyBelowTitleTests(unittest.TestCase):
         self.assertEqual(plan_module.body_below_title(body), body)
 
 
+class LoadTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+
+    def test_crlf_file_round_trips_through_save_unchanged(self):
+        path = self.directory / "crlf-plan.md"
+        text = "---\r\npentimento:\r\n  status: complete\r\n---\r\n# T\r\n\r\nbody\r\n"
+        path.write_bytes(text.encode())
+        loaded = plan_module.load(path)
+        plan_module.save(loaded)
+        self.assertEqual(path.read_bytes(), text.encode())
+
+    def test_crlf_body_without_frontmatter_survives_save(self):
+        path = self.directory / "crlf-bare.md"
+        path.write_bytes(b"# T\r\n\r\nbody\r\n")
+        loaded = plan_module.load(path)
+        loaded.fields["status"] = "partial"
+        plan_module.save(loaded)
+        self.assertIn(b"body\r\n", path.read_bytes())
+        self.assertEqual(loaded.title, "T")
+
+    def test_control_characters_in_a_title_become_spaces(self):
+        path = self.directory / "ctl-plan.md"
+        path.write_bytes(b"# Tab\there \x1b[31mred\n")
+        loaded = plan_module.load(path)
+        self.assertNotRegex(loaded.title, r"[\x00-\x1f\x7f-\x9f]")
+        self.assertEqual(loaded.title, "Tab here  [31mred")
+
+
 class ModifiedTests(unittest.TestCase):
     def test_modified_prefers_ended_over_mtime(self):
         target = plan_module.Plan(

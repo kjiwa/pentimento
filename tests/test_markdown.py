@@ -54,10 +54,13 @@ class WrapTests(unittest.TestCase):
             self.assertNotIn("�", line)
         self.assertEqual("".join(lines), token)
 
-    def test_fenced_code_with_a_wide_token_is_still_not_reflowed(self):
+    def test_fenced_code_with_a_wide_token_is_hard_split_without_loss(self):
         body = "```sh\n" + "a" * 60 + "\n```"
         lines = _render(body, width=20)
-        self.assertEqual(len(lines), 1)
+        self.assertGreater(len(lines), 1)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
+        self.assertEqual("".join(line[4:] for line in lines), "a" * 60)
 
 
 class ListItemContinuationTests(unittest.TestCase):
@@ -111,18 +114,35 @@ class HeadingTests(unittest.TestCase):
 
 
 class FencedCodeTests(unittest.TestCase):
-    def test_fenced_code_is_indented_and_truncated(self):
-        body = "```sh\ndocker exec -w /app foo php test.php\n```"
-        lines = _render(body, width=20)
-        self.assertEqual(len(lines), 1)
-        self.assertTrue(lines[0].startswith("    "))
-        self.assertLessEqual(style.display_width(lines[0]), 20)
-        self.assertTrue(lines[0].endswith("…"))
+    def test_a_long_code_line_wraps_and_loses_no_words(self):
+        source = "docker exec -w /app foo php test.php"
+        lines = _render(f"```sh\n{source}\n```", width=20)
+        self.assertGreater(len(lines), 1)
+        for line in lines:
+            self.assertLessEqual(style.display_width(line), 20)
+            self.assertTrue(line.startswith("    ") or line.startswith("  ↪ "))
+        self.assertNotIn("…", "".join(lines))
+        self.assertEqual(" ".join(line[4:] for line in lines), source)
 
-    def test_fenced_code_is_never_reflowed(self):
-        body = "```\none two three four five six seven eight nine ten\n```"
-        lines = _render(body, width=15)
-        self.assertEqual(len(lines), 1)
+    def test_continuation_rows_carry_a_wrap_glyph(self):
+        body = "```\none two three four five six seven\n```"
+        unicode_lines = _render(body, width=15)
+        ascii_lines = _render(body, width=15, unicode_ok=False)
+        self.assertTrue(unicode_lines[0].startswith("    one"))
+        self.assertTrue(all(line.startswith("  ↪ ") for line in unicode_lines[1:]))
+        self.assertTrue(all(line.startswith("  > ") for line in ascii_lines[1:]))
+
+    def test_wrap_glyph_is_painted_dim(self):
+        lines = _render("```\none two three four five\n```", width=15, on_color=True)
+        self.assertIn(style.DIM, lines[1])
+
+    def test_leading_indentation_is_kept_and_never_a_break_point(self):
+        lines = _render("```\n        deep indent here\n```", width=20)
+        self.assertEqual(lines[0], "            deep")
+
+    def test_adjacent_code_lines_are_never_joined(self):
+        body = "```\none two\nthree four\n```"
+        self.assertEqual(_render(body, width=40), ["    one two", "    three four"])
 
 
 class TableTests(unittest.TestCase):

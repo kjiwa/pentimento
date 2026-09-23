@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.13
+
+Fixes: `show` no longer cuts a long line in a fenced or indented code block
+with `…`, so `show --full` prints the whole body. The line wraps at a space,
+or mid-word when a token is wider than the terminal, and each continuation row
+is marked `↪` (`>` with `--ascii`) in the block's indent. Adjacent source
+lines are still never joined.
+
 ## 0.1.12
 
 `list` and `tree` gain `--title PATTERN`, a case-insensitive regex over the

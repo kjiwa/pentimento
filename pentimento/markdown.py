@@ -37,6 +37,7 @@ GLYPHS_UNICODE = {
     "rule": "─",
     "ellipsis": "…",
     "dash": "—",
+    "wrap": "↪",
 }
 GLYPHS_ASCII = {
     "bullet": "-",
@@ -45,6 +46,7 @@ GLYPHS_ASCII = {
     "rule": "-",
     "ellipsis": "...",
     "dash": "--",
+    "wrap": ">",
 }
 
 
@@ -184,8 +186,38 @@ def _wrap(
     return lines
 
 
-def _verbatim(line: str, width: int, *, unicode_ok: bool) -> str:
-    return style.truncate("    " + line, width, unicode_ok=unicode_ok)
+def _break_verbatim(text: str, budget: int, lead: int) -> tuple[str, str]:
+    """Split `text` into a row fitting `budget` columns and the remainder.
+
+    Breaks at a space past the line's own leading indentation (`lead`) when
+    one fits, else hard-splits, so nothing is dropped.
+    """
+    head, tail = style.split_width(text, budget)
+    if not head:
+        head, tail = text[0], text[1:]
+    cut = len(head) if tail.startswith(" ") else head.rfind(" ")
+    if cut > lead:
+        return text[:cut].rstrip(), text[cut:].lstrip(" ")
+    return head, tail
+
+
+def _verbatim(line: str, width: int, *, on_color: bool, unicode_ok: bool) -> list[str]:
+    """Code line wrapped to `width`, never joined with its neighbours.
+
+    Continuation rows carry a dim wrap glyph in the 4-column gutter so a
+    wrapped command does not read as two.
+    """
+    budget = max(width - 4, 1)
+    gutter = "  " + style.paint(_glyphs(unicode_ok)["wrap"], style.DIM, on=on_color) + " "
+    lead = len(line) - len(line.lstrip(" "))
+    rows = []
+    prefix = "    "
+    while style.display_width(line) > budget:
+        row, line = _break_verbatim(line, budget, lead)
+        rows.append(prefix + row)
+        prefix, lead = gutter, 0
+    rows.append(prefix + line)
+    return rows
 
 
 def _heading(text: str, level: int, width: int, *, on_color: bool) -> list[str]:
@@ -414,7 +446,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
             marker = fence.group(1)
             index += 1
             while index < count and lines[index].strip() != marker:
-                out.append(_verbatim(lines[index], width, unicode_ok=unicode_ok))
+                out.extend(_verbatim(lines[index], width, on_color=on_color, unicode_ok=unicode_ok))
                 index += 1
             index += 1
             continue
@@ -422,7 +454,9 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
         if line.startswith("    "):
             flush_paragraph()
             while index < count and lines[index].startswith("    "):
-                out.append(_verbatim(lines[index][4:], width, unicode_ok=unicode_ok))
+                out.extend(
+                    _verbatim(lines[index][4:], width, on_color=on_color, unicode_ok=unicode_ok)
+                )
                 index += 1
             continue
 

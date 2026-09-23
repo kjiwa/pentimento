@@ -59,6 +59,11 @@ class AsRecordsTests(unittest.TestCase):
         self.assertEqual(records[1]["session"], "implement-it-later")
         self.assertEqual(records[1]["what"], "worked")
 
+    def test_when_is_utc_whole_seconds(self):
+        plan_touches = [_touch("s", "Read", "2026-09-05T00:00:00.456Z")]
+        records = history.as_records("the-plan", plan_touches)
+        self.assertEqual(records[0]["when"], "2026-09-05T00:00:00Z")
+
 
 class FieldsTests(unittest.TestCase):
     def test_fields_matches_the_table_column_order(self):

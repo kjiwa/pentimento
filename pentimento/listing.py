@@ -36,7 +36,7 @@ _SPECS = (
         lambda p, short_ids: (p.source, style.SOURCE_CODES.get(p.source, ())),
     ),
     (
-        "plan",
+        "id",
         table.Column("PLAN", drop=7),
         lambda plans: True,
         lambda p, short_ids: (short_ids[p.id], ()),
@@ -63,7 +63,7 @@ _SPECS = (
         ),
     ),
     (
-        "updated",
+        "modified",
         table.Column("UPDATED", align="right"),
         lambda plans: True,
         lambda p, short_ids: (times.relative(p.modified), (style.DIM,)),

@@ -120,15 +120,18 @@ def read_records(log_path: Path):
                 if not line:
                     continue
                 try:
-                    yield json.loads(line)
+                    record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if isinstance(record, dict):
+                    yield record
     except OSError:
         return
 
 
 def _prompt_text(record: dict) -> str | None:
-    content = record.get("message", {}).get("content")
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
     if isinstance(content, str):
         return content
     if isinstance(content, list):

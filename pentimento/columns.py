@@ -54,6 +54,11 @@ def parse(spec: str, valid: tuple[str, ...]) -> Selection:
             )
         return Selection(absolute=tuple(absolute), add=frozenset(), remove=frozenset())
 
+    if any(len(segment) == 1 for segment in relative):
+        raise ValueError(
+            f"missing column name after +/-: {spec} -- valid columns: {', '.join(valid)}"
+        )
+
     add = {segment[1:] for segment in relative if segment[0] == "+"}
     remove = {segment[1:] for segment in relative if segment[0] == "-"}
     unknown = {name for name in add | remove if name not in valid}

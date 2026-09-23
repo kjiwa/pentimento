@@ -116,5 +116,30 @@ class TsvTests(unittest.TestCase):
         self.assertIn("id", header)
 
 
+class TsvScrubTests(unittest.TestCase):
+    def test_tab_and_newline_inside_a_list_item_do_not_add_fields(self):
+        rendered = _emit([{"tags": ["a\tb", "c\nd", "e\rf"]}], "tsv", ("tags",))
+        row = rendered.split("\n")[1]
+        self.assertEqual(row, "a b,c d,e f")
+
+    def test_carriage_return_in_a_scalar_is_scrubbed(self):
+        rendered = _emit([{"title": "a\rb"}], "tsv", ("title",))
+        self.assertEqual(rendered.split("\n")[1], "a b")
+
+    def test_booleans_print_lowercase(self):
+        rendered = _emit([{"pinned": True}, {"pinned": False}], "tsv", ("pinned",))
+        self.assertEqual(rendered.split("\n")[1:3], ["true", "false"])
+
+
+class RecordTimestampTests(unittest.TestCase):
+    def test_modified_and_started_are_utc_whole_seconds(self):
+        plan = FakePlan(
+            id="p", title="P", mtime=1_800_000_000.5, started="2026-01-01T00:00:00.123Z"
+        )
+        rec = record.as_dict(plan)
+        self.assertEqual(rec["modified"], "2027-01-15T08:00:00Z")
+        self.assertEqual(rec["started"], "2026-01-01T00:00:00Z")
+
+
 if __name__ == "__main__":
     unittest.main()

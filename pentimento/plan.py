@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -15,6 +16,8 @@ EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
 
 CURSOR_SUFFIX = ".plan.md"
 PLAN_SUFFIX = ".md"
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 @dataclasses.dataclass
@@ -90,7 +93,7 @@ class Plan:
 def _first_h1(body: str) -> str | None:
     for line in body.split("\n"):
         if line.startswith("# "):
-            return line[2:].strip()
+            return _CONTROL_CHARS.sub(" ", line[2:]).strip()
     return None
 
 
@@ -114,7 +117,8 @@ def _id_for(path: Path) -> str:
 
 
 def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Plan:
-    text = path.read_text(encoding="utf-8", errors="replace")
+    with path.open(encoding="utf-8", errors="replace", newline="") as handle:
+        text = handle.read()
     fields, body, extras = frontmatter.parse(text)
     plan_id = _id_for(path)
     session = (sessions or {}).get(plan_id)
@@ -156,7 +160,7 @@ def atomic_write(path: Path, text: str, *, keep_mtime: bool = False) -> None:
         stat = None
     fd, tmp_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
         if stat is not None:
             os.chmod(tmp_name, stat.st_mode)

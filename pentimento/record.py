@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pentimento import plan as plan_module
+from pentimento import times
 
 _ACCESSORS = {
     "id": lambda p: p.id,
@@ -15,8 +16,8 @@ _ACCESSORS = {
     "project": lambda p: p.project,
     "source": lambda p: p.source,
     "created": lambda p: p.fields.get("created"),
-    "started": lambda p: p.started,
-    "modified": lambda p: p.modified.astimezone().isoformat(),
+    "started": lambda p: times.utc_stamp(times.parse_iso(p.started)) or p.started,
+    "modified": lambda p: times.utc_stamp(p.modified),
     "path": lambda p: str(p.path),
 }
 

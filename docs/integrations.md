@@ -1,7 +1,8 @@
 # Integrations
 
 Wiring pentimento into Claude Code and Cursor, and `check` into CI. Start here
-to keep frontmatter current without running `backfill` by hand.
+to keep frontmatter current without running `backfill` by hand, or to let an
+agent search past plans on its own.
 
 ## Claude Code
 
@@ -41,6 +42,40 @@ run verbatim; if `pentimento` isn't on `$PATH` it reports that and stops.
 Copy [integrations/claude/commands/plans.md](../integrations/claude/commands/plans.md)
 to `~/.claude/commands/plans.md`.
 
+### `prior-plans` skill
+
+`/plans` is a command you type; it is marked so Claude never invokes it on
+its own. The [`prior-plans` skill](../integrations/claude/skills/prior-plans/SKILL.md)
+is the model-invoked counterpart: when Claude is about to plan a change to
+CI, deploys, auth, cost, or anything another project may already have
+decided, it searches every project's plans with `pentimento list --title` and
+`--grep`, reads the best matches with `pentimento show <id> --full`, and cites
+them in the new plan. That is how a decision recorded in one project reaches
+the plan for another without you remembering to hand it over. It finds plans
+by title, so it works on plans you never tagged; tags and an accurate `status`
+only sharpen the result.
+
+Install it for every project by copying the directory into your user skills:
+
+```sh
+mkdir -p ~/.claude/skills
+cp -R integrations/claude/skills/prior-plans ~/.claude/skills/
+```
+
+Without a checkout, fetch the one file instead:
+
+```sh
+mkdir -p ~/.claude/skills/prior-plans
+curl -fsSL -o ~/.claude/skills/prior-plans/SKILL.md \
+  https://raw.githubusercontent.com/kjiwa/pentimento/main/integrations/claude/skills/prior-plans/SKILL.md
+```
+
+To scope it to one repository, use `.claude/skills/prior-plans/` inside that
+repository instead. Claude Code picks the skill up in a new session; ask it to
+plan a change to a shared workflow and it should run `pentimento list --title
+...` before proposing anything. Like `/plans`, it needs `pentimento` on
+`$PATH` and reports that and stops if it is missing.
+
 ### Triage nudge
 
 A plan is unfindable later when it has run (`status` is `partial` or
@@ -65,13 +100,12 @@ Configure `CURSOR_PLANS_DIR` (see [docs/reference.md](reference.md)) and run
 `pentimento backfill` by hand, or on a schedule (e.g. a cron job or a CI
 job). Because Cursor keeps no session logs, a Cursor plan's `project` is
 never derived and its `parent` only ever comes from the body-preamble
-reference scan — see [sources.py](../pentimento/sources.py) and
-[lineage.py](../pentimento/lineage.py).
+reference scan.
 
 ## `check` in CI
 
-`check` exits 1 when it finds a lineage or vocabulary defect
-([cli.py](../pentimento/cli.py)), so it plugs into CI as a plain step:
+`check` exits 1 when it finds a lineage or vocabulary defect, so it plugs
+into CI as a plain step:
 
 ```yaml
 - run: pentimento check

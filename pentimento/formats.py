@@ -6,12 +6,18 @@ import json
 import sys
 
 
+def _scrub(text: str) -> str:
+    return text.replace("\t", " ").replace("\n", " ").replace("\r", " ")
+
+
 def _sanitize_tsv(value) -> str:
     if value is None:
         return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
     if isinstance(value, list):
-        return ",".join(str(v) for v in value)
-    return str(value).replace("\t", " ").replace("\n", " ")
+        return ",".join(_scrub(str(v)) for v in value)
+    return _scrub(str(value))
 
 
 def _emit_json(records, stream, columns) -> None:

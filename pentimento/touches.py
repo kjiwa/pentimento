@@ -73,13 +73,15 @@ def _touches_in(log_path: Path):
                     record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                yield from _touches_in_record(record, log_path)
+                if isinstance(record, dict):
+                    yield from _touches_in_record(record, log_path)
     except OSError:
         return
 
 
 def _touches_in_record(record: dict, log_path: Path):
-    content = record.get("message", {}).get("content")
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, list):
         return
     session = record.get("slug") or log_path.stem

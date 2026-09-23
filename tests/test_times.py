@@ -107,5 +107,42 @@ class RelativeTests(unittest.TestCase):
             self.assertEqual(times.relative(dt), "just now")
 
 
+class ParseWhenTests(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.dict("os.environ", {"PENTIMENTO_NOW": "2026-09-23T12:00:00Z"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_iso_date_passes_through(self):
+        self.assertEqual(times.parse_when("2026-09-01"), datetime.date(2026, 9, 1))
+
+    def test_each_relative_unit_counts_back_from_now(self):
+        for text, expected in (
+            ("14m", datetime.date(2026, 9, 23)),
+            ("5h", datetime.date(2026, 9, 23)),
+            ("3d", datetime.date(2026, 9, 20)),
+            ("2w", datetime.date(2026, 9, 9)),
+            ("1y", datetime.date(2025, 9, 23)),
+        ):
+            self.assertEqual(times.parse_when(text), expected, msg=text)
+
+    def test_other_text_is_none(self):
+        for text in ("", "yesterday", "3", "d", "3days", "-3d", "3D", "2026-13-01"):
+            self.assertIsNone(times.parse_when(text), msg=text)
+
+    def test_absurd_age_is_none_not_a_crash(self):
+        self.assertIsNone(times.parse_when("999999999y"))
+
+
+class UtcStampTests(unittest.TestCase):
+    def test_converts_to_utc_z_with_whole_seconds(self):
+        offset = datetime.timezone(datetime.timedelta(hours=-7))
+        dt = datetime.datetime(2026, 9, 1, 5, 0, 0, 123000, tzinfo=offset)
+        self.assertEqual(times.utc_stamp(dt), "2026-09-01T12:00:00Z")
+
+    def test_none_is_none(self):
+        self.assertIsNone(times.utc_stamp(None))
+
+
 if __name__ == "__main__":
     unittest.main()

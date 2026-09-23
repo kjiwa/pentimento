@@ -126,6 +126,14 @@ class ResolveRelativeTests(unittest.TestCase):
         self.assertEqual(never_drop, {"created"})
 
 
+class MissingNameTests(unittest.TestCase):
+    def test_bare_sign_is_reported_as_a_missing_name(self):
+        for spec in ("+", "-", "+title,-"):
+            with self.assertRaises(ValueError) as ctx:
+                columns.parse(spec, VALID)
+            self.assertIn("missing column name", str(ctx.exception), msg=spec)
+
+
 def _no_op_selection():
     return columns.Selection(absolute=None, add=frozenset(), remove=frozenset())
 

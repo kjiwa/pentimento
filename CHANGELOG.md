@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.2.0
+
+`list` and `tree` gain `--title PATTERN`, a case-insensitive regex over the
+title alone (`--grep` still covers title and body), and `--since WHEN` /
+`--until WHEN`, an inclusive local-day range over `modified` -- the `UPDATED`
+column -- or over `created` with `--date created`. `WHEN` is `YYYY-MM-DD` or
+an age in the units `UPDATED` prints (`14m`, `5h`, `3d`, `2w`, `1y`). Together
+they find a past decision across projects and answer what a given week
+held. `integrations/claude/skills/prior-plans` is a Claude Code skill that
+runs that search before the agent plans a change to shared infrastructure, and
+`docs/integrations.md` and `docs/workflows.md` cover installing and using it.
+
+Breaking, for scripts: usage errors now exit 2 instead of 1 -- a missing or
+conflicting flag, an invalid value or regex, `tree --ancestors` without an id
+-- as do I/O errors, so `check`'s exit 1 (findings) and a plan-not-found exit
+1 stay distinct from misuse. Every error message on stderr is prefixed
+`pentimento: `. `check --format json|tsv` records name the plan `id`, not
+`plan_id`, and follow the table's order: `code`, `id`, `message`.
+`--columns` and `PENTIMENTO_COLUMNS` name columns `id` and `modified`, as
+`--sort` does, in place of `plan` and `updated`; the old names are rejected.
+In `json` and `tsv`, `started` and `modified` are UTC instants with whole
+seconds and a trailing `Z` (`modified` was a local offset with microseconds),
+`history`'s `when` uses the same form, and `tsv` prints `pinned` as `true` or
+`false`. `show --format json|tsv` now includes `body`. Plan titles no longer
+carry control characters. A closed pipe (`pentimento list | head`) exits 141
+quietly.
+
+`set` rejects flags that conflict (`--parent` with `--clear-parent`,
+`--status` with `--unpin`, and so on) and a call that names no field, instead
+of silently picking one. `backfill --only` accepts the short id or filename
+that `show` does, exits 1 on an unknown one, and prints each field it changes
+under the plan's id, so `backfill --only <id> --rederive --dry-run` is a real
+preview. `check` on an empty corpus prints the same `no plans found` hint as
+`list`.
+
+Fixes: a `#` inside an unrecognized frontmatter value no longer truncates it on
+`set` and `backfill`, and a value containing `: ` no longer aborts the run;
+CRLF plan files keep their line endings through `set`; a session transcript
+line that is not a JSON object no longer crashes every command; `tree <id>
+--ancestors` no longer repeats plans caught in a `parent` cycle, and `tree`
+roots at the requested plan; a tab or newline in a tag no longer adds a field
+to `tsv` output; `list --project ''` filters instead of matching everything;
+and `-n abc` and `--columns +` report what was wrong. `--help` text links to
+docs by URL, since pip installs carry no `docs/` directory.
+
 ## 0.1.11
 
 `tree` now takes an optional `<id>` that roots the tree at that plan --

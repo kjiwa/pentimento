@@ -14,7 +14,7 @@ replaced which — the filenames are random and the files say nothing about
 their own state. pentimento derives that state and gives you a CLI to list,
 filter, and render the lot as a lineage tree.
 
-Two kinds of plan are worth finding again:
+Three kinds of plan are worth finding again:
 
 - The long one: an infrastructure migration designed over months grows
   subplans, absorbs decisions made in discussion, and leaves behind the
@@ -26,6 +26,14 @@ Two kinds of plan are worth finding again:
   not act on today. Tag it and set an intent, and `list --tag` or
   `list --starred` brings it back when you are ready to pick the thread up
   again.
+- The one that already answered your question: a plan from another project
+  holds the reasoning behind a decision your current change would undo — why
+  a CI matrix was cut, why one service avoids a library. A memory exists only
+  if an agent chose to write one, and project docs only if you did; a plan
+  exists whenever a decision was planned. `list --title` and `list --grep`
+  search every project's plans at once, and the
+  [`prior-plans` skill](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md#prior-plans-skill)
+  has the agent run that search itself before it proposes a change.
 
 A pentimento is the earlier composition showing through a repainted canvas;
 that is what a plans directory is.
@@ -70,8 +78,19 @@ pentimento tree some-plan-id
 pentimento tree some-plan-id --ancestors
 ```
 
+To find how an earlier decision was made, search titles (or titles and
+bodies) across every project, then reopen the plan; to see what you finished
+recently, filter by date:
+
+```sh
+pentimento list --title 'github actions|\bGHA\b'
+pentimento list --grep 'concurrency group' --status complete
+pentimento show some-plan-id --full
+pentimento list --status complete --since 1w
+```
+
 [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
-walks all three loops end to end.
+walks each of these end to end.
 
 Sources and their default directories are covered in
 [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md);
@@ -88,6 +107,10 @@ unique across the corpus, so `is-it-possible-to-abundant-rabbit` displays as
 before truncating any; `--columns` (or `PENTIMENTO_COLUMNS`) overrides which
 columns show and in what order — see
 [docs/reference.md#columns](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#columns).
+`list` and `tree` share their filters: `--status`, `--intent`, `--project`,
+`--source`, `--starred`, `--tag`, the regex matches `--title` and `--grep`, and
+the date range `--since`/`--until`, which tests `modified` (the `UPDATED`
+column) unless `--date created` says otherwise.
 
 <!-- sample:list -->
 ```
@@ -328,9 +351,10 @@ runs all three on Ubuntu and macOS.
   — every command's full flags, and the environment variables.
 - [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md)
   — wiring `backfill` and `pentimento hook` into Claude Code and Cursor, a
-  slash command, a triage-nudge pattern, `check` in CI.
+  slash command, a skill that searches past plans before a new one, a
+  triage-nudge pattern, `check` in CI.
 - [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
-  — triage, picking a plan back up, supersession, lineage trees, scripting
-  with `--format json`.
+  — triage, picking a plan back up, reusing a past decision, supersession,
+  lineage trees, scripting with `--format json`.
 - [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
   — every empty field and `check` finding, explained.

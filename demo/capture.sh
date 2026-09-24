@@ -3,7 +3,8 @@
 #
 # Usage: sh demo/capture.sh
 #
-# Runs `pentimento list`, `tree`, `show`, and `check` against a fresh
+# Runs `pentimento list` (wide enough for the table, then at 80 columns for
+# the stacked layout), `tree`, `show`, `check`, and `history` against a fresh
 # `demo/fixture.sh` corpus and splices each result into README.md between
 # `<!-- sample:NAME -->` / `<!-- /sample -->` marker pairs, so the samples
 # are regenerable. Pins `PENTIMENTO_NOW` and `TZ` unconditionally, overriding
@@ -17,12 +18,13 @@ set -eu
 
 _capture() {
   _capture_name=$1
-  shift
+  _capture_columns=$2
+  shift 2
   _capture_status=0
   AGENT_PLANS_DIR="$FIXTURE_DIR" \
     AGENT_SESSIONS_DIR="$FIXTURE_DIR/sessions" \
     CURSOR_PLANS_DIR=/nonexistent \
-    COLUMNS=110 \
+    COLUMNS="$_capture_columns" \
     pentimento "$@" --color never >"$CAPTURE_DIR/$_capture_name.txt" || _capture_status=$?
 
   # `check` exits 1 when it finds something; the fixture has a deliberate
@@ -76,8 +78,11 @@ main() {
   REPO_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
   README="$REPO_ROOT/README.md"
 
-  FIXTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-fixture.XXXXXX")
-  CAPTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-capture.XXXXXX")
+  # A trailing slash on $TMPDIR (macOS) doubles the slash in FIXTURE_DIR, which
+  # then never matches the normalized path the CLI prints.
+  _main_tmp=${TMPDIR:-/tmp}
+  FIXTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-fixture.XXXXXX")
+  CAPTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-capture.XXXXXX")
   trap 'rm -rf "$FIXTURE_DIR" "$CAPTURE_DIR"' EXIT
 
   # `show` collapses $HOME to ~ before printing a path (cli.py:_display_path),
@@ -96,14 +101,15 @@ main() {
 
   sh "$SCRIPT_DIR/fixture.sh" "$FIXTURE_DIR"
 
-  _capture list list
-  _capture tree tree
-  _capture tree-thread tree auth-rollout --ancestors
-  _capture show show api-auth-rollout
-  _capture check check
-  _capture history history api-auth-cleanup
+  _capture list 132 list
+  _capture list-narrow 80 list
+  _capture tree 110 tree
+  _capture tree-thread 110 tree auth-rollout --ancestors
+  _capture show 110 show api-auth-rollout
+  _capture check 110 check
+  _capture history 110 history api-auth-cleanup
 
-  for _name in list tree tree-thread show check history; do
+  for _name in list list-narrow tree tree-thread show check history; do
     _splice "$_name"
   done
 }

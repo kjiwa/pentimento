@@ -72,6 +72,23 @@ class IsValidTests(unittest.TestCase):
         self.assertFalse(tags.is_valid(""))
 
 
+class ShortenTests(unittest.TestCase):
+    def test_fitting_text_is_unchanged(self):
+        self.assertEqual(tags.shorten("[a, b]", 6), "[a, b]")
+
+    def test_keeps_whole_tags_then_a_count(self):
+        self.assertEqual(
+            tags.shorten("[capacity, cloudfront, k6, loadtest, nginx]", 26),
+            "[capacity, cloudfront, +3]",
+        )
+
+    def test_count_alone_when_no_tag_fits(self):
+        self.assertEqual(tags.shorten("[capacity, cloudfront]", 6), "[+2]")
+
+    def test_truncates_when_even_the_count_does_not_fit(self):
+        self.assertEqual(tags.shorten("[capacity, cloudfront]", 3), "[ca")
+
+
 class NormalizedTests(unittest.TestCase):
     def test_lowercases_strips_and_dedupes(self):
         self.assertEqual(tags.normalized(["Auth", " auth ", "b"]), {"auth", "b"})

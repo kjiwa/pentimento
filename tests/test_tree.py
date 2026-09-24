@@ -42,8 +42,8 @@ class RenderTests(unittest.TestCase):
     def test_node_shape_is_title_then_metadata(self):
         root = FakePlan(id="root", title="Root Plan")
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
-        self.assertEqual(lines[0], "`- Root Plan")
-        self.assertTrue(lines[1].startswith("     root  "))
+        self.assertEqual(lines[0], "`-- Root Plan")
+        self.assertTrue(lines[1].startswith("      root  "))
 
     def test_meta_line_shows_the_short_id(self):
         root = FakePlan(id="is-it-possible-to-abundant-rabbit", title="Root Plan")
@@ -57,21 +57,20 @@ class RenderTests(unittest.TestCase):
         a = FakePlan(id="a", title="A", parent="root")
         b = FakePlan(id="b", title="B", parent="root")
         lines = _with_width(120, lambda: tree.render([root, a, b])).split("\n")
-        self.assertTrue(lines[2].startswith("   +- A"))
-        self.assertTrue(lines[4].startswith("   `- B"))
-
-    def test_unicode_glyphs_use_box_drawing_connectors(self):
-        a = FakePlan(id="a", title="A")
-        b = FakePlan(id="b", title="B", parent="a")
-        rendered = _with_width(
-            120, lambda: tree.render([a, b], glyphs=style.GLYPHS_UNICODE, unicode_ok=True)
-        )
-        self.assertIn("└─ ", rendered)
+        self.assertTrue(lines[2].startswith("    |-- A"))
+        self.assertTrue(lines[4].startswith("    `-- B"))
 
     def test_promoted_root_is_annotated_with_elided_parent(self):
         orphan = FakePlan(id="orphan", title="Orphan", parent="missing-parent")
         lines = _with_width(120, lambda: tree.render([orphan])).split("\n")
-        self.assertIn("(parent elided: missing-parent)", lines[0])
+        self.assertIn("(parent elided: missing-parent)", lines[1])
+
+    def test_elided_parent_annotation_is_never_cut_with_the_title(self):
+        orphan = FakePlan(id="orphan", title="A long title " * 5, parent="missing-parent")
+        for width in (40, 60, None):
+            rendered = _with_width(width, lambda: tree.render([orphan]))
+            text = " ".join(line.strip() for line in rendered.split("\n")[1:])
+            self.assertIn("(parent elided: missing-parent)", text, f"width={width}")
 
     def test_cycle_is_annotated(self):
         a = FakePlan(id="a", title="A", parent="b")
@@ -192,6 +191,54 @@ class FitGuaranteeTests(unittest.TestCase):
                 self.assertLessEqual(
                     style.display_width(line), width, f"width={width} overflowed: {line!r}"
                 )
+
+
+class LayoutTests(unittest.TestCase):
+    def _plan(self):
+        return FakePlan(
+            id="api-auth-rollout",
+            title="Roll out the new auth API across every service",
+            status="partial",
+            intent="active",
+            tags=["auth", "security", "platform"],
+            created="2026-01-02",
+            mtime=2,
+        )
+
+    def _meta_fields(self, width):
+        rendered = _with_width(width, lambda: tree.render([self._plan()]))
+        return rendered.split("\n")[1:]
+
+    def test_every_meta_field_survives_every_width_in_order(self):
+        for width in (40, 60, 110, 140, None):
+            text = " ".join(self._meta_fields(width))
+            positions = [
+                text.index(field)
+                for field in (
+                    "auth-rollout",
+                    "partial",
+                    "active",
+                    "[auth, security, platform]",
+                    "2026-01-02",
+                )
+            ]
+            self.assertEqual(positions, sorted(positions), f"width={width}")
+            self.assertRegex(text, r"\d+y", f"width={width}")
+
+    def test_meta_line_wraps_under_its_own_indent(self):
+        lines = self._meta_fields(40)
+        self.assertGreater(len(lines), 1)
+        self.assertTrue(all(line.startswith("      ") for line in lines))
+
+    def test_title_truncates_with_an_ellipsis(self):
+        title = _with_width(40, lambda: tree.render([self._plan()])).split("\n")[0]
+        self.assertTrue(title.endswith("..."))
+        self.assertLessEqual(style.display_width(title), 40)
+
+    def test_unbounded_width_shortens_nothing(self):
+        lines = _with_width(None, lambda: tree.render([self._plan()])).split("\n")
+        self.assertEqual(len(lines), 2)
+        self.assertIn("across every service", lines[0])
 
 
 class AsRecordsTests(unittest.TestCase):

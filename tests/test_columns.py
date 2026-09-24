@@ -79,51 +79,31 @@ class ParseAllTests(unittest.TestCase):
 
 
 class ResolveAbsoluteTests(unittest.TestCase):
-    def test_absolute_keeps_order_and_pins_everything(self):
+    def test_absolute_keeps_the_given_order(self):
         selection = columns.parse("created,title,status", VALID)
-        names, never_drop = columns.resolve(selection, ("status", "title"), pin=("status",))
+        names = columns.resolve(selection, ("status", "title"))
         self.assertEqual(names, ["created", "title", "status"])
-        self.assertEqual(never_drop, {"created", "title", "status"})
-
-    def test_absolute_beats_the_sort_pin(self):
-        selection = columns.parse("title", VALID)
-        names, never_drop = columns.resolve(selection, ("status", "title"), pin=("created",))
-        self.assertEqual(names, ["title"])
-        self.assertNotIn("created", never_drop)
 
 
 class ResolveRelativeTests(unittest.TestCase):
-    def test_no_op_selection_pins_only_the_sort_key(self):
-        names, never_drop = columns.resolve(
-            _no_op_selection(), ("status", "title", "created"), pin=("created",)
-        )
+    def test_no_op_selection_keeps_the_default_set(self):
+        names = columns.resolve(_no_op_selection(), ("status", "title", "created"))
         self.assertEqual(names, ["status", "title", "created"])
-        self.assertEqual(never_drop, {"created"})
 
     def test_remove_drops_from_the_default_set(self):
         selection = columns.parse("-status", VALID)
-        names, _ = columns.resolve(selection, ("status", "title", "created"), pin=())
+        names = columns.resolve(selection, ("status", "title", "created"))
         self.assertEqual(names, ["title", "created"])
 
-    def test_add_appends_and_pins_a_name_missing_from_the_default_set(self):
+    def test_add_appends_a_name_missing_from_the_default_set(self):
         selection = columns.parse("+created", VALID)
-        names, never_drop = columns.resolve(selection, ("status", "title"), pin=())
-        self.assertIn("created", names)
-        self.assertIn("created", never_drop)
-
-    def test_add_pins_a_name_already_in_the_default_set(self):
-        selection = columns.parse("+created", VALID)
-        names, never_drop = columns.resolve(selection, ("status", "created"), pin=())
-        self.assertEqual(names, ["status", "created"])
-        self.assertEqual(never_drop, {"created"})
-
-    def test_sort_pin_is_kept_alongside_relative_add(self):
-        selection = columns.parse("-tags", VALID)
-        names, never_drop = columns.resolve(
-            selection, ("status", "tags", "created"), pin=("created",)
+        self.assertEqual(
+            columns.resolve(selection, ("status", "title")), ["status", "title", "created"]
         )
-        self.assertEqual(names, ["status", "created"])
-        self.assertEqual(never_drop, {"created"})
+
+    def test_add_of_a_name_already_in_the_default_set_changes_nothing(self):
+        selection = columns.parse("+created", VALID)
+        self.assertEqual(columns.resolve(selection, ("status", "created")), ["status", "created"])
 
 
 class MissingNameTests(unittest.TestCase):

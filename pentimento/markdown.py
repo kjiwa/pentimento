@@ -30,28 +30,15 @@ _INLINE_RE = re.compile(
 )
 _RULES = ("---", "***")
 
-GLYPHS_UNICODE = {
-    "bullet": "•",
-    "checked": "✓",
-    "unchecked": "☐",
-    "rule": "─",
-    "ellipsis": "…",
-    "dash": "—",
-    "wrap": "↪",
-}
-GLYPHS_ASCII = {
+GLYPHS = {
     "bullet": "-",
     "checked": "[x]",
     "unchecked": "[ ]",
     "rule": "-",
     "ellipsis": "...",
-    "dash": "--",
-    "wrap": ">",
+    "dash": "-",
+    "wrap": "->",
 }
-
-
-def _glyphs(unicode_ok: bool) -> dict:
-    return GLYPHS_UNICODE if unicode_ok else GLYPHS_ASCII
 
 
 _Span = tuple[str, tuple[str, ...], int, int]  # (word, codes, start, end) in the scanned text
@@ -201,14 +188,14 @@ def _break_verbatim(text: str, budget: int, lead: int) -> tuple[str, str]:
     return head, tail
 
 
-def _verbatim(line: str, width: int, *, on_color: bool, unicode_ok: bool) -> list[str]:
+def _verbatim(line: str, width: int, *, on_color: bool) -> list[str]:
     """Code line wrapped to `width`, never joined with its neighbours.
 
     Continuation rows carry a dim wrap glyph in the 4-column gutter so a
     wrapped command does not read as two.
     """
     budget = max(width - 4, 1)
-    gutter = "  " + style.paint(_glyphs(unicode_ok)["wrap"], style.DIM, on=on_color) + " "
+    gutter = " " + style.paint(GLYPHS["wrap"], style.DIM, on=on_color) + " "
     lead = len(line) - len(line.lstrip(" "))
     rows = []
     prefix = "    "
@@ -415,8 +402,7 @@ def _squeeze(lines: list[str]) -> list[str]:
     return out
 
 
-def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[str]:
-    glyphs = _glyphs(unicode_ok)
+def render(body: str, *, on_color: bool, width: int) -> list[str]:
     lines = body.split("\n")
     out: list[str] = []
     paragraph: list[str] = []
@@ -446,7 +432,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
             marker = fence.group(1)
             index += 1
             while index < count and lines[index].strip() != marker:
-                out.extend(_verbatim(lines[index], width, on_color=on_color, unicode_ok=unicode_ok))
+                out.extend(_verbatim(lines[index], width, on_color=on_color))
                 index += 1
             index += 1
             continue
@@ -454,9 +440,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
         if line.startswith("    "):
             flush_paragraph()
             while index < count and lines[index].startswith("    "):
-                out.extend(
-                    _verbatim(lines[index][4:], width, on_color=on_color, unicode_ok=unicode_ok)
-                )
+                out.extend(_verbatim(lines[index][4:], width, on_color=on_color))
                 index += 1
             continue
 
@@ -479,7 +463,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
             flush_paragraph()
             spaces, mark, text = checkbox_match.groups()
             checked = mark.lower() == "x"
-            glyph = glyphs["checked"] if checked else glyphs["unchecked"]
+            glyph = GLYPHS["checked"] if checked else GLYPHS["unchecked"]
             codes = (style.GREEN,) if checked else ()
             plain_prefix = " " * len(spaces) + glyph + " "
             painted_prefix = " " * len(spaces) + style.paint(glyph, *codes, on=on_color) + " "
@@ -495,7 +479,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
         if bullet_match:
             flush_paragraph()
             spaces, text = bullet_match.groups()
-            prefix = " " * len(spaces) + glyphs["bullet"] + " "
+            prefix = " " * len(spaces) + GLYPHS["bullet"] + " "
             extra, index = _continuation(lines, index + 1, count, len(spaces))
             text = f"{text} {extra}" if extra else text
             out.extend(
@@ -520,7 +504,7 @@ def render(body: str, *, on_color: bool, unicode_ok: bool, width: int) -> list[s
 
         if stripped in _RULES:
             flush_paragraph()
-            rule = glyphs["rule"] * width
+            rule = GLYPHS["rule"] * width
             out.append(style.paint(rule, style.DIM, on=on_color))
             index += 1
             continue
@@ -550,9 +534,7 @@ def _wrap_with_prefix(
     return lines
 
 
-def clip(
-    lines: list[str], limit: int | None, hint: str, *, on_color: bool, unicode_ok: bool
-) -> list[str]:
+def clip(lines: list[str], limit: int | None, hint: str, *, on_color: bool) -> list[str]:
     if limit is None or len(lines) <= limit:
         return lines
     limit = max(limit, MIN_BODY_LINES)
@@ -562,7 +544,6 @@ def clip(
     while kept and kept[-1] == "":
         kept.pop()
     remaining = len(lines) - len(kept)
-    glyphs = _glyphs(unicode_ok)
-    message = f"{glyphs['ellipsis']} {remaining} more lines {glyphs['dash']} {hint}"
+    message = f"{GLYPHS['ellipsis']} {remaining} more lines {GLYPHS['dash']} {hint}"
     kept.append(style.paint(message, style.DIM, on=on_color))
     return kept

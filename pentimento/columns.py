@@ -67,23 +67,17 @@ def parse(spec: str, valid: tuple[str, ...]) -> Selection:
     return Selection(absolute=None, add=frozenset(add), remove=frozenset(remove))
 
 
-def resolve(
-    selection: Selection, default_names: tuple[str, ...], pin: tuple[str, ...]
-) -> tuple[list[str], set[str]]:
-    """Returns the ordered names to render and the set that must never drop.
+def resolve(selection: Selection, default_names: tuple[str, ...]) -> list[str]:
+    """Returns the ordered names to render.
 
     `default_names` is the content-derived default set, in canonical order.
-    An absolute selection is the final word: it keeps the given order and
-    every name in it is pinned; the sort key's pin does not extend it. A
-    relative selection keeps canonical order, applies `add`/`remove` on top
-    of the default set, and pins every explicitly added name plus `pin`.
+    An absolute selection is the final word and keeps the given order. A
+    relative selection keeps canonical order and applies `add`/`remove` on
+    top of the default set.
     """
     if selection.absolute is not None:
-        names = list(selection.absolute)
-        return names, set(names)
+        return list(selection.absolute)
 
     names = [name for name in default_names if name not in selection.remove]
-    extra = sorted(name for name in selection.add if name not in names)
-    names.extend(extra)
-    never_drop = set(selection.add) | set(pin)
-    return names, never_drop
+    names.extend(sorted(name for name in selection.add if name not in names))
+    return names

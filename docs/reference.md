@@ -6,15 +6,15 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 ## Commands
 
 ```sh
-pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
-pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--sort modified|created|id|status|title] [--order asc|desc]
-pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never] [--ascii]
-pentimento set <id> [--status STATUS] [--unpin] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
+pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
+pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--sort modified|created|id|status|title] [--order asc|desc]
+pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never]
+pentimento set <id>... [--status STATUS | --unpin] [--intent INTENT] [--parent ID | --clear-parent] [--project PROJECT | --clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
 pentimento hook
 pentimento index
-pentimento check [--format table|json|tsv] [--color auto|always|never] [--ascii]
-pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento check [--format table|json|tsv] [--color auto|always|never]
+pentimento history <id> [--format table|json|tsv] [--color auto|always|never]
 pentimento completion <bash|zsh|fish>
 pentimento --version
 ```
@@ -27,8 +27,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | --- | --- |
 | `--format table\|json\|tsv` | Defaults to `table` (human-readable); `json` and `tsv` are for scripting. |
 | `--color auto\|always\|never` | Defaults to `auto`: ANSI colour on a tty, off when piped, when `NO_COLOR` is set, or when `TERM=dumb`. |
-| `--ascii` | Forces `+- `/`` `- ``/`\|  ` box-drawing instead of the Unicode `├─ `/`└─ `/`│  `. `list`, `tree`, `show`, `check`, and `history` use Unicode by default whenever the output stream's encoding is UTF-8 and `TERM` isn't `dumb`. |
-| `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. The sorted-on column never drops, so the order it produces is always visible in `list`'s table. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
+| `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
 | `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` adds a `FINDING` column. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
@@ -42,6 +41,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `show --full` | Prints the whole body unclipped. Plain `show` clips to the terminal height on a tty and prints a hint to rerun with `--full`. |
 | `show --no-pager` | With `--full`, never pages. `--full` pipes through `$PAGER` (`less` if unset) only on a tty and only when the plan is longer than the terminal, so `show <id> --full > out.md` and `... \| cat` write the plain text with no pager and no colour. |
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
+| `set <id>...` | Edits every named plan in one run. Every id is resolved first, so a miss exits 1 and writes nothing; with more than one id, each change block is headed by the plan's short id. `--dry-run` applies to all. A `--parent` that would create a cycle, counting every plan being edited, exits 2. Changes print as `field: old -> new`, `field: set to value`, or `field: cleared`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
 
 `list`, `tree`, and `check` tables display the short id: the shortest
@@ -52,32 +52,50 @@ as input. `--format json|tsv` output always emits the full id.
 
 ## Columns
 
-`list`'s columns, left to right: `status intent project source id title
-finding tags created modified`. `TAGS`, `CREATED`, and `FINDING` only appear
-when at least one listed plan has tags, a `created` date, or a finding
-(`FINDING` also shows under `--finding`); every other column always appears.
+`list`'s columns, left to right: `id status intent project source title
+finding tags created modified`, shown as `PLAN`, `STATUS`, `INTENT`, `PROJECT`,
+`SOURCE`, `TITLE`, `FINDING`, `TAGS`, `CREATED`, `UPDATED`. `TAGS`, `CREATED`,
+and `FINDING` only appear when at least one listed plan has tags, a `created`
+date, or a finding (`FINDING` also shows under `--finding`); every other
+column always appears. No column is ever dropped for width.
 
-As the table narrows, columns drop by rank, one at a time, before any
-column's text is truncated: `created`, `tags`, `source`, `project`,
-`intent`, `status`, `id`, then `finding`. `title` and `modified` never drop;
-they shrink instead.
+`list`, `check`, and `history` choose one of two layouts by terminal width:
 
-`--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides both
-rules -- content and width. `SPEC` is one of:
+- **Table**, one line per row (`check` wraps `MESSAGE` onto at most 3 lines),
+  when every column fits at its floor. `PLAN`, `STATUS`, `INTENT`, `SOURCE`,
+  `CREATED`, `UPDATED`, and `FINDING` always print whole. The truncated
+  columns end in `...`: `TITLE` (floor 30, comfort 50), `TAGS` (floor 14,
+  comfort 30), and `PROJECT` (floor 10, comfort 16). `TAGS` keeps whole tags
+  and ends in `+N` for the rest (`[loadtest, +5]`). Spare width first grows
+  `TITLE`, then `TAGS`, then `PROJECT` up to their comforts, then goes to
+  the narrowest truncated columns first, so the longest takes what is left.
+- **Stacked records** otherwise, with no header line. Each record's first line
+  is its title (its message, for `check`), truncated with `...` to the width;
+  the remaining non-empty fields follow in column order, indented two spaces
+  and wrapped between fields, so nothing is lost. Tags keep their brackets so
+  a value stays identifiable without a header, and `history`'s touch count
+  reads `touches N`.
+
+The narrowest table width depends on the listed plans (their id, intent, and
+date widths): 132 for a small corpus with long ids and 135 for a full
+`list` of several hundred plans. `--columns` with fewer columns fits a table
+in less. When `COLUMNS` is unset and output is not a terminal, as in
+`pentimento list | grep`, width is unbounded: always a table, nothing
+truncated. `tree` truncates a node's title with `...` and wraps its metadata
+line, including any `(parent elided: ...)` note, between fields.
+
+`--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides which
+columns appear, regardless of content. `SPEC` is one of:
 
 - an absolute, comma-separated list, e.g. `--columns created,title,status`
-  -- rendered in exactly that order, final regardless of content or width
+  -- rendered in exactly that order, final regardless of content
 - one or more `+name`/`-name` modifiers on the content-derived default set,
   e.g. `--columns +created` or `--columns=-source,-project` (the `=` form keeps
   argparse from reading a leading `-` as a flag)
 - `all`, every column in canonical order
 
 Mixing absolute and relative names in one `--columns` is an error, as is an
-unknown or empty name; both messages list the valid names. Whichever way a
-column is named -- explicitly in `--columns`, as the `--sort` key's column, or
-as `FINDING` under `--finding` -- it never drops for width, though it
-truncates like any other column if the terminal is too narrow to show it
-whole.
+unknown or empty name; both messages list the valid names.
 
 ## Exit codes
 
@@ -85,7 +103,7 @@ whole.
 | --- | --- |
 | `0` | Success. `pentimento hook` always exits 0. |
 | `1` | `check` found something, or a plan id named on the command line matches no plan. |
-| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error. |
+| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error, reported as `pentimento: <path>: <reason>`. |
 | `141` | A reader closed the pipe early, as `\| head` does; the shell's 128 + `SIGPIPE`. |
 
 Every error message goes to stderr, prefixed `pentimento: `.

@@ -76,6 +76,7 @@ _ID_HELP = "plan id, short id, filename, or path"
 _DRY_RUN_HELP = "report what would change, without writing"
 _PROJECT_FORM = "use a single line with no surrounding space, '#', or ': '"
 _TAG_FORM = "use lowercase letters, digits, and . _ / -, starting with a letter or digit"
+_TAG_MATCH_HELP = f"tags match {tags_module.PATTERN}, and matching ignores case"
 
 
 class UsageError(Exception):
@@ -146,7 +147,7 @@ def _add_filter_args(parser):
         "--tag",
         type=_tag,
         action="append",
-        help="filter by tag; repeatable, every given tag must be present",
+        help=f"filter by tag; repeatable, every given tag must be present; {_TAG_MATCH_HELP}",
     )
     group.add_argument(
         "--grep",
@@ -222,12 +223,7 @@ def _add_format_args(parser):
         "--color",
         choices=style.COLOR_CHOICES,
         default="auto",
-        help="colour policy (default: auto)",
-    )
-    group.add_argument(
-        "--ascii",
-        action="store_true",
-        help="draw with ASCII characters instead of Unicode, even on a UTF-8 terminal",
+        help="color policy (default: auto)",
     )
     return group
 
@@ -374,11 +370,10 @@ def build_parser() -> argparse.ArgumentParser:
         "list",
         "flat table of plans",
         description=(
-            "One line per plan; the row nearest the prompt is the most recent. TAGS "
-            "and CREATED appear only when the corpus has them; as the terminal "
-            "narrows, columns drop in this order: CREATED, TAGS, SOURCE, PROJECT, "
-            "INTENT, STATUS, then PLAN -- TITLE and UPDATED never drop. --columns "
-            "overrides both rules, and the --sort key's column never drops."
+            "One line per plan; the row nearest the prompt is the most recent.\n"
+            "TAGS and CREATED appear only when the corpus has them. When the\n"
+            "terminal is too narrow for the table, each plan prints as a short\n"
+            "record with every field kept; see docs/reference.md#columns."
         ),
         epilog=(
             "Examples:\n"
@@ -400,8 +395,8 @@ def build_parser() -> argparse.ArgumentParser:
             "which table columns to show and in what order: an absolute, comma-"
             "separated list (e.g. status,title); +name/-name to add/remove from the "
             "default set (write -name as --columns=-name); or 'all'. Names are the "
-            "record fields: status, intent, project, source, id, title, tags, created, "
-            "modified. Table format only; defaults to PENTIMENTO_COLUMNS"
+            f"record fields: {', '.join(listing.NAMES)}. "
+            "Table format only; defaults to PENTIMENTO_COLUMNS"
         ),
     )
     sort_group = _add_sort_args(p_list)
@@ -418,11 +413,12 @@ def build_parser() -> argparse.ArgumentParser:
         "tree",
         "lineage tree, grouped by project",
         description=(
-            "Plans nested under their parents, grouped by project. <id> selects a "
-            "lineage thread whatever its subplans are tagged."
+            "Plans nested under their parents, grouped by project. <id> is\n"
+            "resolved against the whole corpus, so --project is unnecessary; it\n"
+            "selects a lineage thread whatever its subplans are tagged."
         ),
         epilog=(
-            "Examples:\n  pentimento tree --project .\n  pentimento tree --starred --ascii\n"
+            "Examples:\n  pentimento tree --project .\n  pentimento tree --starred\n"
             "  pentimento tree wobbly-willow\n  pentimento tree wobbly-willow --ancestors"
         ),
     )
@@ -445,9 +441,9 @@ def build_parser() -> argparse.ArgumentParser:
         "show",
         "H1, frontmatter, and the rendered body",
         description=(
-            "One plan's H1, frontmatter, and body. On a tty the body clips to the "
-            "terminal height; --full prints it whole, through $PAGER if it is longer "
-            "than the terminal."
+            "One plan's H1, frontmatter, and body. On a tty the body clips to\n"
+            "the terminal height; --full prints it whole, through $PAGER if it\n"
+            "is longer than the terminal."
         ),
         epilog=(
             "Examples:\n  pentimento show api-auth-rollout --full\n"
@@ -463,15 +459,19 @@ def build_parser() -> argparse.ArgumentParser:
         sub,
         "set",
         "rewrite frontmatter in place",
-        description=("Rewrite one plan's frontmatter in place. Only the fields you name change."),
+        description=(
+            "Rewrite the named plans' frontmatter in place. Only the fields you\n"
+            "name change. Every id is resolved before anything is written."
+        ),
         epilog=(
             "Examples:\n"
             "  pentimento set api-auth-rollout --intent active\n"
             "  pentimento set api-auth-rollout --status complete --add-tag auth\n"
-            "  pentimento set api-auth-rollout --clear-parent"
+            "  pentimento set api-auth-rollout --clear-parent\n"
+            "  pentimento set wobbly-willow api-auth-cleanup --intent someday"
         ),
     )
-    p_set.add_argument("id", help=_ID_HELP)
+    p_set.add_argument("ids", nargs="+", metavar="ID", help=f"{_ID_HELP}; one or more")
     pin_group = p_set.add_mutually_exclusive_group()
     pin_group.add_argument(
         "--status",
@@ -495,10 +495,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     project_group.add_argument("--clear-project", action="store_true", help="clear project")
     p_set.add_argument(
-        "--add-tag", metavar="TAG", type=_tag, action="append", help="add a tag; repeatable"
+        "--add-tag",
+        metavar="TAG",
+        type=_tag,
+        action="append",
+        help=f"add a tag; repeatable; {_TAG_MATCH_HELP}",
     )
     p_set.add_argument(
-        "--remove-tag", metavar="TAG", type=_tag, action="append", help="remove a tag; repeatable"
+        "--remove-tag",
+        metavar="TAG",
+        type=_tag,
+        action="append",
+        help=f"remove a tag; repeatable; {_TAG_MATCH_HELP}",
     )
     p_set.add_argument(
         "--clear-tags",
@@ -510,12 +518,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_backfill = _add_command(
         sub,
         "backfill",
-        "derive and write missing frontmatter",
+        "gap-fill intent/created/project/parent; advance status",
         description=(
-            "Derive status, intent, created, parent, and project for plans missing "
-            "them, and write the frontmatter block. To fix one plan, use --only or "
-            "`pentimento set`; --rederive recomputes derived fields across the whole "
-            "corpus and cannot change a pinned status."
+            "Gap-fill intent, created, project, and parent for plans missing\n"
+            "them, advance status when '## Progress' is ahead of it, and write\n"
+            "the frontmatter block. To fix one plan, use --only or `pentimento\n"
+            "set`; --rederive recomputes derived fields across the whole corpus\n"
+            "and cannot change a pinned status."
         ),
         epilog="Examples:\n  pentimento backfill --dry-run",
     )
@@ -543,14 +552,14 @@ def build_parser() -> argparse.ArgumentParser:
         "hook",
         "run as a Claude Code PostToolUse hook; reads the payload on stdin",
         description=(
-            "Read a Claude Code PostToolUse payload on stdin and backfill frontmatter "
-            "for the plan just written, deriving status capped at partial. Wiring is "
-            f"in {_DOCS_URL}/integrations.md."
+            "Read a Claude Code PostToolUse payload on stdin and backfill\n"
+            "frontmatter for the plan just written, deriving status capped at\n"
+            f"partial. Wiring:\n{_DOCS_URL}/integrations.md"
         ),
         epilog=(
             "Examples:\n"
-            '  echo \'{"tool_input": {"file_path": "~/.claude/plans/api-auth.md"}}\''
-            " | pentimento hook"
+            '  echo \'{"tool_input": {"file_path": "~/.claude/plans/api-auth.md"}}\' \\\n'
+            "    | pentimento hook"
         ),
     )
 
@@ -559,7 +568,7 @@ def build_parser() -> argparse.ArgumentParser:
         "index",
         "write INDEX.md into the plans directory",
         description=(
-            "Write INDEX.md into the plans directory: one linked row per plan, grouped by status."
+            "Write INDEX.md into the plans directory: one linked row per plan,\ngrouped by status."
         ),
         epilog="Examples:\n  pentimento index",
     )
@@ -567,10 +576,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_check = _add_command(
         sub,
         "check",
-        "validate lineage, vocabulary, and status; exits 1 on any finding",
+        "validate lineage, vocabulary, status, and tags; exits 1 on any finding",
         description=(
-            "Validate lineage, vocabulary, and status across the corpus. Exits 1 when "
-            f"anything is found; finding codes are in {_DOCS_URL}/troubleshooting.md."
+            "Validate lineage, vocabulary, status, and tags across the corpus.\n"
+            "Exits 1 when anything is found; finding codes are in\n"
+            f"{_DOCS_URL}/troubleshooting.md"
+        ),
+        epilog=(
+            "Examples:\n"
+            "  pentimento check\n"
+            "  pentimento check --format json\n"
+            "  pentimento check --color never"
         ),
     )
     _add_format_args(p_check)
@@ -590,8 +606,9 @@ def build_parser() -> argparse.ArgumentParser:
         "completion",
         "print a shell integration script",
         description=(
-            "Print an integration script for SHELL to stdout. Source it, or eval its "
-            "output, to get tab completion for subcommands, flags, and plan ids."
+            "Print an integration script for SHELL to stdout. Source it, or\n"
+            "eval its output, to get tab completion for subcommands, flags, and\n"
+            "plan ids."
         ),
         epilog=("Examples:\n  pentimento completion bash\n  pentimento completion zsh"),
     )
@@ -636,7 +653,7 @@ def _apply_limit(plans, args):
 
 def _render_table_or_empty(corpus_plans, plans, args, render):
     """Shared `list`/`tree` table-format tail: nothing for an empty corpus, empty-filter
-    summary, or `render(on_color, unicode_ok, short_ids)` followed by the
+    summary, or `render(on_color, short_ids)` followed by the
     filtered/total summary line."""
     if not corpus_plans:
         return 0
@@ -645,9 +662,8 @@ def _render_table_or_empty(corpus_plans, plans, args, render):
         print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
     short_ids = shortid.shorten(p.id for p in corpus_plans)
-    print(render(on_color, unicode_ok, short_ids))
+    print(render(on_color, short_ids))
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -689,13 +705,12 @@ def cmd_list(args) -> int:
         )
         return 0
 
-    pin = (args.sort, "finding") if _finding_requested(args) else (args.sort,)
     return _render_table_or_empty(
         corpus_plans,
         plans,
         args,
-        lambda on_color, unicode_ok, short_ids: listing.render(
-            plans, on_color, unicode_ok, short_ids=short_ids, selection=selection, pin=pin
+        lambda on_color, short_ids: listing.render(
+            plans, on_color, short_ids=short_ids, selection=selection
         ),
     )
 
@@ -724,13 +739,11 @@ def cmd_tree(args) -> int:
         corpus_plans,
         plans,
         args,
-        lambda on_color, unicode_ok, short_ids: tree_module.render_grouped(
+        lambda on_color, short_ids: tree_module.render_grouped(
             plans,
             on_color,
             key=key,
             reverse=reverse,
-            glyphs=style.glyphs(unicode_ok),
-            unicode_ok=unicode_ok,
             short_ids=short_ids,
             root_id=root_id,
         ),
@@ -755,32 +768,39 @@ _HEADER_GROUPS = (
 )
 
 
+_FIELD_CODES = {"status": style.STATUS_CODES, "intent": style.INTENT_CODES}
+
+
+def _header_values(target) -> dict[str, str]:
+    """Frontmatter with the effective `status`, `intent`, `created`, and `tags`."""
+    values = dict(target.fields)
+    values.pop("tags", None)
+    values.update(
+        id=target.id,
+        path=_display_path(target.path),
+        status=target.status,
+        intent=target.intent,
+        source=target.source,
+        modified=times_module.local_stamp(target.modified),
+    )
+    if target.created:
+        values["created"] = target.created
+    if target.tags:
+        values["tags"] = tags_module.render(target.tags)
+    return values
+
+
 def _show_field_groups(target):
     """Lists of (key, value, codes) per semantic group, skipping empty groups."""
-    values = dict(target.fields)
-    values["id"] = target.id
-    values["path"] = _display_path(target.path)
-    values["source"] = target.source
-    values["modified"] = times_module.local_stamp(target.modified)
+    values = _header_values(target)
     grouped_keys = {key for _, keys in _HEADER_GROUPS for key in keys}
-    for _, keys in _HEADER_GROUPS:
-        group = []
-        for key in keys:
-            if key not in values:
-                continue
-            value = values[key]
-            if key == "status":
-                codes = style.STATUS_CODES.get(value, ())
-            elif key == "intent":
-                codes = style.INTENT_CODES.get(value, ())
-            else:
-                codes = ()
-            group.append((key, value, codes))
-        if group:
-            yield group
-    extra = [key for key in target.fields if key not in grouped_keys]
-    if extra:
-        yield [(key, values[key], ()) for key in extra]
+    key_groups = [[key for key in keys if key in values] for _, keys in _HEADER_GROUPS]
+    key_groups.append([key for key in values if key not in grouped_keys])
+    return [
+        [(key, values[key], _FIELD_CODES.get(key, {}).get(values[key], ())) for key in keys]
+        for keys in key_groups
+        if keys
+    ]
 
 
 def _flow_pairs(pairs: list[tuple[str, str]], width: int) -> list[str]:
@@ -820,13 +840,15 @@ def _show_header(target, width: int, *, on_color: bool) -> list[str]:
     return lines
 
 
-def _show_findings(found, on_color: bool) -> list[str]:
+def _show_findings(found, width: int, on_color: bool) -> list[str]:
     lines = []
     for finding in found:
-        lines.append(f"{style.paint(finding.code, style.RED, on=on_color)}: {finding.message}")
-        lines.append(
-            style.paint(f"  {check_module.show_hint(finding.code)}", style.DIM, on=on_color)
-        )
+        first, *rest = style.wrap(f"{finding.code}: {finding.message}", width)
+        code, tail = first.split(":", 1)
+        lines.append(style.paint(code, style.RED, on=on_color) + ":" + tail)
+        lines.extend(rest)
+        hint = style.wrap(check_module.show_hint(finding.code), width - len(table.STACK_INDENT))
+        lines.extend(style.paint(table.STACK_INDENT + h, style.DIM, on=on_color) for h in hint)
     if lines:
         lines.append("")
     return lines
@@ -854,12 +876,11 @@ def cmd_show(args) -> int:
         return 0
 
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    width = min(style.terminal_width(), markdown.MAX_WIDTH)
+    width = min(style.terminal_width() or markdown.MAX_WIDTH, markdown.MAX_WIDTH)
 
-    header = _show_header(target, width, on_color=on_color) + _show_findings(found, on_color)
+    header = _show_header(target, width, on_color=on_color) + _show_findings(found, width, on_color)
     body_text = plan_module.body_below_title(target.body)
-    body = markdown.render(body_text, on_color=on_color, unicode_ok=unicode_ok, width=width)
+    body = markdown.render(body_text, on_color=on_color, width=width)
     if _should_page(args, len(header) + len(body)):
         pager.page(header + body)
         return 0
@@ -868,7 +889,7 @@ def cmd_show(args) -> int:
     if sys.stdout.isatty() and not args.full:
         limit = max(style.terminal_height() - len(header) - 2, markdown.MIN_BODY_LINES)
     hint = f"pentimento show {args.id} --full"
-    body = markdown.clip(body, limit, hint, on_color=on_color, unicode_ok=unicode_ok)
+    body = markdown.clip(body, limit, hint, on_color=on_color)
     for line in header + body:
         print(line)
     return 0
@@ -898,11 +919,11 @@ def _describe_field_changes(before: dict, after: dict) -> list[str]:
         if old == new:
             continue
         if old is None:
-            changes.append(f"{key}: set to {new!r}")
+            changes.append(f"{key}: set to {new}")
         elif new is None:
-            changes.append(f"{key}: cleared (was {old!r})")
+            changes.append(f"{key}: cleared")
         else:
-            changes.append(f"{key}: {old!r} -> {new!r}")
+            changes.append(f"{key}: {old} -> {new}")
     return changes
 
 
@@ -934,24 +955,27 @@ def _apply_project_edit(target, args) -> None:
     elif args.project is not None:
         resolved = _resolve_project(args.project)
         if not frontmatter.is_valid_value(resolved):
-            raise UsageError(f"invalid project: {resolved!r} -- {_PROJECT_FORM}")
+            raise UsageError(f"invalid project: '{resolved}' -- {_PROJECT_FORM}")
         target.fields["project"] = resolved
 
 
-def _apply_parent_edit(target, plans, args) -> int | None:
-    """Exit code when the edit is refused, else `None`."""
+def _apply_parent_edit(targets, plans, args) -> int | None:
+    """Exit code when the edit is refused, else `None`. Cycles are checked
+    with every target's new parent in place at once."""
     if args.clear_parent:
-        target.fields.pop("parent", None)
+        for target in targets:
+            target.fields.pop("parent", None)
     elif args.parent is not None:
         parent_plan = corpus.by_id(plans, args.parent)
         if parent_plan is None:
             _report(_no_such_plan(plans, args.parent))
             return 1
         parent_of = {p.id: p.fields.get("parent") for p in plans}
-        parent_of[target.id] = parent_plan.id
-        if lineage.in_cycle(target.id, parent_of):
+        parent_of.update({target.id: parent_plan.id for target in targets})
+        if any(lineage.in_cycle(target.id, parent_of) for target in targets):
             raise UsageError(f"--parent {parent_plan.id} would create a cycle")
-        target.fields["parent"] = parent_plan.id
+        for target in targets:
+            target.fields["parent"] = parent_plan.id
     return None
 
 
@@ -966,32 +990,59 @@ def _apply_status_edit(target, args) -> None:
         target.fields.pop("pinned", None)
 
 
+def _resolve_targets(plans, values):
+    """The distinct plans `values` name, in order, and the `_no_such_plan`
+    message for the first value that resolves to none."""
+    targets = {}
+    for value in values:
+        target = corpus.by_id(plans, value)
+        if target is None:
+            return [], _no_such_plan(plans, value)
+        targets.setdefault(target.id, target)
+    return list(targets.values()), None
+
+
+def _print_set_changes(changed, short_ids, args) -> None:
+    """One `field: change` line each; with several plans, each block is
+    headed by the plan's short id."""
+    suffix = " (dry run)" if args.dry_run else ""
+    headed = len(args.ids) > 1
+    for target, changes in changed:
+        if headed:
+            print(short_ids.get(target.id, target.id))
+        for change in changes:
+            print(f"{'  ' if headed else ''}{change}{suffix}")
+
+
 def cmd_set(args) -> int:
     _require_set_changes(args)
     plans = corpus.load_all()
-    target = corpus.by_id(plans, args.id)
-    if target is None:
-        _report(_no_such_plan(plans, args.id))
+    targets, error = _resolve_targets(plans, args.ids)
+    if error is not None:
+        _report(error)
         return 1
 
-    before_fields = dict(target.fields)
-    _apply_project_edit(target, args)
-    refused = _apply_parent_edit(target, plans, args)
+    before = {target.id: dict(target.fields) for target in targets}
+    for target in targets:
+        _apply_project_edit(target, args)
+        _apply_tag_edit(target, args)
+        _apply_status_edit(target, args)
+    refused = _apply_parent_edit(targets, plans, args)
     if refused is not None:
         return refused
-    _apply_tag_edit(target, args)
-    _apply_status_edit(target, args)
 
-    changes = _describe_field_changes(before_fields, target.fields)
-    if not changes:
+    changed = [
+        (target, changes)
+        for target in targets
+        if (changes := _describe_field_changes(before[target.id], target.fields))
+    ]
+    if not changed:
         print("no changes")
         return 0
-    suffix = " (dry run)" if args.dry_run else ""
-    for change in changes:
-        print(f"{change}{suffix}")
-    if args.dry_run:
-        return 0
-    plan_module.save(target, keep_mtime=True)
+    _print_set_changes(changed, shortid.shorten(p.id for p in plans), args)
+    if not args.dry_run:
+        for target, _ in changed:
+            plan_module.save(target, keep_mtime=True)
     return 0
 
 
@@ -1024,7 +1075,7 @@ def _backfill(
 
 def cmd_hook(_args) -> int:
     # PostToolUse treats exit 2 as blocking and surfaces other non-zero exits, so a
-    # crash here would visibly interrupt every session -- fail closed instead.
+    # crash here would visibly interrupt every session -- fail open and silent instead.
     try:
         path = hook_module.touched_plan_path(sys.stdin.read())
         if path is None:
@@ -1045,18 +1096,6 @@ def cmd_hook(_args) -> int:
     return 0
 
 
-def _resolve_only(plans, values):
-    """The full ids `--only` names, or the `_no_such_plan` message for the
-    first value that resolves to none."""
-    ids = set()
-    for value in values:
-        target = corpus.by_id(plans, value)
-        if target is None:
-            return None, _no_such_plan(plans, value)
-        ids.add(target.id)
-    return ids, None
-
-
 def cmd_backfill(args) -> int:
     sessions = sessions_module.load()
     plans = corpus.load_all(sessions=sessions)
@@ -1071,10 +1110,11 @@ def cmd_backfill(args) -> int:
 
     only = None
     if args.only:
-        only, error = _resolve_only(plans, args.only)
+        targets, error = _resolve_targets(plans, args.only)
         if error is not None:
             _report(error)
             return 1
+        only = {target.id for target in targets}
 
     details = {}
     changed = _backfill(
@@ -1108,6 +1148,33 @@ def cmd_index(_args) -> int:
     return 0
 
 
+def _render_check_table(findings, plans, *, on_color: bool) -> str:
+    columns = (
+        table.Column("CODE"),
+        table.Column("PLAN"),
+        table.Column("MESSAGE", fit=table.WRAP, floor=20),
+    )
+    short = shortid.shorten(p.id for p in plans)
+    rows = [
+        ((f.code, (style.RED,)), (short.get(f.id, f.id), ()), (f.message, ())) for f in findings
+    ]
+    return table.render(columns, rows, on_color=on_color, width=style.terminal_width())
+
+
+def _print_check_table(findings, plans, args) -> None:
+    on_color = style.enabled(sys.stdout, args.color)
+    if findings:
+        print(_render_check_table(findings, plans, on_color=on_color))
+        print()
+    plan_count = counts.plural(len(plans), "plan")
+    finding_count = counts.plural(len(findings), "finding")
+    print(style.paint(f"{plan_count} checked, {finding_count}", style.DIM, on=on_color))
+    for code in sorted({f.code for f in findings}):
+        print(style.paint(f"{code}: {check_module.HINTS[code]}", style.DIM, on=on_color))
+    if findings:
+        print(style.paint("narrow with: pentimento list --finding <code>", style.DIM, on=on_color))
+
+
 def cmd_check(args) -> int:
     sessions = sessions_module.load()
     touches = touches_module.load()
@@ -1116,33 +1183,7 @@ def cmd_check(args) -> int:
     _report_if_empty(plans)
     findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:
-        on_color = style.enabled(sys.stdout, args.color)
-        unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-        if findings:
-            columns = (
-                table.Column("CODE"),
-                table.Column("PLAN"),
-                table.Column("MESSAGE", flex=2, comfort=40, floor=20),
-            )
-            short = shortid.shorten(p.id for p in plans)
-            rows = [
-                ((f.code, (style.RED,)), (short.get(f.id, f.id), ()), (f.message, ()))
-                for f in findings
-            ]
-            width = style.terminal_width()
-            print(
-                table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
-            )
-            print()
-        plan_count = counts.plural(len(plans), "plan")
-        finding_count = counts.plural(len(findings), "finding")
-        print(style.paint(f"{plan_count} checked, {finding_count}", style.DIM, on=on_color))
-        for code in sorted({f.code for f in findings}):
-            print(style.paint(f"{code}: {check_module.HINTS[code]}", style.DIM, on=on_color))
-        if findings:
-            print(
-                style.paint("narrow with: pentimento list --finding <code>", style.DIM, on=on_color)
-            )
+        _print_check_table(findings, plans, args)
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))
         formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout, columns)
@@ -1166,15 +1207,14 @@ def cmd_history(args) -> int:
         )
         return 0
     if not plan_touches:
-        print(
+        _report(
             history_module.EMPTY_MESSAGE.format(
                 plan_id=target.id, directory=sessions_module.sessions_directory()
             )
         )
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    print(history_module.render(target.id, plan_touches, on_color, unicode_ok))
+    print(history_module.render(target.id, plan_touches, on_color))
     return 0
 
 
@@ -1218,6 +1258,12 @@ def _dispatch(argv) -> int:
     return code
 
 
+def _describe_os_error(exc: OSError) -> str:
+    if exc.filename and exc.strerror:
+        return f"{exc.filename}: {exc.strerror}"
+    return str(exc)
+
+
 def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
@@ -1226,7 +1272,10 @@ def main(argv=None) -> int:
     except BrokenPipeError:
         _silence_stdout()
         return 141
-    except (OSError, ValueError) as exc:
+    except OSError as exc:
+        _report(_describe_os_error(exc))
+        return 2
+    except ValueError as exc:
         _report(exc)
         return 2
 

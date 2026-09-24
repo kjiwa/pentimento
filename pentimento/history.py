@@ -16,10 +16,10 @@ from pentimento import touches as touches_module
 FIELDS = ("when", "what", "session", "touches")
 
 COLUMNS = (
-    table.Column("WHEN", drop=0),
+    table.Column("WHEN"),
     table.Column("WHAT"),
-    table.Column("SESSION", flex=1, comfort=32, floor=16),
-    table.Column("TOUCHES", align="right"),
+    table.Column("SESSION", fit=table.TRUNCATE, floor=16),
+    table.Column("TOUCHES", align="right", stack_label="touches"),
 )
 
 EMPTY_MESSAGE = "no session history for {plan_id}; searched: {directory}"
@@ -61,12 +61,10 @@ def as_records(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[d
     ]
 
 
-def render(
-    plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool, unicode_ok: bool = True
-) -> str:
+def render(plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool) -> str:
     rows = []
     for g in group(plan_id, plan_touches):
         when = times.local_stamp(times.parse_iso(g.when)) or g.when
         rows.append(((when, ()), (g.what, ()), (g.session, ()), (str(g.touches), ())))
     width = style.terminal_width()
-    return table.render(COLUMNS, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
+    return table.render(COLUMNS, rows, on_color=on_color, width=width)

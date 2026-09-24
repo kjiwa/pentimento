@@ -94,17 +94,25 @@ def _positional_actions(subparser: argparse.ArgumentParser) -> list[argparse.Act
     return [action for action in subparser._actions if not action.option_strings]
 
 
+def _first_sentence(text: str | None) -> str:
+    return (text or "").split(". ")[0].rstrip(".")
+
+
+def _is_variadic(action: argparse.Action) -> bool:
+    return action.nargs in ("+", "*")
+
+
 def _option_candidates(subparser: argparse.ArgumentParser) -> list[tuple[str, str]]:
     seen = set()
     result = []
     for action in subparser._actions:
-        if action.dest == "help" or not action.option_strings:
+        if not action.option_strings:
             continue
         for opt in action.option_strings:
             if opt in seen:
                 continue
             seen.add(opt)
-            result.append((opt, action.help or ""))
+            result.append((opt, _first_sentence(action.help)))
     return result
 
 
@@ -120,12 +128,13 @@ def _pending_option(subparser: argparse.ArgumentParser, prev: str | None) -> arg
 
 def _assigned_positionals(
     subparser: argparse.ArgumentParser, prior_words: list[str]
-) -> tuple[dict, int]:
-    """dest -> value for each positional already fully typed in `prior_words`,
-    plus the count of positionals consumed, so the next slot is known."""
+) -> tuple[dict[str, list[str]], int]:
+    """dest -> values for each positional already typed in `prior_words`,
+    plus the index of the positional slot the next word fills. A variadic
+    positional keeps the slot."""
     positionals = _positional_actions(subparser)
-    assigned: dict = {}
-    count = 0
+    assigned: dict[str, list[str]] = {}
+    slot = 0
     i = 0
     while i < len(prior_words):
         token = prior_words[i]
@@ -135,20 +144,21 @@ def _assigned_positionals(
             if action.nargs != 0:
                 i += 1
             continue
-        if count < len(positionals):
-            assigned[positionals[count].dest] = token
-            count += 1
+        if not token.startswith("--") and slot < len(positionals):
+            assigned.setdefault(positionals[slot].dest, []).append(token)
+            if not _is_variadic(positionals[slot]):
+                slot += 1
         i += 1
-    return assigned, count
+    return assigned, slot
 
 
 def _positional_slot(
     subparser: argparse.ArgumentParser, prior_words: list[str]
 ) -> argparse.Action | None:
     positionals = _positional_actions(subparser)
-    _, count = _assigned_positionals(subparser, prior_words)
-    if count < len(positionals):
-        return positionals[count]
+    _, slot = _assigned_positionals(subparser, prior_words)
+    if slot < len(positionals):
+        return positionals[slot]
     return None
 
 
@@ -180,14 +190,25 @@ def _tag_candidates(plans, word: str) -> list[tuple[str, str]]:
 
 def _remove_tag_candidates(plans, subparser, prior_words, word: str) -> list[tuple[str, str]]:
     assigned, _ = _assigned_positionals(subparser, prior_words)
-    target = corpus.by_id(plans, assigned["id"]) if "id" in assigned else None
-    pool = tags_module.normalized(target.tags) if target else _all_tags(plans)
+    targets = [corpus.by_id(plans, value) for value in assigned.get("ids", [])]
+    named = [target for target in targets if target]
+    pool = {tag for target in named for tag in tags_module.normalized(target.tags)}
+    pool = pool or _all_tags(plans)
     return [(t, "") for t in sorted(pool) if t.startswith(word)]
 
 
 def _project_candidates(plans, word: str) -> list[tuple[str, str]]:
     projects = sorted({p.project for p in plans if p.project}) + ["."]
     return [(p, "") for p in projects if p.startswith(word)]
+
+
+def _column_candidates(word: str) -> list[tuple[str, str]]:
+    """Names to complete the last item of a `--columns` spec, after the
+    text through its last `,`, `+`, or `-`."""
+    cut = max(word.rfind(sep) for sep in ",+-") + 1
+    head, tail = word[:cut], word[cut:]
+    names = listing.NAMES + (("all",) if not head else ())
+    return [(head + name, "") for name in names if name.startswith(tail)]
 
 
 def _option_value_candidates(
@@ -205,12 +226,12 @@ def _option_value_candidates(
     if dest in ("parent", "only"):
         return _plan_candidates(plans(), word)
     if dest == "columns":
-        return [(c, "") for c in listing.NAMES + ("all",) if c.startswith(word)]
+        return _column_candidates(word)
     return []
 
 
 def _positional_candidates(action, word: str, plans) -> list[tuple[str, str]]:
-    if action.dest == "id":
+    if action.dest in ("id", "ids"):
         return _plan_candidates(plans(), word)
     if action.choices:
         return [(str(c), "") for c in action.choices if str(c).startswith(word)]
@@ -220,13 +241,27 @@ def _positional_candidates(action, word: str, plans) -> list[tuple[str, str]]:
 def _top_level_candidates(parser: argparse.ArgumentParser, word: str) -> list[tuple[str, str]]:
     sub_action = _subparsers_action(parser)
     help_by_name = {choice.dest: choice.help for choice in sub_action._choices_actions}
-    items = [(name, help_by_name.get(name) or "") for name in sub_action.choices]
+    items = [(name, _first_sentence(help_by_name.get(name))) for name in sub_action.choices]
     for action in parser._actions:
         if action is sub_action or not action.option_strings:
             continue
         for opt in action.option_strings:
-            items.append((opt, action.help or ""))
+            items.append((opt, _first_sentence(action.help)))
     return [(value, description) for value, description in items if value.startswith(word)]
+
+
+def _assigned_option_candidates(subparser, prior_words, word: str, plans):
+    """Candidates for the `--flag=value` form, each with the flag kept."""
+    flag, _, value = word.partition("=")
+    action = subparser._option_string_actions.get(flag)
+    if action is None or action.nargs == 0:
+        return []
+    return [
+        (f"{flag}={candidate}", description)
+        for candidate, description in _option_value_candidates(
+            action, subparser, prior_words, value, plans
+        )
+    ]
 
 
 def candidates(words) -> list[tuple[str, str]]:
@@ -257,6 +292,8 @@ def candidates(words) -> list[tuple[str, str]]:
             plans_cache = corpus.load_all(sessions={})
         return plans_cache
 
+    if word.startswith("--") and "=" in word:
+        return _assigned_option_candidates(subparser, prior_words, word, plans)
     pending = _pending_option(subparser, prev)
     if pending is not None:
         return _option_value_candidates(pending, subparser, prior_words, word, plans)

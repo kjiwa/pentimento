@@ -51,30 +51,42 @@ class Finding:
         self.hint = HINTS[self.code]
 
 
+def _skipped_files(skips):
+    return [
+        Finding("unreadable-file", path.name, f"could not read {path}: {exc}")
+        for _source, path, exc in skips
+    ]
+
+
 def _dangling_parents(plans, by_id):
-    return [p for p in plans if p.parent and p.parent not in by_id]
+    return [
+        Finding("dangling-parent", p.id, f"parent {p.parent!r} does not resolve to a plan")
+        for p in plans
+        if p.parent and p.parent not in by_id
+    ]
 
 
 def _self_parents(plans):
-    return [p for p in plans if p.parent == p.id]
+    return [Finding("self-parent", p.id, "parent is itself") for p in plans if p.parent == p.id]
 
 
 def _cross_project_parents(plans, by_id):
     findings = []
     for p in plans:
-        if not p.parent:
-            continue
         parent = by_id.get(p.parent)
-        if parent is None:
-            continue
-        if parent.project != p.project:
-            findings.append(p)
+        if parent is not None and parent.project != p.project:
+            message = f"parent {p.parent!r} is in a different project"
+            findings.append(Finding("cross-project-parent", p.id, message))
     return findings
 
 
 def _cycle_members(plans):
     parent_of = {p.id: p.parent for p in plans}
-    return [p for p in plans if p.parent and p.parent != p.id and lineage.in_cycle(p.id, parent_of)]
+    return [
+        Finding("cycle", p.id, "parent chain cycles back to itself")
+        for p in plans
+        if p.parent and p.parent != p.id and lineage.in_cycle(p.id, parent_of)
+    ]
 
 
 def duplicate_ids(plans):
@@ -88,30 +100,60 @@ def duplicate_ids(plans):
     return duplicates
 
 
+def _duplicate_ids(plans):
+    return [
+        Finding(
+            "duplicate-id",
+            p.id,
+            f"duplicate id across sources (second occurrence from {p.source})",
+        )
+        for p in duplicate_ids(plans)
+    ]
+
+
 def _off_vocabulary_status(plans):
-    return [p for p in plans if p.status not in vocabulary_module.STATUS_ORDER]
+    allowed = ", ".join(vocabulary_module.STATUS_ORDER)
+    return [
+        Finding("off-vocabulary-status", p.id, f"status {p.status!r} is not one of {allowed}")
+        for p in plans
+        if p.status not in vocabulary_module.STATUS_ORDER
+    ]
 
 
 def _off_vocabulary_intent(plans):
-    return [p for p in plans if p.intent not in vocabulary_module.INTENT_VALUES]
+    allowed = ", ".join(vocabulary_module.INTENT_VALUES)
+    return [
+        Finding("off-vocabulary-intent", p.id, f"intent {p.intent!r} is not one of {allowed}")
+        for p in plans
+        if p.intent not in vocabulary_module.INTENT_VALUES
+    ]
 
 
 def _missing_title(plans):
-    return [p for p in plans if not p.has_title]
+    return [
+        Finding("missing-title", p.id, "body has no H1 title; falling back to the plan id")
+        for p in plans
+        if not p.has_title
+    ]
 
 
 def _malformed_tags(plans):
-    return [p for p in plans if any(not tags_module.is_valid(t) for t in p.tags)]
+    findings = []
+    for p in plans:
+        bad = [t for t in p.tags if not tags_module.is_valid(t)]
+        if bad:
+            message = f"malformed tags {tags_module.render(bad)}"
+            findings.append(Finding("malformed-tag", p.id, message))
+    return findings
 
 
 def _underived_project(plans, sessions):
     findings = []
     for p in plans:
-        if p.project:
-            continue
         session = sessions.get(p.id)
-        if session and session.project:
-            findings.append(p)
+        if not p.project and session and session.project:
+            message = f"session supplies project {session.project!r} but frontmatter has none"
+            findings.append(Finding("underived-project", p.id, message))
     return findings
 
 
@@ -207,48 +249,22 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """
     sessions = sessions or {}
     touches = touches or {}
-    skips = skips or []
     by_id = {p.id: p for p in plans}
-    findings = []
-
-    for _source, path, exc in skips:
-        message = f"could not read {path}: {exc}"
-        findings.append(Finding("unreadable-file", path.name, message))
-
-    for p in _dangling_parents(plans, by_id):
-        message = f"parent {p.parent!r} does not resolve to a plan"
-        findings.append(Finding("dangling-parent", p.id, message))
-    for p in _self_parents(plans):
-        findings.append(Finding("self-parent", p.id, "parent is itself"))
-    for p in _cross_project_parents(plans, by_id):
-        message = f"parent {p.parent!r} is in a different project"
-        findings.append(Finding("cross-project-parent", p.id, message))
-    for p in _cycle_members(plans):
-        message = "parent chain cycles back to itself"
-        findings.append(Finding("cycle", p.id, message))
-    for p in duplicate_ids(plans):
-        message = f"duplicate id across sources (second occurrence from {p.source})"
-        findings.append(Finding("duplicate-id", p.id, message))
-    for p in _off_vocabulary_status(plans):
-        message = f"status {p.status!r} is outside {vocabulary_module.STATUS_ORDER}"
-        findings.append(Finding("off-vocabulary-status", p.id, message))
-    for p in _off_vocabulary_intent(plans):
-        message = f"intent {p.intent!r} is outside {vocabulary_module.INTENT_VALUES}"
-        findings.append(Finding("off-vocabulary-intent", p.id, message))
-    for p in _missing_title(plans):
-        message = "body has no H1 title; falling back to the plan id"
-        findings.append(Finding("missing-title", p.id, message))
-    for p in _malformed_tags(plans):
-        bad = [t for t in p.tags if not tags_module.is_valid(t)]
-        message = f"malformed tag(s) {bad!r}"
-        findings.append(Finding("malformed-tag", p.id, message))
-    findings.extend(_underivable_status(plans))
-    for p in _underived_project(plans, sessions):
-        message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
-        findings.append(Finding("underived-project", p.id, message))
-    findings.extend(_status_behind_history(plans, touches))
-    findings.extend(_status_behind_progress(plans))
-    findings.extend(_pin_behind_progress(plans))
-    findings.extend(_unadopted_reference(plans, sessions))
-
-    return findings
+    return [
+        *_skipped_files(skips or []),
+        *_dangling_parents(plans, by_id),
+        *_self_parents(plans),
+        *_cross_project_parents(plans, by_id),
+        *_cycle_members(plans),
+        *_duplicate_ids(plans),
+        *_off_vocabulary_status(plans),
+        *_off_vocabulary_intent(plans),
+        *_missing_title(plans),
+        *_malformed_tags(plans),
+        *_underivable_status(plans),
+        *_underived_project(plans, sessions),
+        *_status_behind_history(plans, touches),
+        *_status_behind_progress(plans),
+        *_pin_behind_progress(plans),
+        *_unadopted_reference(plans, sessions),
+    ]

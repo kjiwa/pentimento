@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import unittest
+from unittest import mock
 
 from pentimento import style
 
@@ -105,20 +106,15 @@ class SplitWidthTests(unittest.TestCase):
 
 class TruncateTests(unittest.TestCase):
     def test_short_text_is_unchanged(self):
-        self.assertEqual(style.truncate("hi", 10, unicode_ok=True), "hi")
+        self.assertEqual(style.truncate("hi", 10), "hi")
 
-    def test_unicode_ellipsis_is_one_column(self):
-        result = style.truncate("hello world", 6, unicode_ok=True)
-        self.assertTrue(result.endswith("…"))
-        self.assertEqual(style.display_width(result), 6)
-
-    def test_ascii_ellipsis_is_three_columns(self):
-        result = style.truncate("hello world", 6, unicode_ok=False)
+    def test_ellipsis_is_three_columns(self):
+        result = style.truncate("hello world", 6)
         self.assertTrue(result.endswith("..."))
         self.assertEqual(style.display_width(result), 6)
 
     def test_cjk_text_at_a_width_no_wider_than_the_ellipsis_never_overflows(self):
-        result = style.truncate("文字", 2, unicode_ok=False)
+        result = style.truncate("文字", 2)
         self.assertLessEqual(style.display_width(result), 2)
 
 
@@ -135,60 +131,62 @@ class RenderCellsTests(unittest.TestCase):
         self.assertIn(style.BOLD, painted)
 
 
-class TruncateCellsTests(unittest.TestCase):
-    def test_never_exceeds_the_width(self):
-        cells = [("aaaaaaaaaa", ()), ("bbbbbbbbbb", ()), ("cccccccccc", ())]
-        result = style.truncate_cells(cells, "  ", 10, unicode_ok=True, on_color=False)
-        self.assertLessEqual(style.display_width(result), 10)
+class WrapTests(unittest.TestCase):
+    def test_wraps_at_spaces(self):
+        self.assertEqual(style.wrap("aa bb cc dd", 5), ["aa bb", "cc dd"])
 
-    def test_never_emits_a_partial_escape(self):
-        cells = [("aaaaaaaaaa", (style.BOLD,)), ("bbbbbbbbbb", (style.GREEN,))]
-        result = style.truncate_cells(cells, "  ", 8, unicode_ok=True, on_color=True)
+    def test_a_word_wider_than_the_width_hard_wraps(self):
+        self.assertEqual(style.wrap("abcdefg h", 3), ["abc", "def", "g h"])
+
+    def test_wide_characters_count_two_columns(self):
+        self.assertEqual(style.wrap("文字 文字", 4), ["文字", "文字"])
+
+    def test_empty_text_is_one_empty_line(self):
+        self.assertEqual(style.wrap("", 5), [""])
+
+
+class WrapFieldsTests(unittest.TestCase):
+    def test_breaks_only_between_fields(self):
+        cells = [("aaaa", ()), ("bbbb", ()), ("cc", ())]
+        lines = style.wrap_fields(cells, "  ", 11, "> ", on_color=False)
+        self.assertEqual(lines, ["> aaaa", "> bbbb  cc"])
+
+    def test_a_field_wider_than_the_line_hard_wraps(self):
+        lines = style.wrap_fields([("abcdef", ())], "  ", 5, "  ", on_color=False)
+        self.assertEqual(lines, ["  abc", "  def"])
+
+    def test_unbounded_width_keeps_one_line(self):
+        cells = [("aaaa", ()), ("bbbb", ())]
+        self.assertEqual(style.wrap_fields(cells, "  ", None, "", on_color=False), ["aaaa  bbbb"])
+
+    def test_paints_after_measuring(self):
+        cells = [("aaaa", (style.BOLD,)), ("bbbb", (style.GREEN,))]
+        lines = style.wrap_fields(cells, "  ", 6, "", on_color=True)
         self.assertEqual(
-            result.count(style.RESET), result.count(style.BOLD) + result.count(style.GREEN)
+            lines, [style.BOLD + "aaaa" + style.RESET, style.GREEN + "bbbb" + style.RESET]
         )
 
-    def test_identical_to_plain_join_when_colour_is_off_and_it_fits(self):
-        cells = [("a", (style.BOLD,)), ("b", (style.GREEN,))]
-        result = style.truncate_cells(cells, "  ", 20, unicode_ok=True, on_color=False)
-        self.assertEqual(result, "a  b")
+
+class TerminalWidthTests(unittest.TestCase):
+    def test_columns_variable_wins(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "77"}):
+            self.assertEqual(style.terminal_width(), 77)
+
+    def test_unbounded_when_not_a_tty(self):
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            mock.patch("sys.stdout.isatty", return_value=False),
+        ):
+            self.assertIsNone(style.terminal_width())
 
 
 class GlyphsTests(unittest.TestCase):
-    def test_unicode_glyphs_selected(self):
-        self.assertEqual(style.glyphs(True), style.GLYPHS_UNICODE)
+    def test_glyphs_are_ascii(self):
+        for glyph in style.GLYPHS.values():
+            self.assertTrue(glyph.isascii())
 
-    def test_ascii_glyphs_selected(self):
-        self.assertEqual(style.glyphs(False), style.GLYPHS_ASCII)
-
-
-class _FakeEncodedStream:
-    def __init__(self, encoding: str):
-        self.encoding = encoding
-
-    def isatty(self) -> bool:
-        return True
-
-
-class UnicodeEnabledTests(unittest.TestCase):
-    def _stream(self, encoding: str):
-        return _FakeEncodedStream(encoding)
-
-    def test_ascii_flag_forces_off(self):
-        with _EnvGuard(TERM="xterm"):
-            self.assertFalse(style.unicode_enabled(self._stream("utf-8"), True))
-
-    def test_dumb_term_forces_off(self):
-        with _EnvGuard(TERM="dumb"):
-            self.assertFalse(style.unicode_enabled(self._stream("utf-8"), False))
-
-    def test_utf8_encoding_enables_it(self):
-        with _EnvGuard(TERM="xterm"):
-            self.assertTrue(style.unicode_enabled(self._stream("utf-8"), False))
-
-    def test_non_utf_encoding_disables_it(self):
-        with _EnvGuard(TERM="xterm"):
-            self.assertFalse(style.unicode_enabled(self._stream("ascii"), False))
+    def test_connectors_share_one_width(self):
+        self.assertEqual({len(glyph) for glyph in style.GLYPHS.values()}, {4})
 
 
 if __name__ == "__main__":

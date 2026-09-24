@@ -43,7 +43,7 @@ class RenderTests(unittest.TestCase):
         plans = [FakePlan(id="a", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertEqual(
-            header.split(), ["STATUS", "INTENT", "PROJECT", "SOURCE", "PLAN", "TITLE", "UPDATED"]
+            header.split(), ["PLAN", "STATUS", "INTENT", "PROJECT", "SOURCE", "TITLE", "UPDATED"]
         )
 
     def test_plan_column_holds_the_id(self):
@@ -161,12 +161,11 @@ class RenderTests(unittest.TestCase):
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("FINDING", header)
 
-    def test_finding_column_drops_last_and_truncates_before_dropping(self):
+    def test_finding_cell_is_never_truncated(self):
         plans = [FakePlan(id="a-plan", title="Alpha", findings=["underivable-status"])]
-        for width in (60, 40):
-            lines = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")
-            self.assertIn("FINDING", lines[0])
-            self.assertTrue(all(len(line) <= width for line in lines))
+        for width in (110, 60, 40, None):
+            rendered = _with_width(width, lambda: listing.render(plans, on_color=False))
+            self.assertIn("underivable-status", rendered, f"width={width}")
 
     def test_created_column_shown_when_any_plan_has_it(self):
         plans = [FakePlan(id="a-plan", title="Alpha", created_date=datetime.date(2026, 1, 1))]
@@ -203,7 +202,11 @@ class RenderTests(unittest.TestCase):
         self.assertIn("\033", rendered)
 
 
-class FitGuaranteeTests(unittest.TestCase):
+def _is_table(rendered):
+    return rendered.startswith("PLAN")
+
+
+class LayoutTests(unittest.TestCase):
     def _plans(self):
         return [
             FakePlan(
@@ -215,10 +218,10 @@ class FitGuaranteeTests(unittest.TestCase):
             ),
             FakePlan(
                 id="api-auth-rollout",
-                title="Roll out the new auth API",
+                title="Roll out the new auth API for the whole platform now",
                 status="partial",
                 intent="active",
-                tags=["auth", "security"],
+                tags=["auth", "billing", "platform", "security"],
                 project="platform",
                 mtime=2,
                 created_date=datetime.date(2026, 1, 2),
@@ -234,61 +237,70 @@ class FitGuaranteeTests(unittest.TestCase):
             ),
         ]
 
-    def test_every_line_fits_every_width(self):
-        for width in range(20, 201):
-            rendered = _with_width(width, lambda: listing.render(self._plans(), on_color=False))
-            for line in rendered.split("\n"):
-                self.assertLessEqual(
-                    style.display_width(line), width, f"width={width} overflowed: {line!r}"
-                )
+    def _render(self, width):
+        return _with_width(width, lambda: listing.render(self._plans(), on_color=False))
 
-    def test_plan_column_is_never_truncated_at_any_width_where_it_is_present(self):
-        plans = self._plans()
-        for width in range(20, 201):
-            header = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")[
-                0
-            ]
-            if "PLAN" not in header:
-                continue
-            rendered = _with_width(width, lambda: listing.render(plans, on_color=False))
-            plan_column_start = header.index("PLAN")
-            for line in rendered.split("\n")[1:]:
-                cell = line[plan_column_start:].split("  ")[0]
-                self.assertNotIn("…", cell, f"width={width} truncated PLAN: {line!r}")
+    def _fixed_cells(self):
+        return ["invoice-retry", "auth-redesign", "cursor", "complete", "2026-01-03"]
 
-    def test_no_column_is_stretched_at_a_wide_width(self):
-        rendered = _with_width(200, lambda: listing.render(self._plans(), on_color=False))
-        header = rendered.split("\n")[0]
-        self.assertLess(style.display_width(header), 150)
+    def test_the_layout_switches_once_from_stacked_to_table(self):
+        kinds = [_is_table(self._render(width)) for width in range(20, 201)]
+        self.assertEqual(kinds, sorted(kinds))
+        self.assertFalse(kinds[0])
+        self.assertTrue(kinds[-1])
 
-    def test_drop_order_fires_in_sequence(self):
-        plans = self._plans()
-        wide_header = _with_width(200, lambda: listing.render(plans, on_color=False)).split("\n")[0]
-        for column in (
-            "STATUS",
-            "INTENT",
-            "PROJECT",
-            "SOURCE",
-            "PLAN",
-            "TITLE",
-            "TAGS",
-            "CREATED",
-            "UPDATED",
-        ):
-            self.assertIn(column, wide_header)
+    def _threshold(self):
+        header = self._render(None).split("\n")[0]
+        starts = [header.index(h) for h in ("TITLE", "TAGS", "CREATED")]
+        title_natural = starts[1] - starts[0] - style.GUTTER
+        tags_natural = starts[2] - starts[1] - style.GUTTER
+        return style.display_width(header) - (title_natural - 30) - (tags_natural - 14)
 
-        narrow_header = _with_width(60, lambda: listing.render(plans, on_color=False)).split("\n")[
-            0
-        ]
-        self.assertNotIn("CREATED", narrow_header)
-        self.assertNotIn("TAGS", narrow_header)
-        self.assertIn("PLAN", narrow_header)  # the only addressable handle on a row -- drops last
+    def test_the_threshold_is_the_floors_plus_gutters(self):
+        threshold = self._threshold()
+        self.assertTrue(_is_table(self._render(threshold)))
+        self.assertFalse(_is_table(self._render(threshold - 1)))
 
-        narrower_header = _with_width(40, lambda: listing.render(plans, on_color=False)).split(
-            "\n"
-        )[0]
-        self.assertIn("TITLE", narrower_header)
-        self.assertNotIn("PLAN", narrower_header)
+    def test_every_width_keeps_every_fixed_cell_whole(self):
+        for width in (40, 60, 110, 140, None):
+            rendered = self._render(width)
+            for cell in self._fixed_cells():
+                self.assertIn(cell, rendered, f"width={width}")
+
+    def test_table_rows_are_one_physical_line_each(self):
+        for width in (140, 200, None):
+            rendered = self._render(width)
+            self.assertTrue(_is_table(rendered), f"width={width}")
+            self.assertEqual(len(rendered.split("\n")), 1 + len(self._plans()), f"width={width}")
+
+    def test_tags_shorten_to_whole_tags_and_a_count(self):
+        rendered = self._render(self._threshold())
+        self.assertTrue(_is_table(rendered))
+        self.assertIn("[auth, +3]", rendered)
+
+    def _title_width(self, width):
+        header = self._render(width).split("\n")[0]
+        return header.index("TAGS") - header.index("TITLE") - style.GUTTER
+
+    def test_spare_width_grows_title_to_its_comfort_before_tags(self):
+        base = self._threshold()
+        self.assertEqual(self._title_width(base + 5) - self._title_width(base), 5)
+
+    def test_unbounded_output_is_never_shortened(self):
+        rendered = self._render(None)
+        self.assertIn("Roll out the new auth API for the whole platform now", rendered)
+        self.assertIn("[auth, billing, platform, security]", rendered)
+
+    def test_stacked_records_keep_every_field_and_bracket_the_tags(self):
+        rendered = self._render(60)
+        self.assertFalse(_is_table(rendered))
+        self.assertIn("[auth, billing, platform, security]", rendered)
+        self.assertNotIn("PLAN", rendered)
+
+    def test_no_stacked_line_exceeds_the_width(self):
+        for width in range(30, 100):
+            for line in self._render(width).split("\n"):
+                self.assertLessEqual(style.display_width(line), width, f"width={width}: {line!r}")
 
 
 class ColumnSelectionTests(unittest.TestCase):
@@ -317,35 +329,23 @@ class ColumnSelectionTests(unittest.TestCase):
         ).split("\n")[0]
         self.assertEqual(header.split(), ["CREATED", "TITLE", "STATUS"])
 
-    def test_explicit_column_survives_a_width_that_would_otherwise_drop_it(self):
-        plans = self._plans()
-        without_selection = _with_width(90, lambda: listing.render(plans, on_color=False)).split(
-            "\n"
-        )[0]
-        self.assertNotIn("CREATED", without_selection)
-
-        spec = ",".join(name for name in listing.NAMES if name != "finding")
-        selection = columns.parse(spec, listing.NAMES)
+    def test_relative_selection_keeps_the_default_order(self):
+        selection = columns.parse("-status", listing.NAMES)
         header = _with_width(
-            90, lambda: listing.render(plans, on_color=False, selection=selection)
+            120, lambda: listing.render(self._plans(), on_color=False, selection=selection)
         ).split("\n")[0]
-        self.assertIn("CREATED", header)
+        self.assertEqual(
+            header.split(), ["PLAN", "INTENT", "PROJECT", "SOURCE", "TITLE", "CREATED", "UPDATED"]
+        )
 
-    def test_sort_key_pins_its_column_without_an_explicit_selection(self):
-        header = _with_width(
-            90, lambda: listing.render(self._plans(), on_color=False, pin=("created",))
-        ).split("\n")[0]
-        self.assertIn("CREATED", header)
-
-    def test_absolute_selection_beats_the_sort_pin(self):
-        selection = columns.parse("title", listing.NAMES)
-        header = _with_width(
-            120,
-            lambda: listing.render(
-                self._plans(), on_color=False, selection=selection, pin=("created",)
-            ),
-        ).split("\n")[0]
-        self.assertEqual(header.split(), ["TITLE"])
+    def test_a_short_selection_stays_a_table_where_the_full_set_stacks(self):
+        selection = columns.parse("id,status,title,modified", listing.NAMES)
+        narrow = _with_width(60, lambda: listing.render(self._plans(), on_color=False))
+        chosen = _with_width(
+            60, lambda: listing.render(self._plans(), on_color=False, selection=selection)
+        )
+        self.assertFalse(narrow.startswith("PLAN"))
+        self.assertEqual(chosen.split("\n")[0].split(), ["PLAN", "STATUS", "TITLE", "UPDATED"])
 
 
 if __name__ == "__main__":

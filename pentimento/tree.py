@@ -109,9 +109,8 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     cells.append((plan.intent, style.INTENT_CODES.get(plan.intent, ())))
     if plan.tags:
         cells.append((tags_module.render(plan.tags), ()))
-    created = plan.fields.get("created")
-    if created:
-        cells.append((created, (style.DIM,)))
+    if plan.created:
+        cells.append((plan.created, (style.DIM,)))
     cells.append((times.relative(plan.modified), (style.DIM,)))
     if is_repeat:
         cells.append(("(cycle)", ()))

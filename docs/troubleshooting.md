@@ -5,10 +5,14 @@ when the output is not what you expected.
 
 ## No output at all
 
-`AGENT_PLANS_DIR` (default `~/.claude/plans`) or `CURSOR_PLANS_DIR` unset or
-pointing at a directory that doesn't exist contributes nothing, silently —
-a missing harness is a normal, supported state, not an error. Check the
-directory actually holds `.md` files (or `.plan.md` for Cursor).
+`pentimento: no plans found; searched: <directories>` on stderr, with exit 0,
+means every plan directory is missing or empty. `AGENT_PLANS_DIR` (default
+`~/.claude/plans`) or `CURSOR_PLANS_DIR` pointing at a directory that doesn't
+exist contributes nothing: a missing harness is a normal, supported state,
+not an error. Check the directories named in the message actually hold `.md`
+files (or `.plan.md` for Cursor). `list`, `tree`, `index`, `backfill`, and
+`check` print the message in every `--format`; `--format json` still prints
+`[]` on stdout.
 
 ## `project` is empty
 
@@ -103,12 +107,12 @@ never drops either way.
 
 ## `history` is empty
 
-`no session history for <id>` means no transcript under
-`AGENT_SESSIONS_DIR` (default `~/.claude/projects`) contains a `tool_use`
-call naming that plan's path — never a claim the plan wasn't worked. Common
-causes: the work happened in a session whose transcript has since been
-deleted (Claude Code prunes old transcripts), or on a different machine.
-Absent history is not evidence of absent work.
+`no session history for <id>; searched: <directory>` means no transcript
+under that directory (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`)
+contains a `tool_use` call naming that plan's path — never a claim the plan
+wasn't worked. Common causes: the work happened in a session whose
+transcript has since been deleted (Claude Code prunes old transcripts), or
+on a different machine. Absent history is not evidence of absent work.
 
 ## No colour
 
@@ -135,6 +139,10 @@ attached, both resolve the same as the bare id.
 clearing — `--project ""` writes a literal empty string, and `--parent ""`
 looks up a plan with the empty string as its id and fails with `no such
 plan`.
+
+A `--project` or `--add-tag` value that can't be written to frontmatter is a
+usage error, not a missing plan: it exits 2, writes nothing, and the message
+states the valid form.
 
 ## Completions don't fire
 

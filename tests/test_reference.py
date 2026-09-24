@@ -61,14 +61,12 @@ class ReadmeShowSampleTests(unittest.TestCase):
 
 
 class ReadmeCommandsTests(unittest.TestCase):
-    """The `## Commands` block's flags must match the parser exactly."""
+    """The `## Commands` block's flags must match the parser exactly, in parser order."""
 
     def setUp(self):
-        reference_path = Path(__file__).parent.parent / "docs" / "reference.md"
-        self.lines = _extract_commands_block(reference_path.read_text())
-        parser = cli.build_parser()
-        subparsers_action = _subparsers_action(parser)
-        self.subparsers = subparsers_action.choices
+        self.reference_path = Path(__file__).parent.parent / "docs" / "reference.md"
+        self.lines = _extract_commands_block(self.reference_path.read_text())
+        self.subparsers = _subparsers_action(cli.build_parser()).choices
 
     def test_every_subcommand_is_listed(self):
         listed = {line.split()[1] for line in self.lines}
@@ -89,9 +87,19 @@ class ReadmeCommandsTests(unittest.TestCase):
     def test_flags_match_in_both_directions(self):
         for line in self.lines:
             name = line.split()[1]
-            expected = set(self._canonical_options(self.subparsers[name]))
-            found = {flag for flag, _ in _FLAG_RE.findall(line)}
+            expected = list(self._canonical_options(self.subparsers[name]))
+            found = [flag for flag, _ in _FLAG_RE.findall(line)]
             self.assertEqual(found, expected, msg=name)
+
+    def test_every_option_string_appears_in_the_reference(self):
+        text = self.reference_path.read_text()
+        parsers = {"pentimento": cli.build_parser(), **self.subparsers}
+        for name, subparser in parsers.items():
+            for option in subparser._option_string_actions:
+                if option in ("-h", "--help"):
+                    continue
+                pattern = rf"(?<![\w-]){re.escape(option)}(?![\w-])"
+                self.assertRegex(text, pattern, msg=f"{name} {option}")
 
     def test_choices_and_metavars_match(self):
         for line in self.lines:

@@ -26,6 +26,7 @@ class FakePlan:
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
     findings: list = dataclasses.field(default_factory=list)
+    created: str | None = None
 
     @property
     def modified(self) -> datetime.datetime:
@@ -133,6 +134,10 @@ class TsvScrubTests(unittest.TestCase):
 
 
 class RecordTimestampTests(unittest.TestCase):
+    def test_created_is_the_plans_created_value(self):
+        plan = FakePlan(id="p", title="P", created="2026-01-01")
+        self.assertEqual(record.as_dict(plan)["created"], "2026-01-01")
+
     def test_findings_are_carried_as_a_list(self):
         plan = FakePlan(id="p", title="P", findings=["cycle", "missing-title"])
         self.assertEqual(record.as_dict(plan)["findings"], ["cycle", "missing-title"])

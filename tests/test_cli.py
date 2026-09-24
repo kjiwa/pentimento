@@ -274,11 +274,12 @@ class CmdSetTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertNotIn("tags", reloaded.fields)
 
-    def test_invalid_tag_exits_one_and_writes_nothing(self):
+    def test_invalid_tag_is_a_usage_error_and_writes_nothing(self):
         original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
         _write(self.directory, "root-plan", original)
-        args = cli.build_parser().parse_args(["set", "root-plan", "--add-tag", "Nope!"])
-        self.assertEqual(cli.cmd_set(args), 1)
+        code, _, err = _main(["set", "root-plan", "--add-tag", "Nope!"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid tag: 'Nope!' -- use lowercase letters", err)
 
         text = (self.directory / "root-plan.md").read_text()
         self.assertEqual(text, original)
@@ -1103,7 +1104,8 @@ class CmdHistoryTests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             result = cli.cmd_history(args)
         self.assertEqual(result, 0)
-        self.assertIn("no session history for root-plan", out.getvalue())
+        self.assertIn("no session history for root-plan; searched: ", out.getvalue())
+        self.assertIn(os.environ["AGENT_SESSIONS_DIR"], out.getvalue())
 
     def test_resolves_a_short_id(self):
         _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
@@ -1373,6 +1375,11 @@ class FindingTests(unittest.TestCase):
         _, out, _ = _main(["show", "dangler", "--color", "never"])
         self.assertIn("dangling-parent: parent 'nope' does not resolve to a plan", out)
         self.assertIn("  pentimento set <id> --parent <id>, or --clear-parent", out)
+
+    def test_show_hint_omits_the_redundant_show_step(self):
+        _, out, _ = _main(["show", "underivable", "--color", "never"])
+        self.assertIn("  add a checklist to '## Progress', or pentimento set <id> --status", out)
+        self.assertNotIn("pentimento show <id>", out)
 
     def test_show_prints_no_findings_for_a_clean_plan(self):
         _, out, _ = _main(["show", "clean", "--color", "never"])
@@ -1785,7 +1792,7 @@ class DateFilterTests(unittest.TestCase):
     def test_date_without_a_bound_is_a_usage_error(self):
         code, _, err = _main(["list", "--date", "created"])
         self.assertEqual(code, 2)
-        self.assertIn("--date needs --since or --until", err)
+        self.assertIn("--date requires --since or --until", err)
 
 
 class UsageErrorTests(unittest.TestCase):
@@ -1817,6 +1824,11 @@ class UsageErrorTests(unittest.TestCase):
     def test_set_dry_run_alone_is_still_nothing_to_set(self):
         code, _, _ = _main(["set", "root-plan", "--dry-run"])
         self.assertEqual(code, 2)
+
+    def test_set_invalid_project_is_a_usage_error_naming_the_valid_form(self):
+        code, _, err = _main(["set", "root-plan", "--project", "a: b"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid project: 'a: b' -- use a single line", err)
 
     def test_unknown_plan_still_exits_one_with_the_prefix(self):
         code, _, err = _main(["show", "no-such-plan"])
@@ -1853,6 +1865,13 @@ class MachineFormatTests(unittest.TestCase):
         self.assertRegex(record["started"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
         self.assertEqual(record["created"], "2026-09-01")
 
+    def test_created_falls_back_to_the_date_the_table_shows(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        record = json.loads(_main(["list", "--format", "json"])[1])[0]
+        self.assertRegex(record["created"], r"^\d{4}-\d\d-\d\d$")
+        table = _main(["list", "--columns", "created"])[1]
+        self.assertIn(record["created"], table)
+
     def test_show_json_and_tsv_include_the_body(self):
         _write(self.directory, "root-plan", "# Root\n\nthe body text\n")
         record = json.loads(_main(["show", "root-plan", "--format", "json"])[1])[0]
@@ -1876,6 +1895,25 @@ class MachineFormatTests(unittest.TestCase):
         os.environ["AGENT_PLANS_DIR"] = str(empty)
         _, _, err = _main(["check"])
         self.assertIn("pentimento: no plans found; searched:", err)
+
+    def test_empty_corpus_hint_goes_to_stderr_in_every_format(self):
+        os.environ["AGENT_PLANS_DIR"] = str(self.directory / "no-such-plans-dir")
+        for argv in (
+            ["list"],
+            ["list", "--format", "json"],
+            ["list", "--format", "tsv"],
+            ["tree"],
+            ["tree", "--format", "json"],
+            ["index"],
+            ["backfill"],
+        ):
+            _, out, err = _main(argv)
+            self.assertIn("pentimento: no plans found; searched:", err, msg=argv)
+            self.assertNotIn("no plans found", out, msg=argv)
+
+    def test_empty_corpus_json_still_prints_an_empty_array(self):
+        os.environ["AGENT_PLANS_DIR"] = str(self.directory / "no-such-plans-dir")
+        self.assertEqual(json.loads(_main(["list", "--format", "json"])[1]), [])
 
     def test_empty_corpus_hint_carries_the_prefix(self):
         os.environ["AGENT_PLANS_DIR"] = str(self.directory / "no-such-plans-dir")

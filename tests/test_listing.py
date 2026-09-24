@@ -28,6 +28,10 @@ class FakePlan:
     def modified(self) -> datetime.datetime:
         return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
+    @property
+    def created(self) -> str | None:
+        return self.created_date.isoformat() if self.created_date else None
+
 
 def _with_width(width, fn):
     with mock.patch("pentimento.style.terminal_width", return_value=width):

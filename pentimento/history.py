@@ -16,13 +16,13 @@ from pentimento import touches as touches_module
 FIELDS = ("when", "what", "session", "touches")
 
 COLUMNS = (
-    table.Column("WHEN", drop=1),
+    table.Column("WHEN", drop=0),
     table.Column("WHAT"),
     table.Column("SESSION", flex=1, comfort=32, floor=16),
     table.Column("TOUCHES", align="right"),
 )
 
-EMPTY_MESSAGE = "no session history for {plan_id}"
+EMPTY_MESSAGE = "no session history for {plan_id}; searched: {directory}"
 
 
 @dataclasses.dataclass

@@ -15,7 +15,7 @@ _ACCESSORS = {
     "parent": lambda p: p.parent,
     "project": lambda p: p.project,
     "source": lambda p: p.source,
-    "created": lambda p: p.fields.get("created"),
+    "created": lambda p: p.created,
     "started": lambda p: times.utc_stamp(times.parse_iso(p.started)) or p.started,
     "modified": lambda p: times.utc_stamp(p.modified),
     "findings": lambda p: p.findings,

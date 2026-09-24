@@ -141,7 +141,7 @@ ancestor, spine only, for pulling a single thread out of a larger forest.
 ```
 (no project)
 └─ Write the onboarding checklist
-     onboarding-checklist  unknown  unset  1d
+     onboarding-checklist  unknown  unset  2026-09-13  1d
 
 billing
 ├─ Rewrite dunning email copy
@@ -241,8 +241,8 @@ narrow with: pentimento list --finding <code>
 `history` shows which sessions touched a plan's file: the session whose id
 matches the plan's own id authored it; any later session that read, edited,
 or delegated work on it worked it. An empty result prints
-`no session history for <id>` — that means no matching transcript was found
-on this machine, never a claim the plan wasn't worked.
+`no session history for <id>; searched: <directory>` — that means no matching
+transcript was found there, never a claim the plan wasn't worked.
 
 <!-- sample:history -->
 ```
@@ -298,7 +298,7 @@ Cursor plans get body-only lineage and no `project` at all.
 | `backfill` | Derive and write missing frontmatter across the corpus. |
 | `hook` | Run as a Claude Code `PostToolUse` hook, reading the payload on stdin. |
 | `index` | Write `INDEX.md` into the plans directory. |
-| `check` | Validate lineage and vocabulary; exits 1 on any finding. |
+| `check` | Validate lineage, vocabulary, and status; exits 1 on any finding. |
 | `history <id>` | Every session that touched one plan, oldest first. |
 | `completion <shell>` | Print a `bash`/`zsh`/`fish` tab-completion script. |
 

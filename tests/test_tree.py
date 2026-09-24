@@ -26,6 +26,7 @@ class FakePlan:
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
     findings: list = dataclasses.field(default_factory=list)
+    created: str | None = None
 
     @property
     def modified(self) -> datetime.datetime:
@@ -129,7 +130,7 @@ class RenderTests(unittest.TestCase):
             id="root",
             title="Root",
             tags=["auth"],
-            fields={"created": "2026-01-01"},
+            created="2026-01-01",
             mtime=1,
         )
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
@@ -141,7 +142,7 @@ class RenderTests(unittest.TestCase):
         self.assertLess(meta.index("2026-01-01") + len("2026-01-01"), len(meta))
 
     def test_meta_line_shows_created_stamp_when_present(self):
-        root = FakePlan(id="root", title="Root", fields={"created": "2026-01-01"})
+        root = FakePlan(id="root", title="Root", created="2026-01-01")
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
         self.assertIn("2026-01-01", lines[1])
 
@@ -157,7 +158,7 @@ class RenderTests(unittest.TestCase):
             status="complete",
             intent="active",
             tags=["auth", "security"],
-            fields={"created": "2026-01-01"},
+            created="2026-01-01",
             mtime=1,
         )
         for width in range(20, 60):

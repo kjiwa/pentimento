@@ -62,11 +62,8 @@ _SPECS = (
     (
         "created",
         table.Column("CREATED", drop=1),
-        lambda plans: any(p.created_date for p in plans),
-        lambda p, short_ids: (
-            p.created_date.isoformat() if p.created_date else "",
-            (style.DIM,),
-        ),
+        lambda plans: any(p.created for p in plans),
+        lambda p, short_ids: (p.created or "", (style.DIM,)),
     ),
     (
         "modified",

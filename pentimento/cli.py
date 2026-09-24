@@ -71,6 +71,11 @@ ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 DATE_CHOICES = ("created", "modified")
 
+_ID_HELP = "plan id, short id, filename, or path"
+_DRY_RUN_HELP = "report what would change, without writing"
+_PROJECT_FORM = "use a single line with no surrounding space, '#', or ': '"
+_TAG_FORM = "use lowercase letters, digits, and . _ / -, starting with a letter or digit"
+
 
 class UsageError(Exception):
     """Invalid arguments found after parsing; `main` reports it as a usage error."""
@@ -175,7 +180,7 @@ def _add_filter_args(parser):
 def _add_sort_args(parser):
     group = parser.add_argument_group("sorting")
     group.add_argument(
-        "--sort", choices=SORT_CHOICES, default="modified", help="sort order (default: modified)"
+        "--sort", choices=SORT_CHOICES, default="modified", help="sort key (default: modified)"
     )
     group.add_argument(
         "--order",
@@ -211,7 +216,7 @@ def _add_format_args(parser):
     group.add_argument(
         "--ascii",
         action="store_true",
-        help="force ASCII box-drawing glyphs, even on a UTF-8 terminal",
+        help="draw with ASCII characters instead of Unicode, even on a UTF-8 terminal",
     )
     return group
 
@@ -230,7 +235,7 @@ def _plan_day(plan, which: str):
 
 def _require_valid_dates(args) -> None:
     if args.date is not None and args.since is None and args.until is None:
-        raise UsageError("--date needs --since or --until")
+        raise UsageError("--date requires --since or --until")
     if args.since is not None and args.until is not None and args.since > args.until:
         raise UsageError(f"--since {args.since} is after --until {args.until}")
 
@@ -411,7 +416,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_tree.add_argument(
-        "id", nargs="?", help="root the tree at this plan: it plus every plan beneath it"
+        "id",
+        nargs="?",
+        help=f"{_ID_HELP}; roots the tree at that plan and every plan beneath it",
     )
     p_tree.add_argument(
         "--ancestors",
@@ -436,7 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  pentimento show api-auth-rollout --full --no-pager"
         ),
     )
-    p_show.add_argument("id", help="plan id (filename stem)")
+    p_show.add_argument("id", help=_ID_HELP)
     p_show.add_argument("--full", action="store_true", help="print the whole body, unclipped")
     p_show.add_argument("--no-pager", action="store_true", help="with --full, never use a pager")
     _add_format_args(p_show)
@@ -453,7 +460,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  pentimento set api-auth-rollout --clear-parent"
         ),
     )
-    p_set.add_argument("id", help="plan id (filename stem)")
+    p_set.add_argument("id", help=_ID_HELP)
     pin_group = p_set.add_mutually_exclusive_group()
     pin_group.add_argument(
         "--status",
@@ -466,7 +473,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
     parent_group = p_set.add_mutually_exclusive_group()
     parent_group.add_argument(
-        "--parent", metavar="ID", help="new parent plan id; rejected if it would create a cycle"
+        "--parent",
+        metavar="ID",
+        help=f"new parent: {_ID_HELP}; rejected if it would create a cycle",
     )
     parent_group.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
     project_group = p_set.add_mutually_exclusive_group()
@@ -483,9 +492,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="remove all tags; not combinable with --add-tag or --remove-tag",
     )
-    p_set.add_argument(
-        "--dry-run", action="store_true", help="report what would change, without writing"
-    )
+    p_set.add_argument("--dry-run", action="store_true", help=_DRY_RUN_HELP)
 
     p_backfill = _add_command(
         sub,
@@ -499,7 +506,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog="Examples:\n  pentimento backfill --dry-run",
     )
-    p_backfill.add_argument("--dry-run", action="store_true", help="report without writing")
+    p_backfill.add_argument("--dry-run", action="store_true", help=_DRY_RUN_HELP)
     p_backfill.add_argument(
         "--quiet", action="store_true", help="suppress changed-id and field-change output"
     )
@@ -507,7 +514,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--only",
         metavar="ID",
         action="append",
-        help="restrict writes to this plan (id, short id, filename, or path); repeatable",
+        help=f"{_ID_HELP}; repeatable, restricts writes to the named plans",
     )
     p_backfill.add_argument(
         "--rederive",
@@ -527,6 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
             "for the plan just written, deriving status capped at partial. Wiring is "
             f"in {_DOCS_URL}/integrations.md."
         ),
+        epilog=(
+            "Examples:\n"
+            '  echo \'{"tool_input": {"file_path": "~/.claude/plans/api-auth.md"}}\''
+            " | pentimento hook"
+        ),
     )
 
     _add_command(
@@ -536,6 +548,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Write INDEX.md into the plans directory: one linked row per plan, grouped by status."
         ),
+        epilog="Examples:\n  pentimento index",
     )
 
     p_check = _add_command(
@@ -556,7 +569,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Every session that touched one plan, oldest first.",
         epilog="Examples:\n  pentimento history api-auth-cleanup --format json",
     )
-    p_history.add_argument("id", help="plan id (filename stem)")
+    p_history.add_argument("id", help=_ID_HELP)
     _add_format_args(p_history)
 
     p_completion = _add_command(
@@ -569,7 +582,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=("Examples:\n  pentimento completion bash\n  pentimento completion zsh"),
     )
-    p_completion.add_argument("shell", choices=completion.SHELLS, help="bash, zsh, or fish")
+    p_completion.add_argument(
+        "shell", choices=completion.SHELLS, metavar="SHELL", help="bash, zsh, or fish"
+    )
 
     return parser
 
@@ -592,6 +607,11 @@ def _empty_corpus_hint() -> str:
     return "no plans found; searched: " + ", ".join(directories)
 
 
+def _report_if_empty(plans) -> None:
+    if not plans:
+        _report(_empty_corpus_hint())
+
+
 def _apply_limit(plans, args):
     """Keep the N rows nearest the prompt: the tail under `--order asc`, the head under `desc`."""
     if args.limit is None:
@@ -602,11 +622,10 @@ def _apply_limit(plans, args):
 
 
 def _render_table_or_empty(corpus_plans, plans, args, render):
-    """Shared `list`/`tree` table-format tail: empty-corpus hint, empty-filter
+    """Shared `list`/`tree` table-format tail: nothing for an empty corpus, empty-filter
     summary, or `render(on_color, unicode_ok, short_ids)` followed by the
     filtered/total summary line."""
     if not corpus_plans:
-        _report(_empty_corpus_hint())
         return 0
     if not plans:
         on_color = style.enabled(sys.stdout, args.color)
@@ -644,6 +663,7 @@ def cmd_list(args) -> int:
         raise UsageError("--columns only applies to --format table")
 
     corpus_plans = corpus.load_all()
+    _report_if_empty(corpus_plans)
     selection = None if args.format != formats.TABLE else _columns_selection(args)
     if _finding_requested(args) or args.format != formats.TABLE or _selects_finding(selection):
         _attach_findings(corpus_plans)
@@ -671,6 +691,7 @@ def cmd_tree(args) -> int:
     if args.id is None and args.ancestors:
         raise UsageError("--ancestors requires a plan id")
     corpus_plans = corpus.load_all()
+    _report_if_empty(corpus_plans)
     target = None
     if args.id is not None:
         target = corpus.by_id(corpus_plans, args.id)
@@ -790,7 +811,9 @@ def _show_findings(found, on_color: bool) -> list[str]:
     lines = []
     for finding in found:
         lines.append(f"{style.paint(finding.code, style.RED, on=on_color)}: {finding.message}")
-        lines.append(style.paint(f"  {finding.hint}", style.DIM, on=on_color))
+        lines.append(
+            style.paint(f"  {check_module.show_hint(finding.code)}", style.DIM, on=on_color)
+        )
     if lines:
         lines.append("")
     return lines
@@ -912,8 +935,7 @@ def cmd_set(args) -> int:
     elif args.project is not None:
         resolved = _resolve_project(args.project)
         if not frontmatter.is_valid_value(resolved):
-            _report(f"invalid project: {resolved!r}")
-            return 1
+            raise UsageError(f"invalid project: {resolved!r} -- {_PROJECT_FORM}")
         target.fields["project"] = resolved
 
     if args.clear_parent:
@@ -933,8 +955,7 @@ def cmd_set(args) -> int:
     if args.clear_tags or args.remove_tag or args.add_tag:
         invalid = _apply_tag_edits(target, args)
         if invalid is not None:
-            _report(f"invalid tag: {invalid!r}")
-            return 1
+            raise UsageError(f"invalid tag: {invalid!r} -- {_TAG_FORM}")
 
     for field in ("status", "intent"):
         value = getattr(args, field, None)
@@ -1024,6 +1045,7 @@ def _resolve_only(plans, values):
 def cmd_backfill(args) -> int:
     sessions = sessions_module.load()
     plans = corpus.load_all(sessions=sessions)
+    _report_if_empty(plans)
     duplicates = sorted({p.id for p in check_module.duplicate_ids(plans)})
     if duplicates:
         _report(
@@ -1065,6 +1087,7 @@ def cmd_backfill(args) -> int:
 
 def cmd_index(_args) -> int:
     plans = corpus.load_all()
+    _report_if_empty(plans)
     index_module.write(plans, corpus.plans_directory())
     print(f"{counts.plural(len(plans), 'plan')} indexed")
     return 0
@@ -1075,8 +1098,7 @@ def cmd_check(args) -> int:
     touches = touches_module.load()
     skips = []
     plans = corpus.load_all(sessions=sessions, skips=skips)
-    if not plans:
-        _report(_empty_corpus_hint())
+    _report_if_empty(plans)
     findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
@@ -1129,7 +1151,11 @@ def cmd_history(args) -> int:
         )
         return 0
     if not plan_touches:
-        print(history_module.EMPTY_MESSAGE.format(plan_id=target.id))
+        print(
+            history_module.EMPTY_MESSAGE.format(
+                plan_id=target.id, directory=sessions_module.sessions_directory()
+            )
+        )
         return 0
     on_color = style.enabled(sys.stdout, args.color)
     unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)

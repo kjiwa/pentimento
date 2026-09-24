@@ -6,8 +6,8 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 ## Commands
 
 ```sh
-pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--finding [CODE]] [--title PATTERN] [--grep PATTERN] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
-pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--finding [CODE]] [--title PATTERN] [--grep PATTERN] [--since WHEN] [--until WHEN] [--date created|modified] [--sort modified|created|id|status|title] [--order asc|desc] [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
+pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--sort modified|created|id|status|title] [--order asc|desc]
 pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never] [--ascii]
 pentimento set <id> [--status STATUS] [--unpin] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
@@ -44,12 +44,11 @@ Run `pentimento <command> --help` for that command's own examples.
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true` — an operator statement is immune to every future `backfill`, including `--rederive`, until `set --unpin` releases it. |
 
-`list`, `tree`, `check`, `show`, and `history`'s tables display the short id: the
-shortest trailing run of at least two hyphen-separated segments that's
-unique across the corpus. `show`, `set`,
-`history`, `tree`, and `set --parent` all accept either the short id or the
-full id as input; `check`'s `--format json|tsv` output always emits the full
-id.
+`list`, `tree`, and `check` tables display the short id: the shortest
+trailing run of at least two hyphen-separated segments that's unique across
+the corpus. `show`, `set`, `history`, `tree`, `set --parent`, and
+`backfill --only` accept the short id, the full id, the filename, or the path
+as input. `--format json|tsv` output always emits the full id.
 
 ## Columns
 
@@ -102,7 +101,7 @@ Every error message goes to stderr, prefixed `pentimento: `.
 | `PAGER` | `less` | Pager for `show --full`. Split with shell quoting, so `PAGER="less -S"` works. Empty disables paging. When it is `less` and `LESS` is unset, pentimento sets `LESS=FRX` so colour survives and short output does not open the pager. |
 | `PENTIMENTO_COLUMNS` | unset | Default `--columns` value for `list`'s `--format table` output; same syntax. Ignored for `--format json\|tsv`. An invalid value prints `pentimento: PENTIMENTO_COLUMNS: <message>` to stderr and exits 2. |
 | `PENTIMENTO_DEBUG` | unset | When set, `pentimento hook` prints a traceback to stderr on an internal error instead of failing silently. |
-| `PENTIMENTO_NOW` | current time | ISO 8601 instant overriding "now" for relative-time rendering (`list`/`tree`'s `UPDATED` column, `history`'s `WHEN`). Set for reproducible output, e.g. in `demo/capture.sh`. |
+| `PENTIMENTO_NOW` | current time | ISO 8601 instant overriding "now" for relative-time rendering (`list`/`tree`'s `UPDATED` column) and for `--since`/`--until` ages. Set for reproducible output, e.g. in `demo/capture.sh`. |
 | `XDG_CACHE_HOME` | `~/.cache` | Where session transcripts are cached between runs. |
 
 ## Shell completion

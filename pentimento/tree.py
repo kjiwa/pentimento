@@ -89,16 +89,9 @@ class _RenderContext:
 
 def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     connector = style.GLYPHS["last"] if is_last else style.GLYPHS["branch"]
-    annotation_text = f"({root_annotation})" if root_annotation else ""
     title_line = f"{prefix}{connector}{plan.title}"
-    if annotation_text:
-        title_line += f" {annotation_text}"
     if ctx.width is not None:
         title_line = style.truncate(title_line, ctx.width)
-    if annotation_text and title_line.endswith(annotation_text):
-        title_line = title_line[: -len(annotation_text)] + style.paint(
-            annotation_text, style.DIM, on=ctx.on_color
-        )
     ctx.lines.append(title_line)
 
     child_prefix = prefix + (style.GLYPHS["space"] if is_last else style.GLYPHS["vertical"])
@@ -113,6 +106,8 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     cells.append((times.relative(plan.modified), (style.DIM,)))
     if is_repeat:
         cells.append(("(cycle)", ()))
+    if root_annotation:
+        cells.append((f"({root_annotation})", (style.DIM,)))
     prefix_text = f"{child_prefix}  "
     ctx.lines.extend(style.wrap_fields(cells, "  ", ctx.width, prefix_text, on_color=ctx.on_color))
 

@@ -20,6 +20,8 @@ class Column:
     align: str = "left"  # "left" | "right"
     fit: str = FIXED  # FIXED never shrinks; TRUNCATE cuts to one line; WRAP breaks at spaces
     floor: int = 0  # narrowest width a TRUNCATE or WRAP column keeps in a table
+    comfort: int = 0  # width a flexible column reaches before spare width is shared out
+    stack_label: str = ""  # prefixes the field in the stacked layout only
     shorten: Callable[[str, int], str] = style.truncate
 
 
@@ -42,8 +44,9 @@ def _table_widths(
 ) -> list[int] | None:
     """Column widths for a table within `width`, or `None` when the floors do not fit.
 
-    Spare width goes to the flexible columns, narrowest natural width first, so
-    short values stay whole and the longest column takes what is left.
+    Spare width first grows each flexible column to its comfort, the widest
+    comfort first, then goes to the flexible columns narrowest natural width
+    first, so short values stay whole and the longest column takes what is left.
     """
     if width is None or _headline(columns) is None:
         return natural
@@ -52,11 +55,19 @@ def _table_widths(
     if spare < 0:
         return None
     flexible = [i for i, column in enumerate(columns) if column.fit != FIXED]
+    by_comfort = sorted(flexible, key=lambda i: -columns[i].comfort)
+    for index in by_comfort:
+        spare = _grow(widths, index, min(columns[index].comfort, natural[index]), spare)
     for index in sorted(flexible, key=lambda i: natural[i]):
-        grow = min(spare, natural[index] - widths[index])
-        widths[index] += grow
-        spare -= grow
+        spare = _grow(widths, index, natural[index], spare)
     return widths
+
+
+def _grow(widths: list[int], index: int, target: int, spare: int) -> int:
+    """Widen column `index` toward `target` using `spare`; returns what is left."""
+    grow = max(0, min(spare, target - widths[index]))
+    widths[index] += grow
+    return spare - grow
 
 
 def _headline(columns: tuple[Column, ...]) -> int | None:
@@ -146,8 +157,17 @@ def _stacked_record(
     else:
         head = [style.truncate(text, width)]
     lines = [style.paint(line, *codes, on=on_color) for line in head if line]
-    fields = [cell for index, cell in enumerate(row) if index != headline and cell[0]]
+    fields = [
+        _labelled(column, cell)
+        for index, (column, cell) in enumerate(zip(columns, row, strict=True))
+        if index != headline and cell[0]
+    ]
     return lines + style.wrap_fields(fields, "  ", width, STACK_INDENT, on_color=on_color)
+
+
+def _labelled(column: Column, cell: Cell) -> Cell:
+    text, codes = cell
+    return (f"{column.stack_label} {text}" if column.stack_label else text, codes)
 
 
 def _stacked(

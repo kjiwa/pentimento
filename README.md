@@ -115,20 +115,43 @@ unless `--date created` says otherwise.
 
 <!-- sample:list -->
 ```
+PLAN                  STATUS       INTENT     PROJECT   SOURCE  TITLE                           TAGS             CREATED     UPDATED
+style-guide           superseded   abandoned  platform  claude  Write a docs style guide                         2026-07-31       6w
+auth-redesign         complete     abandoned  platform  claude  Redesign the auth API           [auth, +1]       2026-08-05       5w
+dunning-copy          complete     someday    billing   claude  Rewrite dunning email copy      [billing]        2026-08-20       3w
+auth-rollout          partial      active     platform  claude  Roll out the new auth API       [auth, +1]       2026-08-25       2w
+auth-cleanup          not-started  queued     platform  claude  Remove the old auth API         [auth, +1]       2026-08-30       2w
+invoice-retry         unknown      unset      billing   claude  Retry failed invoice charges    [billing]        2026-09-04       1w
+relevance-tuning      not-started  active     billing   claude  Tune search relevance           [search]         2026-09-09       5d
+onboarding-checklist  unknown      unset                claude  Write the onboarding checklist                   2026-09-13       1d
+
+8 plans
+```
+<!-- /sample -->
+
+Below the table threshold, `list` stacks each plan and drops nothing; see
+[the layout rule](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#columns).
+
+<!-- sample:list-narrow -->
+```
 Write a docs style guide
   style-guide  superseded  abandoned  platform  claude  2026-07-31  6w
 Redesign the auth API
-  auth-redesign  complete  abandoned  platform  claude  [auth, security]  2026-08-05  5w
+  auth-redesign  complete  abandoned  platform  claude  [auth, security]
+  2026-08-05  5w
 Rewrite dunning email copy
   dunning-copy  complete  someday  billing  claude  [billing]  2026-08-20  3w
 Roll out the new auth API
-  auth-rollout  partial  active  platform  claude  [auth, security]  2026-08-25  2w
+  auth-rollout  partial  active  platform  claude  [auth, security]  2026-08-25
+  2w
 Remove the old auth API
-  auth-cleanup  not-started  queued  platform  claude  [auth, security]  2026-08-30  2w
+  auth-cleanup  not-started  queued  platform  claude  [auth, security]
+  2026-08-30  2w
 Retry failed invoice charges
   invoice-retry  unknown  unset  billing  claude  [billing]  2026-09-04  1w
 Tune search relevance
-  relevance-tuning  not-started  active  billing  claude  [search]  2026-09-09  5d
+  relevance-tuning  not-started  active  billing  claude  [search]  2026-09-09
+  5d
 Write the onboarding checklist
   onboarding-checklist  unknown  unset  claude  2026-09-13  1d
 
@@ -153,8 +176,8 @@ ancestor, spine only, for pulling a single thread out of a larger forest.
 billing
 |-- Rewrite dunning email copy
 |     dunning-copy  complete  someday  [billing]  2026-08-20  3w
-|-- Retry failed invoice charges (parent elided: no-such-plan)
-|     invoice-retry  unknown  unset  [billing]  2026-09-04  1w
+|-- Retry failed invoice charges
+|     invoice-retry  unknown  unset  [billing]  2026-09-04  1w  (parent elided: no-such-plan)
 `-- Tune search relevance
       relevance-tuning  not-started  active  [search]  2026-09-09  5d
 

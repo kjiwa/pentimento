@@ -249,13 +249,15 @@ class LayoutTests(unittest.TestCase):
         self.assertFalse(kinds[0])
         self.assertTrue(kinds[-1])
 
-    def test_the_threshold_is_the_floors_plus_gutters(self):
+    def _threshold(self):
         header = self._render(None).split("\n")[0]
-        starts = [header.index(h) for h in ("TITLE", "TAGS", "CREATED", "UPDATED")]
+        starts = [header.index(h) for h in ("TITLE", "TAGS", "CREATED")]
         title_natural = starts[1] - starts[0] - style.GUTTER
         tags_natural = starts[2] - starts[1] - style.GUTTER
-        floors_saved = (title_natural - 30) + (tags_natural - 10)
-        threshold = style.display_width(header) - floors_saved
+        return style.display_width(header) - (title_natural - 30) - (tags_natural - 14)
+
+    def test_the_threshold_is_the_floors_plus_gutters(self):
+        threshold = self._threshold()
         self.assertTrue(_is_table(self._render(threshold)))
         self.assertFalse(_is_table(self._render(threshold - 1)))
 
@@ -272,10 +274,17 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual(len(rendered.split("\n")), 1 + len(self._plans()), f"width={width}")
 
     def test_tags_shorten_to_whole_tags_and_a_count(self):
-        header = self._render(None).split("\n")[0]
-        rendered = self._render(style.display_width(header) - 25)
+        rendered = self._render(self._threshold())
         self.assertTrue(_is_table(rendered))
-        self.assertIn("[auth, billing, platform, +1]", rendered)
+        self.assertIn("[auth, +3]", rendered)
+
+    def _title_width(self, width):
+        header = self._render(width).split("\n")[0]
+        return header.index("TAGS") - header.index("TITLE") - style.GUTTER
+
+    def test_spare_width_grows_title_to_its_comfort_before_tags(self):
+        base = self._threshold()
+        self.assertEqual(self._title_width(base + 5) - self._title_width(base), 5)
 
     def test_unbounded_output_is_never_shortened(self):
         rendered = self._render(None)

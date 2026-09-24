@@ -101,6 +101,40 @@ class StackedTests(unittest.TestCase):
         self.assertNotIn("STATUS", _render(COLUMNS, ROWS, 40))
 
 
+class ComfortTests(unittest.TestCase):
+    COLUMNS = (
+        table.Column("A", fit=table.TRUNCATE, floor=5, comfort=12),
+        table.Column("B", fit=table.TRUNCATE, floor=5, comfort=8),
+    )
+    ROWS = [(("a" * 30, ()), ("b" * 30, ()))]
+
+    def _widths(self, width):
+        line = _render(self.COLUMNS, self.ROWS, width).split("\n")[1]
+        first, second = line.split("  ")
+        return len(first), len(second)
+
+    def test_floors_first(self):
+        self.assertEqual(self._widths(12), (5, 5))
+
+    def test_widest_comfort_grows_first_then_the_next(self):
+        self.assertEqual(self._widths(17), (10, 5))
+        self.assertEqual(self._widths(22), (12, 8))
+
+    def test_remainder_is_shared_after_every_comfort_is_met(self):
+        self.assertEqual(self._widths(40), (30, 8))
+
+
+class StackLabelTests(unittest.TestCase):
+    def test_label_prefixes_the_field_only_when_stacked(self):
+        columns = (
+            table.Column("NAME", fit=table.TRUNCATE, floor=20),
+            table.Column("COUNT", align="right", stack_label="count"),
+        )
+        rows = [(("a-name", ()), ("3", ()))]
+        self.assertEqual(_render(columns, rows, 10), "a-name\n  count 3")
+        self.assertEqual(_render(columns, rows, 40).split("\n")[1], "a-name      3")
+
+
 class WrapColumnTests(unittest.TestCase):
     COLUMNS = (
         table.Column("CODE"),

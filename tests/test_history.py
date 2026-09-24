@@ -97,6 +97,7 @@ class RenderTests(unittest.TestCase):
         self.assertIn("worked", lines[1])
         self.assertRegex(lines[1], r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
         self.assertNotIn("WHEN", rendered)
+        self.assertIn("touches 1", rendered)
 
     def test_unbounded_width_never_truncates_the_session(self):
         session = "implement-a-session-name-that-is-longer-than-any-floor"

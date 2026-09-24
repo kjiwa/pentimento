@@ -100,7 +100,7 @@ below what `## Progress` derives.
 
 When the terminal is too narrow for every column, `list` prints each plan as a
 title line with its other fields beneath, and truncates `TITLE`, `PROJECT`,
-and `TAGS` in a table. Widen the terminal, or pick fewer columns with
+and `TAGS` in a table. Widen the terminal (about 135 columns), or pick fewer columns with
 `--columns`; see [docs/reference.md#columns](reference.md#columns). `TAGS`,
 `CREATED`, and `FINDING` are omitted when no listed plan has a value.
 

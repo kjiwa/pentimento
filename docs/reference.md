@@ -62,23 +62,26 @@ column always appears. No column is ever dropped for width.
 
 - **Table**, one line per row (`check` wraps `MESSAGE` onto at most 3 lines),
   when every column fits at its floor. `PLAN`, `STATUS`, `INTENT`, `SOURCE`,
-  `CREATED`, `UPDATED`, and `FINDING` always print whole. `PROJECT` truncates
-  to at least 10 columns, `TITLE` to at least 30, and `TAGS` to at least 10,
-  ending in `...`; `TAGS` keeps whole tags and ends in `+N` for the rest
-  (`[auth, cloudfront, +3]`). Spare width goes to the narrowest truncated
-  columns first, so the longest, usually `TITLE`, takes what is left.
+  `CREATED`, `UPDATED`, and `FINDING` always print whole. The truncated
+  columns end in `...`: `TITLE` (floor 30, comfort 50), `TAGS` (floor 14,
+  comfort 30), and `PROJECT` (floor 10, comfort 16). `TAGS` keeps whole tags
+  and ends in `+N` for the rest (`[loadtest, +5]`). Spare width first grows
+  `TITLE`, then `TAGS`, then `PROJECT` up to their comforts, then goes to
+  the narrowest truncated columns first, so the longest takes what is left.
 - **Stacked records** otherwise, with no header line. Each record's first line
   is its title (its message, for `check`), truncated with `...` to the width;
   the remaining non-empty fields follow in column order, indented two spaces
   and wrapped between fields, so nothing is lost. Tags keep their brackets so
-  a value stays identifiable without a header.
+  a value stays identifiable without a header, and `history`'s touch count
+  reads `touches N`.
 
 The narrowest table width depends on the listed plans (their id, intent, and
-date widths) and is roughly 125 to 135 columns for a full `list`. `--columns`
-with fewer columns fits a table in less. When `COLUMNS` is unset and output is
-not a terminal, as in `pentimento list | grep`, width is unbounded: always a
-table, nothing truncated. `tree` truncates a node's title with `...` and wraps
-its metadata line between fields.
+date widths): 132 for a small corpus with long ids and 135 for a full
+`list` of several hundred plans. `--columns` with fewer columns fits a table
+in less. When `COLUMNS` is unset and output is not a terminal, as in
+`pentimento list | grep`, width is unbounded: always a table, nothing
+truncated. `tree` truncates a node's title with `...` and wraps its metadata
+line, including any `(parent elided: ...)` note, between fields.
 
 `--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides which
 columns appear, regardless of content. `SPEC` is one of:

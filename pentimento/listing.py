@@ -30,7 +30,7 @@ _SPECS = (
     ),
     (
         "project",
-        table.Column("PROJECT", fit=table.TRUNCATE, floor=10),
+        table.Column("PROJECT", fit=table.TRUNCATE, floor=10, comfort=16),
         lambda plans: True,
         lambda p, short_ids: (p.project or "", ()),
     ),
@@ -42,7 +42,7 @@ _SPECS = (
     ),
     (
         "title",
-        table.Column("TITLE", fit=table.TRUNCATE, floor=30),
+        table.Column("TITLE", fit=table.TRUNCATE, floor=30, comfort=50),
         lambda plans: True,
         lambda p, short_ids: (p.title if p.has_title else "", ()),
     ),
@@ -54,7 +54,7 @@ _SPECS = (
     ),
     (
         "tags",
-        table.Column("TAGS", fit=table.TRUNCATE, floor=10, shorten=tags_module.shorten),
+        table.Column("TAGS", fit=table.TRUNCATE, floor=14, comfort=30, shorten=tags_module.shorten),
         lambda plans: any(p.tags for p in plans),
         lambda p, short_ids: (tags_module.render(p.tags), ()),
     ),

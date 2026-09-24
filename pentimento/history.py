@@ -19,7 +19,7 @@ COLUMNS = (
     table.Column("WHEN"),
     table.Column("WHAT"),
     table.Column("SESSION", fit=table.TRUNCATE, floor=16),
-    table.Column("TOUCHES", align="right"),
+    table.Column("TOUCHES", align="right", stack_label="touches"),
 )
 
 EMPTY_MESSAGE = "no session history for {plan_id}; searched: {directory}"

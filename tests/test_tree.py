@@ -63,7 +63,14 @@ class RenderTests(unittest.TestCase):
     def test_promoted_root_is_annotated_with_elided_parent(self):
         orphan = FakePlan(id="orphan", title="Orphan", parent="missing-parent")
         lines = _with_width(120, lambda: tree.render([orphan])).split("\n")
-        self.assertIn("(parent elided: missing-parent)", lines[0])
+        self.assertIn("(parent elided: missing-parent)", lines[1])
+
+    def test_elided_parent_annotation_is_never_cut_with_the_title(self):
+        orphan = FakePlan(id="orphan", title="A long title " * 5, parent="missing-parent")
+        for width in (40, 60, None):
+            rendered = _with_width(width, lambda: tree.render([orphan]))
+            text = " ".join(line.strip() for line in rendered.split("\n")[1:])
+            self.assertIn("(parent elided: missing-parent)", text, f"width={width}")
 
     def test_cycle_is_annotated(self):
         a = FakePlan(id="a", title="A", parent="b")

@@ -35,7 +35,7 @@ def _natural_widths(columns: tuple[Column, ...], rows: list[tuple[Cell, ...]]) -
 def _minimum_widths(columns: tuple[Column, ...], natural: list[int]) -> list[int]:
     return [
         width if column.fit == FIXED else min(column.floor, width)
-        for column, width in zip(columns, natural, strict=True)
+        for column, width in zip(columns, natural)
     ]
 
 
@@ -93,8 +93,7 @@ def _table_row(
 ) -> list[str] | None:
     """The physical lines of one row, or `None` when a wrapped cell needs too many."""
     cell_lines = [
-        _cell_lines(column, text, width)
-        for column, (text, _), width in zip(columns, row, widths, strict=True)
+        _cell_lines(column, text, width) for column, (text, _), width in zip(columns, row, widths)
     ]
     height = max(len(lines) for lines in cell_lines)
     if height > MAX_WRAP_LINES:
@@ -119,7 +118,7 @@ def _join_line(
     """Pad each cell to its column, drop trailing blank cells, and paint."""
     parts = [
         [_pad(text, width, column.align), codes]
-        for column, width, text, (_, codes) in zip(columns, widths, texts, row, strict=True)
+        for column, width, text, (_, codes) in zip(columns, widths, texts, row)
     ]
     while parts and not parts[-1][0].strip():
         parts.pop()
@@ -159,7 +158,7 @@ def _stacked_record(
     lines = [style.paint(line, *codes, on=on_color) for line in head if line]
     fields = [
         _labelled(column, cell)
-        for index, (column, cell) in enumerate(zip(columns, row, strict=True))
+        for index, (column, cell) in enumerate(zip(columns, row))
         if index != headline and cell[0]
     ]
     return lines + style.wrap_fields(fields, "  ", width, STACK_INDENT, on_color=on_color)

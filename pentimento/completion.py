@@ -20,17 +20,26 @@ SHELLS = ("bash", "zsh", "fish")
 
 _BASH_SCRIPT = """\
 _pentimento() {
-  local cur i words
-  cur="${COMP_WORDS[COMP_CWORD]}"
+  local i last line prefix word words
   words=()
-  for ((i = 1; i < COMP_CWORD; i++)); do
-    words+=("${COMP_WORDS[i]}")
+  for ((i = 1; i <= COMP_CWORD; i++)); do
+    word="${COMP_WORDS[i]}"
+    last=$((${#words[@]} - 1))
+    if ((i > 1)) && [[ "$word" == = || "${words[last]}" == -*= ]]; then
+      words[last]+="$word"
+    else
+      words+=("$word")
+    fi
   done
-  words+=("$cur")
+  last=$((${#words[@]} - 1))
+  prefix=""
+  if [[ "${words[last]}" == -*=* ]]; then
+    prefix="${words[last]%%=*}="
+  fi
   COMPREPLY=()
-  local line
   while IFS= read -r line; do
-    COMPREPLY+=("${line%%$'\\t'*}")
+    line="${line%%$'\\t'*}"
+    COMPREPLY+=("${line#"$prefix"}")
   done < <(pentimento __complete "${words[@]}")
 }
 complete -F _pentimento pentimento

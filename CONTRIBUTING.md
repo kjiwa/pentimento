@@ -8,6 +8,13 @@ uvx ruff check
 uvx ruff format --check
 ```
 
+CI runs the suite on Python 3.9, the supported minimum, and on the current
+release. To check 3.9 locally:
+
+```sh
+uv run --python 3.9 --no-project python -m unittest discover
+```
+
 CI also regenerates the README's sample blocks and fails if they drift:
 
 ```sh

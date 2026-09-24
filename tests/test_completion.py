@@ -3,6 +3,8 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -302,3 +304,42 @@ class CompleteDispatchTests(_CorpusTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(shutil.which("bash"), "bash is not installed")
+class BashEqualsFormTests(unittest.TestCase):
+    """bash 4+ splits `--flag=value` at `=` in COMP_WORDS; bash 3 keeps it whole."""
+
+    def _reply(self, comp_words, comp_cword):
+        words = " ".join(f"'{w}'" for w in comp_words)
+        stub = (
+            "pentimento() { printf '%s\\n' \"$*\" >&2; "
+            "printf '%s\\t%s\\n' '--columns=+created' 'desc'; }\n"
+        )
+        program = (
+            f"{stub}{completion.script('bash')}\n"
+            f"COMP_WORDS=({words}); COMP_CWORD={comp_cword}\n"
+            "_pentimento; printf '%s\\n' \"${COMPREPLY[@]}\"\n"
+        )
+        result = subprocess.run(["bash", "-c", program], capture_output=True, text=True, check=True)
+        return result.stdout.split("\n")[:-1], result.stderr.strip()
+
+    def test_split_form_returns_only_the_value_and_passes_the_joined_word(self):
+        reply, seen = self._reply(["pentimento", "list", "--columns", "=", "+cr"], 4)
+        self.assertEqual(reply, ["+created"])
+        self.assertEqual(seen, "__complete list --columns=+cr")
+
+    def test_split_form_at_the_equals_sign(self):
+        reply, seen = self._reply(["pentimento", "list", "--columns", "="], 3)
+        self.assertEqual(reply, ["+created"])
+        self.assertEqual(seen, "__complete list --columns=")
+
+    def test_whole_form_returns_only_the_value(self):
+        reply, seen = self._reply(["pentimento", "list", "--columns=+cr"], 2)
+        self.assertEqual(reply, ["+created"])
+        self.assertEqual(seen, "__complete list --columns=+cr")
+
+    def test_words_without_equals_pass_through(self):
+        reply, seen = self._reply(["pentimento", "list", "--status", "co"], 3)
+        self.assertEqual(reply, ["--columns=+created"])
+        self.assertEqual(seen, "__complete list --status co")

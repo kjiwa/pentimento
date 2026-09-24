@@ -25,6 +25,7 @@ class FakePlan:
     started: str = "2026-01-01T00:00:00.000Z"
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
+    findings: list = dataclasses.field(default_factory=list)
 
     @property
     def modified(self) -> datetime.datetime:

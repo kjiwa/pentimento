@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pentimento import cli, completion, listing, vocabulary
+from pentimento import check, cli, completion, listing, vocabulary
 
 
 def _write(directory: Path, name: str, text: str) -> None:
@@ -160,6 +160,10 @@ class FreeformFlagTests(_CorpusTestCase):
     def test_date_offers_its_choices(self):
         values = {value for value, _ in completion.candidates(["list", "--date", ""])}
         self.assertEqual(values, {"created", "modified"})
+
+    def test_finding_offers_the_check_codes(self):
+        values = {value for value, _ in completion.candidates(["list", "--finding", ""])}
+        self.assertEqual(values, set(check.HINTS))
 
     def test_limit_offers_nothing(self):
         self.assertEqual(completion.candidates(["list", "-n", ""]), [])

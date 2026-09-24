@@ -48,6 +48,12 @@ _SPECS = (
         lambda p, short_ids: (p.title if p.has_title else "", ()),
     ),
     (
+        "finding",
+        table.Column("FINDING", flex=2, comfort=20, floor=10, drop=8),
+        lambda plans: any(p.findings for p in plans),
+        lambda p, short_ids: (", ".join(p.findings), (style.RED,)),
+    ),
+    (
         "tags",
         table.Column("TAGS", drop=2),
         lambda plans: any(p.tags for p in plans),

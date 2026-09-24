@@ -145,6 +145,15 @@ def _add_filter_args(parser):
         help="filter by a case-insensitive regex over the title",
     )
     group.add_argument(
+        "--finding",
+        nargs="?",
+        metavar="CODE",
+        choices=tuple(check_module.HINTS),
+        const=None,
+        default=False,
+        help="only plans with a check finding, or with the finding CODE",
+    )
+    group.add_argument(
         "--since",
         metavar="WHEN",
         type=_when,
@@ -241,6 +250,32 @@ def _within_dates(plans, args):
     return kept
 
 
+def _finding_requested(args) -> bool:
+    """`--finding` is `False` when absent and `None` when bare: argparse checks
+    a string `const` against `choices` on some Python versions."""
+    return args.finding is not False
+
+
+def _has_finding(plan, code: str | None) -> bool:
+    return bool(plan.findings) if code is None else code in plan.findings
+
+
+def _findings_by_id(plans) -> dict[str, list[check_module.Finding]]:
+    by_id: dict[str, list[check_module.Finding]] = {}
+    for finding in check_module.run(plans, sessions_module.load(), touches_module.load()):
+        by_id.setdefault(finding.id, []).append(finding)
+    return by_id
+
+
+def _attach_findings(plans) -> dict[str, list[check_module.Finding]]:
+    """Set each plan's `findings` from a check over `plans`, which must be
+    the whole corpus so lineage findings stay correct."""
+    by_id = _findings_by_id(plans)
+    for p in plans:
+        p.findings = sorted({f.code for f in by_id.get(p.id, [])})
+    return by_id
+
+
 def _apply_filters(plans, args):
     _require_valid_dates(args)
     if args.status:
@@ -261,6 +296,8 @@ def _apply_filters(plans, args):
         plans = [p for p in plans if args.grep.search(p.title + p.body)]
     if args.title is not None:
         plans = [p for p in plans if args.title.search(p.title)]
+    if _finding_requested(args):
+        plans = [p for p in plans if _has_finding(p, args.finding)]
     if args.since is not None or args.until is not None:
         plans = _within_dates(plans, args)
     return plans
@@ -598,11 +635,18 @@ def _columns_selection(args):
         raise UsageError(f"PENTIMENTO_COLUMNS: {exc}") from exc
 
 
+def _selects_finding(selection) -> bool:
+    return selection is not None and "finding" in (*(selection.absolute or ()), *selection.add)
+
+
 def cmd_list(args) -> int:
     if args.columns is not None and args.format != formats.TABLE:
         raise UsageError("--columns only applies to --format table")
 
     corpus_plans = corpus.load_all()
+    selection = None if args.format != formats.TABLE else _columns_selection(args)
+    if _finding_requested(args) or args.format != formats.TABLE or _selects_finding(selection):
+        _attach_findings(corpus_plans)
     plans = _apply_filters(corpus_plans, args)
     plans = sorted(plans, key=_sort_key(args), reverse=_sort_descending(args))
     plans = _apply_limit(plans, args)
@@ -612,8 +656,7 @@ def cmd_list(args) -> int:
         )
         return 0
 
-    selection = _columns_selection(args)
-    pin = (args.sort,)
+    pin = (args.sort, "finding") if _finding_requested(args) else (args.sort,)
     return _render_table_or_empty(
         corpus_plans,
         plans,
@@ -634,6 +677,8 @@ def cmd_tree(args) -> int:
         if target is None:
             _report(_no_such_plan(corpus_plans, args.id))
             return 1
+    if _finding_requested(args) or args.format != formats.TABLE:
+        _attach_findings(corpus_plans)
     plans = _apply_filters(_select_lineage(corpus_plans, target, args), args)
     root_id = target.id if target else None
     key, reverse = _sort_key(args), _sort_descending(args)
@@ -741,6 +786,16 @@ def _show_header(target, width: int, *, on_color: bool) -> list[str]:
     return lines
 
 
+def _show_findings(found, on_color: bool) -> list[str]:
+    lines = []
+    for finding in found:
+        lines.append(f"{style.paint(finding.code, style.RED, on=on_color)}: {finding.message}")
+        lines.append(style.paint(f"  {finding.hint}", style.DIM, on=on_color))
+    if lines:
+        lines.append("")
+    return lines
+
+
 def _should_page(args, line_count: int) -> bool:
     return (
         args.full
@@ -756,6 +811,7 @@ def cmd_show(args) -> int:
     if target is None:
         _report(_no_such_plan(plans, args.id))
         return 1
+    found = _attach_findings(plans).get(target.id, [])
     if args.format != formats.TABLE:
         record = {**record_module.as_dict(target), "body": target.body}
         formats.emit([record], args.format, sys.stdout, (*record_module.FIELDS, "body"))
@@ -765,7 +821,7 @@ def cmd_show(args) -> int:
     unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
     width = min(style.terminal_width(), markdown.MAX_WIDTH)
 
-    header = _show_header(target, width, on_color=on_color)
+    header = _show_header(target, width, on_color=on_color) + _show_findings(found, on_color)
     body_text = plan_module.body_below_title(target.body)
     body = markdown.render(body_text, on_color=on_color, unicode_ok=unicode_ok, width=width)
     if _should_page(args, len(header) + len(body)):
@@ -1046,6 +1102,10 @@ def cmd_check(args) -> int:
         print(style.paint(f"{plan_count} checked, {finding_count}", style.DIM, on=on_color))
         for code in sorted({f.code for f in findings}):
             print(style.paint(f"{code}: {check_module.HINTS[code]}", style.DIM, on=on_color))
+        if findings:
+            print(
+                style.paint("narrow with: pentimento list --finding <code>", style.DIM, on=on_color)
+            )
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))
         formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout, columns)

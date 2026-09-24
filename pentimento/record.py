@@ -18,6 +18,7 @@ _ACCESSORS = {
     "created": lambda p: p.fields.get("created"),
     "started": lambda p: times.utc_stamp(times.parse_iso(p.started)) or p.started,
     "modified": lambda p: times.utc_stamp(p.modified),
+    "findings": lambda p: p.findings,
     "path": lambda p: str(p.path),
 }
 

@@ -1254,8 +1254,18 @@ class CmdFooterTests(unittest.TestCase):
         lines = self._run(args).splitlines()
         summary = next(i for i, line in enumerate(lines) if "plans checked" in line)
         self.assertEqual(lines[summary - 1], "")
-        self.assertEqual(len(lines) - summary - 1, 1)
+        self.assertEqual(len(lines) - summary - 1, 2)
         self.assertTrue(lines[summary + 1].startswith("dangling-parent: "))
+        self.assertEqual(lines[summary + 2], "narrow with: pentimento list --finding <code>")
+
+    def test_check_omits_the_narrowing_line_when_clean(self):
+        _write(
+            self.directory,
+            "root-plan",
+            "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n\n## Progress\n- [ ] todo\n",
+        )
+        args = cli.build_parser().parse_args(["check", "--color", "never"])
+        self.assertNotIn("narrow with", self._run(args))
 
     def test_check_keeps_the_code_column_at_width_80(self):
         _write(self.directory, "dangler", "---\nparent: nope\n---\n\n# D\n")
@@ -1285,6 +1295,93 @@ class CmdFooterTests(unittest.TestCase):
         )
         output = self._run(args)
         self.assertIn("0 of 1 plan", output)
+
+
+class FindingTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "underivable", "---\nproject: p1\n---\n\n# Underivable\n")
+        _write(
+            self.directory,
+            "clean",
+            "---\nproject: p2\nstatus: not-started\n---\n\n# Clean\n\n## Progress\n- [ ] x\n",
+        )
+        _write(
+            self.directory,
+            "dangler",
+            "---\nproject: p1\nparent: nope\nstatus: not-started\n---\n\n"
+            "# Dangler\n\n## Progress\n- [ ] x\n",
+        )
+
+    def _ids(self, argv):
+        code, out, _ = _main([*argv, "--format", "json"])
+        self.assertEqual(code, 0)
+        return [p["id"] for p in json.loads(out)]
+
+    def test_bare_finding_keeps_plans_with_any_finding(self):
+        self.assertEqual(sorted(self._ids(["list", "--finding"])), ["dangler", "underivable"])
+
+    def test_finding_code_keeps_plans_with_that_code(self):
+        self.assertEqual(self._ids(["list", "--finding", "dangling-parent"]), ["dangler"])
+
+    def test_finding_combines_with_project_and_sort(self):
+        ids = self._ids(["list", "--finding", "--project", "p1", "--sort", "created"])
+        self.assertEqual(sorted(ids), ["dangler", "underivable"])
+        self.assertEqual(self._ids(["list", "--finding", "--project", "p2"]), [])
+
+    def test_unknown_finding_code_is_a_usage_error(self):
+        code, _, err = _main(["list", "--finding", "no-such-code"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid choice", err)
+
+    def test_tree_takes_the_filter(self):
+        code, out, _ = _main(["tree", "--finding", "dangling-parent", "--format", "json"])
+        self.assertEqual(code, 0)
+        self.assertEqual([r["id"] for r in json.loads(out)], ["dangler"])
+
+    def test_json_carries_findings_without_the_flag(self):
+        code, out, _ = _main(["list", "--format", "json"])
+        by_id = {r["id"]: r["findings"] for r in json.loads(out)}
+        self.assertEqual(by_id["underivable"], ["underivable-status"])
+        self.assertEqual(by_id["clean"], [])
+
+    def test_tsv_has_a_findings_column(self):
+        _, out, _ = _main(["list", "--format", "tsv"])
+        header = out.splitlines()[0].split("\t")
+        self.assertIn("findings", header)
+
+    def test_table_shows_the_finding_column_only_with_the_flag(self):
+        _, plain, _ = _main(["list", "--color", "never"])
+        _, filtered, _ = _main(["list", "--finding", "--color", "never"])
+        self.assertNotIn("FINDING", plain)
+        self.assertIn("FINDING", filtered.splitlines()[0])
+        self.assertIn("dangling-parent", filtered)
+
+    def test_filtered_table_keeps_the_finding_column_at_a_narrow_width(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "50"}):
+            _, out, _ = _main(["list", "--finding", "--color", "never"])
+        self.assertIn("FINDING", out.splitlines()[0])
+
+    def test_columns_can_select_finding_without_the_flag(self):
+        _, out, _ = _main(["list", "--columns", "id,finding", "--color", "never"])
+        self.assertIn("underivable-status", out)
+
+    def test_show_lists_each_finding_with_its_hint(self):
+        _, out, _ = _main(["show", "dangler", "--color", "never"])
+        self.assertIn("dangling-parent: parent 'nope' does not resolve to a plan", out)
+        self.assertIn("  pentimento set <id> --parent <id>, or --clear-parent", out)
+
+    def test_show_prints_no_findings_for_a_clean_plan(self):
+        _, out, _ = _main(["show", "clean", "--color", "never"])
+        self.assertNotIn("does not resolve", out)
+        self.assertNotIn("pentimento set", out)
+
+    def test_show_json_carries_findings(self):
+        _, out, _ = _main(["show", "dangler", "--format", "json"])
+        self.assertEqual(json.loads(out)[0]["findings"], ["dangling-parent"])
 
 
 class CmdListSortTests(unittest.TestCase):

@@ -108,9 +108,10 @@ before truncating any; `--columns` (or `PENTIMENTO_COLUMNS`) overrides which
 columns show and in what order — see
 [docs/reference.md#columns](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#columns).
 `list` and `tree` share their filters: `--status`, `--intent`, `--project`,
-`--source`, `--starred`, `--tag`, the regex matches `--title` and `--grep`, and
-the date range `--since`/`--until`, which tests `modified` (the `UPDATED`
-column) unless `--date created` says otherwise.
+`--source`, `--starred`, `--tag`, `--finding` (plans with a `check` finding,
+or with one given `CODE`), the regex matches `--title` and `--grep`, and the
+date range `--since`/`--until`, which tests `modified` (the `UPDATED` column)
+unless `--date created` says otherwise.
 
 <!-- sample:list -->
 ```
@@ -212,7 +213,9 @@ beta      in progress
 — it always checks the whole corpus. The table's `PLAN` column uses the same
 short id as `list`/`tree`, and a line under the summary gives the fix for each
 `CODE`; `--format json|tsv` emits the full id in its `id` field and the fix in
-`hint`. See
+`hint`. To work through the findings, narrow with `list --finding <code>` or
+read one plan's with `show <id>`; the same codes are the `findings` field in
+`list`, `tree`, and `show` `--format json|tsv`. See
 [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
 for what each `CODE` means.
 
@@ -229,6 +232,7 @@ dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
 status-behind-history: pentimento history <id>, then pentimento set <id> --status <value>
 status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status <value>
 underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id> --status <value>
+narrow with: pentimento list --finding <code>
 ```
 <!-- /sample -->
 

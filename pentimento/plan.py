@@ -32,6 +32,7 @@ class Plan:
     text: str = ""
     ended: str = ""
     extras: frontmatter.Extras | None = None
+    findings: list[str] = dataclasses.field(default_factory=list)
 
     @property
     def modified(self) -> datetime.datetime:

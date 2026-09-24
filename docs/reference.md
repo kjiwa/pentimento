@@ -31,7 +31,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. The sorted-on column never drops, so the order it produces is always visible in `list`'s table. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
-| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings)); bare means any finding. `list` adds a `FINDING` column. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given, and `show` prints each finding with its fix. |
+| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings)); bare means any finding. `list` adds a `FINDING` column. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
 | `tree <id>` | Roots the tree at that plan: it plus every plan beneath it, resolved against the whole corpus, so `--project` is unnecessary. Filters apply inside the selection. |
 | `tree --ancestors` | Also walks up from `<id>` to its topmost ancestor, spine only -- the ancestors' other children stay out. Requires `<id>`; without one, exits 2 with `--ancestors requires a plan id`. |
 | `--title PATTERN` | Case-insensitive regex over the title only. An invalid pattern exits 2 with the regex error on stderr. |
@@ -42,7 +42,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `show --full` | Prints the whole body unclipped. Plain `show` clips to the terminal height on a tty and prints a hint to rerun with `--full`. |
 | `show --no-pager` | With `--full`, never pages. `--full` pipes through `$PAGER` (`less` if unset) only on a tty and only when the plan is longer than the terminal, so `show <id> --full > out.md` and `... \| cat` write the plain text with no pager and no colour. |
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
-| `set --status` | Sets `status` and, in the same write, `pinned: true` — an operator statement is immune to every future `backfill`, including `--rederive`, until `set --unpin` releases it. |
+| `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
 
 `list`, `tree`, and `check` tables display the short id: the shortest
 trailing run of at least two hyphen-separated segments that's unique across
@@ -55,8 +55,7 @@ as input. `--format json|tsv` output always emits the full id.
 `list`'s columns, left to right: `status intent project source id title
 finding tags created modified`. `TAGS`, `CREATED`, and `FINDING` only appear
 when at least one listed plan has tags, a `created` date, or a finding
-(`FINDING` shows under `--finding`, or when `--columns` names it); every
-other column always appears.
+(`FINDING` also shows under `--finding`); every other column always appears.
 
 As the table narrows, columns drop by rank, one at a time, before any
 column's text is truncated: `created`, `tags`, `source`, `project`,

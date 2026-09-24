@@ -4,13 +4,12 @@
 
 `check` treats an explicit status as an answer. A plan with `pinned` set, which
 `set --status` does by design, or with status `superseded`, no longer gets
-`status-behind-progress`, `status-behind-history`, or a prose-Progress finding;
-the one exception is `pin-behind-progress` (was `pin-diverged`), which fires
-only when the pin is below what `## Progress` derives. `underivable-status`
-(was `missing-progress`) now flags any unpinned `unknown` plan whose status
-can't be derived, whether the `## Progress` heading is absent or holds no
-checkboxes, and `status-behind-progress` now also catches a stored `unknown`,
-matching what `backfill` would advance.
+`status-behind-progress`, `status-behind-history`, or `underivable-status`;
+the one exception is `pin-behind-progress`, which fires only when the pin is
+below what `## Progress` derives. `underivable-status` flags any unpinned
+`unknown` plan whose status can't be derived, whether the `## Progress`
+heading is absent or holds no checkboxes, and `status-behind-progress` also
+catches a stored `unknown`, matching what `backfill` would advance.
 
 A finding is a plan attribute with a fix. Every finding carries a `hint`: the
 table prints one `code: fix` line per code under its summary, followed by
@@ -24,32 +23,33 @@ dimmed after a blank line as in `list`, and finding messages state the fact
 only. `docs/workflows.md` has a "Working through `check`" section, and
 `docs/troubleshooting.md` lists `unreadable-file`.
 
-One fact, one form, across commands. `tree` and the `created` field of
+Each fact has one form across commands. `tree` and the `created` field of
 `--format json|tsv` records use the date `list` shows as `CREATED`, which is
 `created` when set and otherwise the date `backfill` would write; a plan with
 no `created` field used to print nothing in `tree` and `null` in json.
 `history`'s `WHEN` no longer drops at narrow widths. The empty-corpus message
-`no plans found; searched: ...` now goes to stderr in every format for `list`,
-`tree`, `index`, and `backfill`, as it already did for `check`, so `--format
-json` still prints `[]` on stdout. `no session history for <id>` names the
-directory it searched, and an invalid project or tag names the valid form.
-`show` prints a finding's fix without the redundant `pentimento show` step.
-Help text is worded alike throughout: one `--dry-run` string, one plan-id
-string for every id argument and `--only`, `--sort` as the sort key and
-`--order` as the sort direction, and "requires" in place of "needs". `hook`
-and `index` gain examples, `completion`'s argument is named `SHELL`, and
-`--ascii` help matches its effect on every command.
-
-Breaking, for scripts: `set` exits 2 instead of 1 for an invalid `--project`
-or `--add-tag`, as the exit codes in `docs/reference.md` say of usage errors,
-and `--date` without a bound now reports "requires" rather than "needs".
+`no plans found; searched: ...` goes to stderr in every format for `list`,
+`tree`, `index`, and `backfill`, as it does for `check`, so `--format json`
+still prints `[]` on stdout. `no session history for <id>` names the directory
+it searched, and an invalid project or tag names the valid form. `show` prints
+a finding's fix without the redundant `pentimento show` step. Help text is
+worded alike throughout: one `--dry-run` string, one plan-id string for every
+id argument and `--only`, `--sort` as the sort key and `--order` as the sort
+direction, and "requires" in place of "needs". `hook` and `index` gain
+examples, `completion`'s argument is named `SHELL`, and `--ascii` help matches
+its effect on every command.
 
 `docs/reference.md` lists flags in parser order, states that ids are accepted
-as a short id, full id, filename, or path (`backfill --only` included), and no
-longer says `PENTIMENTO_NOW` affects `history`; a test now fails when a parser
-flag or its order drifts from that file. The `docs/reference.md` columns
-section says `TAGS` and `CREATED` follow the listed plans, not the whole
-corpus.
+as a short id, full id, filename, or path (`backfill --only` included), no
+longer says `PENTIMENTO_NOW` affects `history`, and says `TAGS` and `CREATED`
+follow the listed plans, not the whole corpus. A test fails when a parser flag
+or its order drifts from that file.
+
+Breaking, for scripts: `missing-progress` is now `underivable-status` and
+`pin-diverged` is now `pin-behind-progress`; `set` exits 2 instead of 1 for an
+invalid `--project` or `--add-tag`, as the exit codes in `docs/reference.md`
+say of usage errors; and `--date` without a bound reports "requires" rather
+than "needs".
 
 ## 0.1.13
 

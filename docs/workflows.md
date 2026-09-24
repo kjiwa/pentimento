@@ -187,10 +187,9 @@ you can judge it; see "Auditing what was actually done" below.
 
 Frontmatter `status` only reflects what the operator set or `backfill`
 derived from `## Progress` checkboxes — it says nothing about whether a
-later session actually picked the plan up. `pentimento check` surfaces the
-gap: `status-behind-history` fires on any `not-started`/`unknown` plan that
-a later, differently-slugged session read, edited, or delegated work on.
-`pentimento history <id>` shows that plan's full trail — one row per
+later session actually picked the plan up. `check` surfaces the gap as
+`status-behind-history` ([troubleshooting](troubleshooting.md#check-findings)).
+`pentimento history <id>` shows a plan's full trail — one row per
 session, `authored` for the session that wrote the plan and `worked` for
 every session since that touched it.
 
@@ -199,10 +198,9 @@ pentimento list --finding status-behind-history
 pentimento history some-plan-id
 ```
 
-Absence of history is not evidence of absent work — it just means no
-transcript naming that plan's path survives on this machine (see
-[docs/troubleshooting.md](troubleshooting.md)). Update `status` on the
-operator's own judgement; neither command writes anything.
+Absent history is not evidence of absent work
+([troubleshooting](troubleshooting.md#history-is-empty)). Set `status` on
+your own judgement; neither command writes anything.
 
 ## Keeping plans in git
 
@@ -226,18 +224,19 @@ plans themselves or serving as a static page.
 ## Scripting
 
 `check --format json|tsv` emits one record per finding: `code`, `id`,
-`message`, in the table's column order. `code` is the stable, greppable
-identifier that [docs/troubleshooting.md](troubleshooting.md) is indexed by;
-`message` is the human-readable sentence the table format prints.
+`message`, `hint`. `code` is the stable, greppable identifier that
+[docs/troubleshooting.md](troubleshooting.md) is indexed by; `message` is the
+sentence the table prints and `hint` the fix printed under its summary.
 
-`--format json` and `--format tsv` emit the same record for every plan:
+`list`, `tree`, and `show` emit the same record for every plan:
 
 ```
-id, title, status, pinned, intent, tags, parent, project, source, created, started, modified, path
+id, title, status, pinned, intent, tags, parent, project, source, created, started, modified, findings, path
 ```
 
 `started` and `modified` are UTC instants with whole seconds and a trailing
-`Z`; `created` is a date; `pinned` is `true` or `false` in `tsv`. `show
+`Z`; `created` is a date; `findings` holds `check` codes; `pinned` is `true`
+or `false` in `tsv`. `show
 --format json|tsv` adds a `body` field. This schema is fixed regardless of
 `--columns`/`PENTIMENTO_COLUMNS`, which shape `list`'s `--format table`
 output only. `tsv` drops non-scalar fields

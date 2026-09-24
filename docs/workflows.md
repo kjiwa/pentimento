@@ -213,7 +213,7 @@ says how the field is computed:
 | `status` | Yes | Derived from `## Progress` checkboxes in the body — no transcript involved. |
 | `parent` (body-referenced) | Yes | One of two lineage signals: a reference to another plan's id in the body preamble above the first `##` heading. |
 | `parent` (session-prompt-derived) | No | The other lineage signal: a reference in the originating session's first prompt — that transcript is machine-local. |
-| `project` | No | Derived from the common path of a session's `cwd` entries — no session, no derivation. |
+| `project` | No | Derived from the common path of a session's `cwd` entries — no session, no derivation. A session launched in `$HOME` takes the outermost launch directory its `cwd` entries and tool-call paths land in most. |
 | `modified` | No | Not a frontmatter field at all: `max(session end time, file mtime)` — a fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
 | `tags`, `intent`, operator-set `status` | Yes | Operator-authored frontmatter, written by `set`, never derived — plain YAML that travels with the file. |
 

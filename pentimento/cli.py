@@ -504,9 +504,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_check = _add_command(
         sub,
         "check",
-        "validate lineage and vocabulary; exits 1 on any finding",
+        "validate lineage, vocabulary, and status; exits 1 on any finding",
         description=(
-            "Validate lineage and vocabulary across the corpus. Exits 1 when "
+            "Validate lineage, vocabulary, and status across the corpus. Exits 1 when "
             f"anything is found; finding codes are in {_DOCS_URL}/troubleshooting.md."
         ),
     )
@@ -1027,7 +1027,7 @@ def cmd_check(args) -> int:
         unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
         if findings:
             columns = (
-                table.Column("CODE", drop=1),
+                table.Column("CODE"),
                 table.Column("PLAN"),
                 table.Column("MESSAGE", flex=2, comfort=40, floor=20),
             )
@@ -1040,9 +1040,12 @@ def cmd_check(args) -> int:
             print(
                 table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
             )
+            print()
         plan_count = counts.plural(len(plans), "plan")
         finding_count = counts.plural(len(findings), "finding")
-        print(f"{plan_count} checked, {finding_count}")
+        print(style.paint(f"{plan_count} checked, {finding_count}", style.DIM, on=on_color))
+        for code in sorted({f.code for f in findings}):
+            print(style.paint(f"{code}: {check_module.HINTS[code]}", style.DIM, on=on_color))
     else:
         columns = tuple(f.name for f in dataclasses.fields(check_module.Finding))
         formats.emit([dataclasses.asdict(f) for f in findings], args.format, sys.stdout, columns)

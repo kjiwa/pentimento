@@ -1243,6 +1243,27 @@ class CmdFooterTests(unittest.TestCase):
         output = self._run(args)
         self.assertIn("1 plan checked, 0 findings", output)
 
+    def test_check_prints_one_hint_per_code_after_the_summary(self):
+        body = (
+            "---\nparent: nope\nstatus: partial\n---\n\n# {}\n\n"
+            "## Progress\n- [ ] todo\n- [x] done\n"
+        )
+        _write(self.directory, "dangler", body.format("D"))
+        _write(self.directory, "dangler-two", body.format("D2"))
+        args = cli.build_parser().parse_args(["check", "--color", "never"])
+        lines = self._run(args).splitlines()
+        summary = next(i for i, line in enumerate(lines) if "plans checked" in line)
+        self.assertEqual(lines[summary - 1], "")
+        self.assertEqual(len(lines) - summary - 1, 1)
+        self.assertTrue(lines[summary + 1].startswith("dangling-parent: "))
+
+    def test_check_keeps_the_code_column_at_width_80(self):
+        _write(self.directory, "dangler", "---\nparent: nope\n---\n\n# D\n")
+        args = cli.build_parser().parse_args(["check", "--color", "never"])
+        with mock.patch.dict(os.environ, {"COLUMNS": "80"}):
+            output = self._run(args)
+        self.assertIn("CODE", output.splitlines()[0])
+
     def test_index_reports_summary(self):
         _write(self.directory, "root-plan", "# Root\n")
         args = cli.build_parser().parse_args(["index"])
@@ -1747,10 +1768,11 @@ class MachineFormatTests(unittest.TestCase):
         _write(self.directory, "dangler", "---\nparent: nope\n---\n\n# D\n")
         _, out, _ = _main(["check", "--format", "json"])
         record = json.loads(out)[0]
-        self.assertEqual(list(record), ["code", "id", "message"])
+        self.assertEqual(list(record), ["code", "id", "message", "hint"])
         self.assertEqual(record["id"], "dangler")
+        self.assertIn("pentimento set", record["hint"])
         header = _main(["check", "--format", "tsv"])[1].splitlines()[0]
-        self.assertEqual(header, "code\tid\tmessage")
+        self.assertEqual(header, "code\tid\tmessage\thint")
 
     def test_check_on_an_empty_corpus_prints_the_list_hint(self):
         empty = self.directory / "no-such-plans-dir"

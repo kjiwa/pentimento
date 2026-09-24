@@ -210,17 +210,25 @@ beta      in progress
 
 `check` validates the corpus and exits 1 on any finding. It takes no plan id
 — it always checks the whole corpus. The table's `PLAN` column uses the same
-short id as `list`/`tree`; `--format json|tsv` emits the full id in its
-`plan_id` field. See
+short id as `list`/`tree`, and a line under the summary gives the fix for each
+`CODE`; `--format json|tsv` emits the full id in its `id` field and the fix in
+`hint`. See
 [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
-for what each `CODE` means and how to fix it.
+for what each `CODE` means.
 
 <!-- sample:check -->
 ```
-CODE                   PLAN           MESSAGE
-dangling-parent        invoice-retry  parent 'no-such-plan' does not resolve to a plan
-status-behind-history  auth-cleanup   status 'not-started' but 1 later session worked this plan; see `pentime…
-8 plans checked, 2 findings
+CODE                    PLAN                  MESSAGE
+dangling-parent         invoice-retry         parent 'no-such-plan' does not resolve to a plan
+underivable-status      invoice-retry         '## Progress' has no checkboxes or recognized phrase
+status-behind-history   auth-cleanup          status 'not-started' but 1 later session worked this plan
+status-behind-progress  onboarding-checklist  status 'unknown' but '## Progress' derives 'not-started'
+
+8 plans checked, 4 findings
+dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
+status-behind-history: pentimento history <id>, then pentimento set <id> --status <value>
+status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status <value>
+underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id> --status <value>
 ```
 <!-- /sample -->
 
@@ -261,7 +269,7 @@ The vocabulary lives in one place:
 | Field | Set by | How |
 | --- | --- | --- |
 | `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly — the only way to set `superseded`, which no derivation ever produces or overwrites — and pins it (see `pinned`). |
-| `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched. |
+| `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched and `check` skips the plan's status findings. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived. `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
 | `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference (an `<id>.md` literal or a trailing codename) to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |

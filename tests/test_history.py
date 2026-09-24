@@ -89,10 +89,22 @@ class RenderTests(unittest.TestCase):
         self.assertIn("implement-it-later", lines[1])
         self.assertIn("worked", lines[1])
 
-    def test_when_never_drops_at_a_narrow_width(self):
+    def test_a_narrow_width_stacks_with_every_field_kept(self):
         plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
         rendered = _with_width(30, lambda: history.render("the-plan", plan_touches, on_color=False))
-        self.assertIn("WHEN", rendered.split("\n")[0])
+        lines = rendered.split("\n")
+        self.assertEqual(lines[0], "implement-it-later")
+        self.assertIn("worked", lines[1])
+        self.assertRegex(lines[1], r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
+        self.assertNotIn("WHEN", rendered)
+
+    def test_unbounded_width_never_truncates_the_session(self):
+        session = "implement-a-session-name-that-is-longer-than-any-floor"
+        plan_touches = [_touch(session, "Read", "2026-09-05T00:00:00.000Z")]
+        rendered = _with_width(
+            None, lambda: history.render("the-plan", plan_touches, on_color=False)
+        )
+        self.assertIn(session, rendered)
 
 
 if __name__ == "__main__":

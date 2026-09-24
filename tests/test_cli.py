@@ -1415,10 +1415,11 @@ class FindingTests(unittest.TestCase):
         self.assertIn("FINDING", filtered.splitlines()[0])
         self.assertIn("dangling-parent", filtered)
 
-    def test_filtered_table_keeps_the_finding_column_at_a_narrow_width(self):
+    def test_narrow_stacked_list_keeps_the_findings(self):
         with mock.patch.dict(os.environ, {"COLUMNS": "50"}):
             _, out, _ = _main(["list", "--finding", "--color", "never"])
-        self.assertIn("FINDING", out.splitlines()[0])
+        self.assertNotIn("FINDING", out)
+        self.assertIn("dangling-parent", out)
 
     def test_columns_can_select_finding_without_the_flag(self):
         _, out, _ = _main(["list", "--columns", "id,finding", "--color", "never"])

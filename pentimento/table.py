@@ -1,103 +1,166 @@
-"""Content-width column rendering shared by `list` and `check`."""
+"""Column rendering shared by `list`, `check`, and `history`: a table when every
+column fits at its floor, otherwise one stacked record per row."""
 
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 
 from pentimento import style
 from pentimento.style import Cell
+
+FIXED, TRUNCATE, WRAP = "fixed", "truncate", "wrap"
+MAX_WRAP_LINES = 3
+STACK_INDENT = "  "
 
 
 @dataclasses.dataclass(frozen=True)
 class Column:
     header: str
     align: str = "left"  # "left" | "right"
-    flex: int = 0  # 0 fixed; 1 shrinks first, 2 next
-    comfort: int = 0  # mild-truncation floor
-    floor: int = 0  # hard floor
-    drop: int = 0  # 0 never dropped; low positive numbers drop first
+    fit: str = FIXED  # FIXED never shrinks; TRUNCATE cuts to one line; WRAP breaks at spaces
+    floor: int = 0  # narrowest width a TRUNCATE or WRAP column keeps in a table
+    shorten: Callable[[str, int], str] = style.truncate
 
 
-def _natural_widths(columns: tuple[Column, ...], rows: list[tuple[Cell, ...]]) -> dict[Column, int]:
-    widths = {}
-    for index, column in enumerate(columns):
-        values = [row[index][0] for row in rows]
-        widths[column] = (
-            max(style.display_width(column.header), *(style.display_width(v) for v in values))
-            if values
-            else style.display_width(column.header)
-        )
+def _natural_widths(columns: tuple[Column, ...], rows: list[tuple[Cell, ...]]) -> list[int]:
+    return [
+        max([style.display_width(column.header), *(style.display_width(r[index][0]) for r in rows)])
+        for index, column in enumerate(columns)
+    ]
+
+
+def _minimum_widths(columns: tuple[Column, ...], natural: list[int]) -> list[int]:
+    return [
+        width if column.fit == FIXED else min(column.floor, width)
+        for column, width in zip(columns, natural, strict=True)
+    ]
+
+
+def _table_widths(
+    columns: tuple[Column, ...], natural: list[int], width: int | None
+) -> list[int] | None:
+    """Column widths for a table within `width`, or `None` when the floors do not fit.
+
+    Spare width goes to the flexible columns, narrowest natural width first, so
+    short values stay whole and the longest column takes what is left.
+    """
+    if width is None or _headline(columns) is None:
+        return natural
+    widths = _minimum_widths(columns, natural)
+    spare = width - sum(widths) - style.GUTTER * (len(columns) - 1)
+    if spare < 0:
+        return None
+    flexible = [i for i, column in enumerate(columns) if column.fit != FIXED]
+    for index in sorted(flexible, key=lambda i: natural[i]):
+        grow = min(spare, natural[index] - widths[index])
+        widths[index] += grow
+        spare -= grow
     return widths
 
 
-def _total(widths: dict[Column, int], active: list[Column]) -> int:
-    if not active:
-        return 0
-    return sum(widths[c] for c in active) + style.GUTTER * (len(active) - 1)
-
-
-def _shrink(
-    widths: dict[Column, int], active: list[Column], attr: str, width: int
-) -> tuple[dict[Column, int], bool]:
-    widths = dict(widths)
-    for column in sorted((c for c in active if c.flex > 0), key=lambda c: c.flex):
-        excess = _total(widths, active) - width
-        if excess <= 0:
-            break
-        widths[column] = max(getattr(column, attr), widths[column] - excess)
-    return widths, _total(widths, active) <= width
-
-
-def _fit(
-    columns: tuple[Column, ...], natural: dict[Column, int], width: int
-) -> tuple[list[Column], dict[Column, int]]:
-    active = list(columns)
-    while True:
-        widths = {c: natural[c] for c in active}
-        if _total(widths, active) <= width:
-            return active, widths
-
-        widths, fits = _shrink(widths, active, "comfort", width)
-        if fits:
-            return active, widths
-
-        droppable = [c for c in active if c.drop > 0]
-        if droppable:
-            victim = min(droppable, key=lambda c: c.drop)
-            active = [c for c in active if c is not victim]
-            continue
-
-        widths, _fits = _shrink(widths, active, "floor", width)
-        return active, widths
+def _headline(columns: tuple[Column, ...]) -> int | None:
+    """The column whose text opens a stacked record: the one with the largest floor."""
+    floors = [column.floor for column in columns]
+    if not any(floors):
+        return None
+    return floors.index(max(floors))
 
 
 def _pad(text: str, width: int, align: str) -> str:
     return text.rjust(width) if align == "right" else text.ljust(width)
 
 
-def _render_row(
-    active: list[Column],
-    widths: dict[Column, int],
-    cells: list[Cell],
+def _cell_lines(column: Column, text: str, width: int) -> list[str]:
+    if column.fit == WRAP:
+        return style.wrap(text, width)
+    return [column.shorten(text, width) if text else ""]
+
+
+def _table_row(
+    columns: tuple[Column, ...], widths: list[int], row: tuple[Cell, ...], on_color: bool
+) -> list[str] | None:
+    """The physical lines of one row, or `None` when a wrapped cell needs too many."""
+    cell_lines = [
+        _cell_lines(column, text, width)
+        for column, (text, _), width in zip(columns, row, widths, strict=True)
+    ]
+    height = max(len(lines) for lines in cell_lines)
+    if height > MAX_WRAP_LINES:
+        return None
+    return [
+        _join_line(columns, widths, row, [_line_at(lines, n) for lines in cell_lines], on_color)
+        for n in range(height)
+    ]
+
+
+def _line_at(lines: list[str], line_number: int) -> str:
+    return lines[line_number] if line_number < len(lines) else ""
+
+
+def _join_line(
+    columns: tuple[Column, ...],
+    widths: list[int],
+    row: tuple[Cell, ...],
+    texts: list[str],
+    on_color: bool,
+) -> str:
+    """Pad each cell to its column, drop trailing blank cells, and paint."""
+    parts = [
+        [_pad(text, width, column.align), codes]
+        for column, width, text, (_, codes) in zip(columns, widths, texts, row, strict=True)
+    ]
+    while parts and not parts[-1][0].strip():
+        parts.pop()
+    if parts and columns[len(parts) - 1].align == "left":
+        parts[-1][0] = parts[-1][0].rstrip()
+    return (" " * style.GUTTER).join(style.paint(t, *codes, on=on_color) for t, codes in parts)
+
+
+def _table(
+    columns: tuple[Column, ...],
+    rows: list[tuple[Cell, ...]],
+    widths: list[int],
+    on_color: bool,
+) -> str | None:
+    header_cells = tuple((column.header, (style.BOLD,)) for column in columns)
+    lines = _table_row(columns, widths, header_cells, on_color)
+    for row in rows:
+        row_lines = _table_row(columns, widths, row, on_color)
+        if row_lines is None:
+            return None
+        lines.extend(row_lines)
+    return "\n".join(lines)
+
+
+def _stacked_record(
+    columns: tuple[Column, ...],
+    headline: int,
+    row: tuple[Cell, ...],
+    width: int,
+    on_color: bool,
+) -> list[str]:
+    text, codes = row[headline]
+    if columns[headline].fit == WRAP:
+        head = style.wrap(text, width)
+    else:
+        head = [style.truncate(text, width)]
+    lines = [style.paint(line, *codes, on=on_color) for line in head if line]
+    fields = [cell for index, cell in enumerate(row) if index != headline and cell[0]]
+    return lines + style.wrap_fields(fields, "  ", width, STACK_INDENT, on_color=on_color)
+
+
+def _stacked(
+    columns: tuple[Column, ...],
+    rows: list[tuple[Cell, ...]],
     width: int,
     on_color: bool,
 ) -> str:
-    parts = []
-    used = 0
-    for index, column in enumerate(active):
-        text, codes = cells[index]
-        is_last = index == len(active) - 1
-        gutter = style.GUTTER if parts else 0
-        remaining = width - used - gutter
-        if remaining <= 0:
-            break
-        col_width = min(widths[column], remaining)
-        cell_text = style.truncate(text, col_width)
-        if column.align == "right" or not is_last:
-            cell_text = _pad(cell_text, col_width, column.align)
-        parts.append(style.paint(cell_text, *codes, on=on_color))
-        used += gutter + col_width
-    return (" " * style.GUTTER).join(parts)
+    headline = _headline(columns)
+    lines = []
+    for row in rows:
+        lines.extend(_stacked_record(columns, headline, row, width, on_color))
+    return "\n".join(lines)
 
 
 def render(
@@ -105,18 +168,11 @@ def render(
     rows: list[tuple[Cell, ...]],
     *,
     on_color: bool,
-    width: int,
+    width: int | None,
 ) -> str:
     natural = _natural_widths(columns, rows)
-    active, widths = _fit(columns, natural, width)
-    index_by_column = {c: i for i, c in enumerate(columns)}
-
-    header_cells = [(c.header, ()) for c in active]
-    header_line = _render_row(active, widths, header_cells, width, on_color=False)
-    header = style.paint(header_line, style.BOLD, on=on_color)
-
-    lines = [header]
-    for row in rows:
-        active_cells = [row[index_by_column[c]] for c in active]
-        lines.append(_render_row(active, widths, active_cells, width, on_color))
-    return "\n".join(lines)
+    widths = _table_widths(columns, natural, width)
+    table = None if widths is None else _table(columns, rows, widths, on_color)
+    if table is not None:
+        return table
+    return _stacked(columns, rows, width, on_color)

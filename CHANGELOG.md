@@ -21,6 +21,16 @@ and `history`; trees draw with `tree(1)` connectors (`|--`, `` `-- ``), `show`
 uses `-` bullets, `[x]`/`[ ]` checkboxes, and `...`, and truncation ends in
 `...`. Plan text is passed through unchanged.
 
+`list`, `check`, and `history` no longer drop columns as the terminal narrows.
+A table prints when every column fits (`TITLE` at 30 columns or more, `PROJECT`
+and `TAGS` at 10 or more, `TAGS` ending in `+N` for tags left out); otherwise
+each row prints as a stacked record with every field kept. Output that is not a
+terminal, with `COLUMNS` unset, is never width-bound, so `list | grep` sees
+whole lines. `list` columns now run `id status intent project source title
+finding tags created modified`, and tags print as `[a, b]`. `tree` truncates
+only a node's title and wraps its metadata line between fields; `show` wraps
+finding lines to the terminal width.
+
 ## 0.1.15
 
 `backfill` no longer names a plan `home` when its session was launched in `$HOME`.

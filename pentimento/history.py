@@ -16,9 +16,9 @@ from pentimento import touches as touches_module
 FIELDS = ("when", "what", "session", "touches")
 
 COLUMNS = (
-    table.Column("WHEN", drop=0),
+    table.Column("WHEN"),
     table.Column("WHAT"),
-    table.Column("SESSION", flex=1, comfort=32, floor=16),
+    table.Column("SESSION", fit=table.TRUNCATE, floor=16),
     table.Column("TOUCHES", align="right"),
 )
 

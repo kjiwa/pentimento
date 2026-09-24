@@ -96,11 +96,13 @@ below what `## Progress` derives.
 | `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
 
-## A `list` column I expected is missing
+## `list` shows records instead of a table
 
-`TAGS`, `CREATED`, and `FINDING` are hidden when no listed plan has a value,
-and any column drops when the table is too narrow. `--columns` names exactly
-the columns you want; see [docs/reference.md#columns](reference.md#columns).
+When the terminal is too narrow for every column, `list` prints each plan as a
+title line with its other fields beneath, and truncates `TITLE`, `PROJECT`,
+and `TAGS` in a table. Widen the terminal, or pick fewer columns with
+`--columns`; see [docs/reference.md#columns](reference.md#columns). `TAGS`,
+`CREATED`, and `FINDING` are omitted when no listed plan has a value.
 
 ## `history` is empty
 

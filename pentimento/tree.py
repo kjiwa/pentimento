@@ -83,7 +83,7 @@ class _RenderContext:
     lines: list
     visited: set
     on_color: bool
-    width: int
+    width: int | None
     short_ids: dict
 
 
@@ -93,7 +93,8 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     title_line = f"{prefix}{connector}{plan.title}"
     if annotation_text:
         title_line += f" {annotation_text}"
-    title_line = style.truncate(title_line, ctx.width)
+    if ctx.width is not None:
+        title_line = style.truncate(title_line, ctx.width)
     if annotation_text and title_line.endswith(annotation_text):
         title_line = title_line[: -len(annotation_text)] + style.paint(
             annotation_text, style.DIM, on=ctx.on_color
@@ -113,13 +114,7 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
     if is_repeat:
         cells.append(("(cycle)", ()))
     prefix_text = f"{child_prefix}  "
-    meta_line = prefix_text + style.truncate_cells(
-        cells,
-        "  ",
-        ctx.width - style.display_width(prefix_text),
-        on_color=ctx.on_color,
-    )
-    ctx.lines.append(meta_line)
+    ctx.lines.extend(style.wrap_fields(cells, "  ", ctx.width, prefix_text, on_color=ctx.on_color))
 
     if is_repeat:
         return

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 import unicodedata
 
 from pentimento import vocabulary as vocabulary_module
@@ -83,8 +84,14 @@ def paint(text: str, *codes: str, on: bool) -> str:
     return "".join(codes) + text + RESET
 
 
-def terminal_width() -> int:
-    return shutil.get_terminal_size().columns
+def terminal_width() -> int | None:
+    """`COLUMNS` if set, else the tty width on a tty, else `None` (unbounded)."""
+    columns = os.environ.get("COLUMNS", "")
+    if columns.isdigit() and int(columns) > 0:
+        return int(columns)
+    if sys.stdout.isatty():
+        return shutil.get_terminal_size().columns
+    return None
 
 
 def terminal_height() -> int:
@@ -138,32 +145,60 @@ def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[
     return plain, painted
 
 
-def truncate_cells(cells: list[Cell], separator: str, width: int, *, on_color: bool) -> str:
-    """Join `cells` under a `width` column budget.
+def _chunks(text: str, width: int) -> list[str]:
+    """Hard-wrap `text` into pieces of at most `width` display columns."""
+    pieces = []
+    while text:
+        piece, text = split_width(text, width)
+        if not piece:
+            piece, text = text[:1], text[1:]
+        pieces.append(piece)
+    return pieces
 
-    Only the cell that straddles the limit is truncated, and its unpainted
-    text is what gets truncated -- painting happens last, same invariant
-    as everywhere else in this module.
-    """
-    sep_width = display_width(separator)
-    parts = []
-    used = 0
-    for index, (text, codes) in enumerate(cells):
-        gap = sep_width if index else 0
-        text_width = display_width(text)
-        if used + gap + text_width <= width:
-            if gap:
-                parts.append(separator)
-            parts.append(paint(text, *codes, on=on_color))
-            used += gap + text_width
+
+def wrap(text: str, width: int) -> list[str]:
+    """Wrap `text` at spaces to `width` display columns; a word wider than
+    `width` hard-wraps."""
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}" if current else word
+        if display_width(candidate) <= width:
+            current = candidate
             continue
-        remaining = width - used - gap
-        if remaining > 0:
+        if current:
+            lines.append(current)
+        *full, current = _chunks(word, width)
+        lines.extend(full)
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def wrap_fields(
+    cells: list[Cell], separator: str, width: int | None, indent: str, *, on_color: bool
+) -> list[str]:
+    """Pack `cells` onto lines of at most `width` columns, each starting with
+    `indent`. A line breaks only between cells; a cell wider than the line
+    hard-wraps. Painting happens last, on the unpainted pieces.
+    """
+    room = None if width is None else max(1, width - display_width(indent))
+    sep_width = display_width(separator)
+    lines: list[list[str]] = [[]]
+    used = 0
+    for text, codes in cells:
+        pieces = [text] if room is None else _chunks(text, room)
+        for index, piece in enumerate(pieces):
+            gap = sep_width if lines[-1] and not index else 0
+            piece_width = display_width(piece)
+            if lines[-1] and (index or (room is not None and used + gap + piece_width > room)):
+                lines.append([])
+                used, gap = 0, 0
             if gap:
-                parts.append(separator)
-            parts.append(paint(truncate(text, remaining), *codes, on=on_color))
-        break
-    return "".join(parts)
+                lines[-1].append(separator)
+            lines[-1].append(paint(piece, *codes, on=on_color))
+            used += gap + piece_width
+    return [indent + "".join(parts) for parts in lines if parts]
 
 
 GLYPHS = {

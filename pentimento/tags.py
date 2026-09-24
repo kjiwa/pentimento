@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from pentimento import style
+
 _VALID = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
 
 
@@ -27,6 +29,18 @@ def render(tags) -> str:
     if not tags:
         return ""
     return "[" + ", ".join(tags) + "]"
+
+
+def shorten(rendered: str, width: int) -> str:
+    """Fit a `render`ed tag list to `width`: whole tags, then `+N` for the rest."""
+    if style.display_width(rendered) <= width:
+        return rendered
+    tags = rendered[1:-1].split(", ")
+    for kept in range(len(tags) - 1, -1, -1):
+        candidate = render([*tags[:kept], f"+{len(tags) - kept}"])
+        if style.display_width(candidate) <= width:
+            return candidate
+    return style.truncate(rendered, width)
 
 
 def normalize(tag: str) -> str:

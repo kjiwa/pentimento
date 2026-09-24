@@ -370,10 +370,9 @@ def build_parser() -> argparse.ArgumentParser:
         "flat table of plans",
         description=(
             "One line per plan; the row nearest the prompt is the most recent. TAGS "
-            "and CREATED appear only when the corpus has them; as the terminal "
-            "narrows, columns drop in this order: CREATED, TAGS, SOURCE, PROJECT, "
-            "INTENT, STATUS, then PLAN -- TITLE and UPDATED never drop. --columns "
-            "overrides both rules, and the --sort key's column never drops."
+            "and CREATED appear only when the corpus has them. When the terminal is "
+            "too narrow for the table, each plan prints as a short record with every "
+            "field kept; see docs/reference.md#columns."
         ),
         epilog=(
             "Examples:\n"
@@ -395,8 +394,8 @@ def build_parser() -> argparse.ArgumentParser:
             "which table columns to show and in what order: an absolute, comma-"
             "separated list (e.g. status,title); +name/-name to add/remove from the "
             "default set (write -name as --columns=-name); or 'all'. Names are the "
-            "record fields: status, intent, project, source, id, title, tags, created, "
-            "modified. Table format only; defaults to PENTIMENTO_COLUMNS"
+            f"record fields: {', '.join(listing.NAMES)}. "
+            "Table format only; defaults to PENTIMENTO_COLUMNS"
         ),
     )
     sort_group = _add_sort_args(p_list)
@@ -683,13 +682,12 @@ def cmd_list(args) -> int:
         )
         return 0
 
-    pin = (args.sort, "finding") if _finding_requested(args) else (args.sort,)
     return _render_table_or_empty(
         corpus_plans,
         plans,
         args,
         lambda on_color, short_ids: listing.render(
-            plans, on_color, short_ids=short_ids, selection=selection, pin=pin
+            plans, on_color, short_ids=short_ids, selection=selection
         ),
     )
 
@@ -812,13 +810,15 @@ def _show_header(target, width: int, *, on_color: bool) -> list[str]:
     return lines
 
 
-def _show_findings(found, on_color: bool) -> list[str]:
+def _show_findings(found, width: int, on_color: bool) -> list[str]:
     lines = []
     for finding in found:
-        lines.append(f"{style.paint(finding.code, style.RED, on=on_color)}: {finding.message}")
-        lines.append(
-            style.paint(f"  {check_module.show_hint(finding.code)}", style.DIM, on=on_color)
-        )
+        first, *rest = style.wrap(f"{finding.code}: {finding.message}", width)
+        code, tail = first.split(":", 1)
+        lines.append(style.paint(code, style.RED, on=on_color) + ":" + tail)
+        lines.extend(rest)
+        hint = style.wrap(check_module.show_hint(finding.code), width - len(table.STACK_INDENT))
+        lines.extend(style.paint(table.STACK_INDENT + h, style.DIM, on=on_color) for h in hint)
     if lines:
         lines.append("")
     return lines
@@ -846,9 +846,9 @@ def cmd_show(args) -> int:
         return 0
 
     on_color = style.enabled(sys.stdout, args.color)
-    width = min(style.terminal_width(), markdown.MAX_WIDTH)
+    width = min(style.terminal_width() or markdown.MAX_WIDTH, markdown.MAX_WIDTH)
 
-    header = _show_header(target, width, on_color=on_color) + _show_findings(found, on_color)
+    header = _show_header(target, width, on_color=on_color) + _show_findings(found, width, on_color)
     body_text = plan_module.body_below_title(target.body)
     body = markdown.render(body_text, on_color=on_color, width=width)
     if _should_page(args, len(header) + len(body)):
@@ -1112,7 +1112,7 @@ def cmd_check(args) -> int:
             columns = (
                 table.Column("CODE"),
                 table.Column("PLAN"),
-                table.Column("MESSAGE", flex=2, comfort=40, floor=20),
+                table.Column("MESSAGE", fit=table.WRAP, floor=20),
             )
             short = shortid.shorten(p.id for p in plans)
             rows = [

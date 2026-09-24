@@ -27,7 +27,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | --- | --- |
 | `--format table\|json\|tsv` | Defaults to `table` (human-readable); `json` and `tsv` are for scripting. |
 | `--color auto\|always\|never` | Defaults to `auto`: ANSI colour on a tty, off when piped, when `NO_COLOR` is set, or when `TERM=dumb`. |
-| `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. The sorted-on column never drops, so the order it produces is always visible in `list`'s table. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
+| `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
 | `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` adds a `FINDING` column. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
@@ -51,32 +51,47 @@ as input. `--format json|tsv` output always emits the full id.
 
 ## Columns
 
-`list`'s columns, left to right: `status intent project source id title
-finding tags created modified`. `TAGS`, `CREATED`, and `FINDING` only appear
-when at least one listed plan has tags, a `created` date, or a finding
-(`FINDING` also shows under `--finding`); every other column always appears.
+`list`'s columns, left to right: `id status intent project source title
+finding tags created modified`, shown as `PLAN`, `STATUS`, `INTENT`, `PROJECT`,
+`SOURCE`, `TITLE`, `FINDING`, `TAGS`, `CREATED`, `UPDATED`. `TAGS`, `CREATED`,
+and `FINDING` only appear when at least one listed plan has tags, a `created`
+date, or a finding (`FINDING` also shows under `--finding`); every other
+column always appears. No column is ever dropped for width.
 
-As the table narrows, columns drop by rank, one at a time, before any
-column's text is truncated: `created`, `tags`, `source`, `project`,
-`intent`, `status`, `id`, then `finding`. `title` and `modified` never drop;
-they shrink instead.
+`list`, `check`, and `history` choose one of two layouts by terminal width:
 
-`--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides both
-rules -- content and width. `SPEC` is one of:
+- **Table**, one line per row (`check` wraps `MESSAGE` onto at most 3 lines),
+  when every column fits at its floor. `PLAN`, `STATUS`, `INTENT`, `SOURCE`,
+  `CREATED`, `UPDATED`, and `FINDING` always print whole. `PROJECT` truncates
+  to at least 10 columns, `TITLE` to at least 30, and `TAGS` to at least 10,
+  ending in `...`; `TAGS` keeps whole tags and ends in `+N` for the rest
+  (`[auth, cloudfront, +3]`). Spare width goes to the narrowest truncated
+  columns first, so the longest, usually `TITLE`, takes what is left.
+- **Stacked records** otherwise, with no header line. Each record's first line
+  is its title (its message, for `check`), truncated with `...` to the width;
+  the remaining non-empty fields follow in column order, indented two spaces
+  and wrapped between fields, so nothing is lost. Tags keep their brackets so
+  a value stays identifiable without a header.
+
+The narrowest table width depends on the listed plans (their id, intent, and
+date widths) and is roughly 125 to 135 columns for a full `list`. `--columns`
+with fewer columns fits a table in less. When `COLUMNS` is unset and output is
+not a terminal, as in `pentimento list | grep`, width is unbounded: always a
+table, nothing truncated. `tree` truncates a node's title with `...` and wraps
+its metadata line between fields.
+
+`--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides which
+columns appear, regardless of content. `SPEC` is one of:
 
 - an absolute, comma-separated list, e.g. `--columns created,title,status`
-  -- rendered in exactly that order, final regardless of content or width
+  -- rendered in exactly that order, final regardless of content
 - one or more `+name`/`-name` modifiers on the content-derived default set,
   e.g. `--columns +created` or `--columns=-source,-project` (the `=` form keeps
   argparse from reading a leading `-` as a flag)
 - `all`, every column in canonical order
 
 Mixing absolute and relative names in one `--columns` is an error, as is an
-unknown or empty name; both messages list the valid names. Whichever way a
-column is named -- explicitly in `--columns`, as the `--sort` key's column, or
-as `FINDING` under `--finding` -- it never drops for width, though it
-truncates like any other column if the terminal is too narrow to show it
-whole.
+unknown or empty name; both messages list the valid names.
 
 ## Exit codes
 

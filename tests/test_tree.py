@@ -186,6 +186,54 @@ class FitGuaranteeTests(unittest.TestCase):
                 )
 
 
+class LayoutTests(unittest.TestCase):
+    def _plan(self):
+        return FakePlan(
+            id="api-auth-rollout",
+            title="Roll out the new auth API across every service",
+            status="partial",
+            intent="active",
+            tags=["auth", "security", "platform"],
+            created="2026-01-02",
+            mtime=2,
+        )
+
+    def _meta_fields(self, width):
+        rendered = _with_width(width, lambda: tree.render([self._plan()]))
+        return rendered.split("\n")[1:]
+
+    def test_every_meta_field_survives_every_width_in_order(self):
+        for width in (40, 60, 110, 140, None):
+            text = " ".join(self._meta_fields(width))
+            positions = [
+                text.index(field)
+                for field in (
+                    "auth-rollout",
+                    "partial",
+                    "active",
+                    "[auth, security, platform]",
+                    "2026-01-02",
+                )
+            ]
+            self.assertEqual(positions, sorted(positions), f"width={width}")
+            self.assertRegex(text, r"\d+y", f"width={width}")
+
+    def test_meta_line_wraps_under_its_own_indent(self):
+        lines = self._meta_fields(40)
+        self.assertGreater(len(lines), 1)
+        self.assertTrue(all(line.startswith("      ") for line in lines))
+
+    def test_title_truncates_with_an_ellipsis(self):
+        title = _with_width(40, lambda: tree.render([self._plan()])).split("\n")[0]
+        self.assertTrue(title.endswith("..."))
+        self.assertLessEqual(style.display_width(title), 40)
+
+    def test_unbounded_width_shortens_nothing(self):
+        lines = _with_width(None, lambda: tree.render([self._plan()])).split("\n")
+        self.assertEqual(len(lines), 2)
+        self.assertIn("across every service", lines[0])
+
+
 class AsRecordsTests(unittest.TestCase):
     def test_children_nest_under_parent(self):
         root = FakePlan(id="root", title="Root")

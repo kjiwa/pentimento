@@ -121,6 +121,15 @@ by a fuzzier pattern, use `--title` or `--grep`. Lineage is structural, not
 cross-cutting: pulling a single thread of subplans back out is `tree <id>`'s
 job, not a tag's.
 
+A thread whose subplans are mostly tagged surfaces the stragglers: `check`
+flags an untagged plan as `unadopted-tag` when its parent and a tagged
+sibling share tags. One command per thread applies the tag to all of them:
+
+```sh
+pentimento list --finding unadopted-tag
+pentimento set <id> <id> --add-tag <tag>
+```
+
 ## Following a thread
 
 A topic often outgrows one plan and spawns subplans, but tagging them is
@@ -142,6 +151,10 @@ selection, so `tree <id> --status partial` answers "what's left on this
 thread". A plan whose recorded parent isn't in the selection gets a
 `(parent elided: <id>)` annotation on its root line: the thread continues
 above — `--ancestors` shows it.
+
+To tag a thread instead, `pentimento list --finding unadopted-tag` finds the
+untagged subplans and `pentimento set <ids> --add-tag <tag>` tags them in one
+command.
 
 `pentimento tree --project platform` still groups a whole project's plans
 into trees, root to leaf, for

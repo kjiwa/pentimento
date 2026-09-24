@@ -81,6 +81,8 @@ plan a change to a shared workflow and it should run `pentimento list --title
 A plan is unfindable later when it has run (`status` is `partial` or
 `complete`) but has no `intent` (`unset`) or no `tags`. Neither field can be
 derived, and the end of execution is when nobody remembers to set them.
+`pentimento check` already names the tag case for a subplan of a tagged
+thread (`unadopted-tag`), with the tags to add.
 
 A `PostToolUse` hook on `Write|Edit` can record each plan a session writes,
 and a `Stop` hook can check those plans against that rule with `pentimento

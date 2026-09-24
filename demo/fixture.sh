@@ -4,8 +4,9 @@
 # Usage: fixture.sh TARGET_DIR
 #
 # Spans every status and intent, a two-level parent chain, two projects,
-# one raw (frontmatter-less) plan for the backfill step to work on, and
-# one deliberate dangling parent for the check step to flag. mtimes are
+# one raw (frontmatter-less) plan for the backfill step to work on, one
+# deliberate dangling parent for the check step to flag, and one untagged plan
+# (`api-auth-docs`) beside its tagged sibling for `unadopted-tag`. mtimes are
 # set relative to now so the relative-time column stays truthful whenever
 # samples are regenerated. A synthetic session log under
 # `$TARGET_DIR/sessions/` gives the api-auth-* chain real touch history: one
@@ -173,6 +174,15 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
   _write_session "$TARGET_DIR/sessions/platform" api-auth-cleanup-session.jsonl \
     api-auth-cleanup /home/user/src/example "$FIXTURE_SESSION_TS" \
     Write /home/user/.claude/plans/api-auth-cleanup.md
+
+  _write_plan api-auth-docs "Document the new auth API" not-started unset \
+    platform api-auth-rollout 12 \
+    '## Progress
+
+- [ ] Write the migration guide'
+  _write_session "$TARGET_DIR/sessions/platform" api-auth-docs-session.jsonl \
+    api-auth-docs /home/user/src/example "$FIXTURE_SESSION_TS" \
+    Write /home/user/.claude/plans/api-auth-docs.md
 
   _fixture_worked_ts=$(_stamp_days_ago 3 | sed -n '3p')
   _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \

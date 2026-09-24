@@ -121,11 +121,12 @@ auth-redesign         complete     abandoned  platform  claude  Redesign the aut
 dunning-copy          complete     someday    billing   claude  Rewrite dunning email copy      [billing]        2026-08-20       3w
 auth-rollout          partial      active     platform  claude  Roll out the new auth API       [auth, +1]       2026-08-25       2w
 auth-cleanup          not-started  queued     platform  claude  Remove the old auth API         [auth, +1]       2026-08-30       2w
+auth-docs             not-started  unset      platform  claude  Document the new auth API                        2026-09-02       1w
 invoice-retry         unknown      unset      billing   claude  Retry failed invoice charges    [billing]        2026-09-04       1w
 relevance-tuning      not-started  active     billing   claude  Tune search relevance           [search]         2026-09-09       5d
 onboarding-checklist  unknown      unset                claude  Write the onboarding checklist                   2026-09-13       1d
 
-8 plans
+9 plans
 ```
 <!-- /sample -->
 
@@ -147,6 +148,8 @@ Roll out the new auth API
 Remove the old auth API
   auth-cleanup  not-started  queued  platform  claude  [auth, security]
   2026-08-30  2w
+Document the new auth API
+  auth-docs  not-started  unset  platform  claude  2026-09-02  1w
 Retry failed invoice charges
   invoice-retry  unknown  unset  billing  claude  [billing]  2026-09-04  1w
 Tune search relevance
@@ -155,7 +158,7 @@ Tune search relevance
 Write the onboarding checklist
   onboarding-checklist  unknown  unset  claude  2026-09-13  1d
 
-8 plans
+9 plans
 ```
 <!-- /sample -->
 
@@ -188,10 +191,12 @@ platform
       auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
     `-- Roll out the new auth API
           auth-rollout  partial  active  [auth, security]  2026-08-25  2w
-        `-- Remove the old auth API
-              auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+        |-- Remove the old auth API
+        |     auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+        `-- Document the new auth API
+              auth-docs  not-started  unset  2026-09-02  1w
 
-8 plans
+9 plans
 ```
 <!-- /sample -->
 
@@ -202,10 +207,12 @@ platform
       auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
     `-- Roll out the new auth API
           auth-rollout  partial  active  [auth, security]  2026-08-25  2w
-        `-- Remove the old auth API
-              auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+        |-- Remove the old auth API
+        |     auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+        `-- Document the new auth API
+              auth-docs  not-started  unset  2026-09-02  1w
 
-3 of 8 plans
+4 of 9 plans
 ```
 <!-- /sample -->
 
@@ -254,11 +261,13 @@ dangling-parent         invoice-retry         parent 'no-such-plan' does not res
 underivable-status      invoice-retry         '## Progress' has no checkboxes or recognized phrase
 status-behind-history   auth-cleanup          status 'not-started' but 1 later session worked this plan
 status-behind-progress  onboarding-checklist  status 'unknown' but '## Progress' derives 'not-started'
+unadopted-tag           auth-docs             no tags, but its thread carries [auth, security]
 
-8 plans checked, 4 findings
+9 plans checked, 5 findings
 dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
 status-behind-history: pentimento history <id>, then pentimento set <id> --status <value>
 status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status <value>
+unadopted-tag: pentimento set <id> --add-tag <tag>
 underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id> --status <value>
 narrow with: pentimento list --finding <code>
 ```
@@ -303,7 +312,7 @@ The vocabulary lives in one place:
 | `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
 | `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched and `check` reports only `pin-behind-progress` for it. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
-| `tags` | operator | Never derived. `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
+| `tags` | operator | Never derived or written; `check` suggests them (`unadopted-tag`). `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
 | `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference (an `<id>.md` literal or a trailing codename) to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |
 | `project` | derived, or operator | `backfill` derives it from a session's `cwd`. `set --project`/`--clear-project` set or clear it directly; `--project .` resolves to the current directory's name. |
 | `created` | derived once | A local date, set once and then immutable except through `backfill --recreate`. |

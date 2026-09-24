@@ -2,6 +2,12 @@
 
 ## 0.1.16
 
+`check` gains an `unadopted-tag` finding for an untagged plan whose parent is
+tagged and that has a tagged sibling: it suggests the tags the parent and every
+tagged sibling share, and `pentimento set <ids> --add-tag <tag>` clears a whole
+thread in one command. It never fires without a tagged sibling, so a root-only
+tagger sees nothing. Tags remain operator-owned; nothing derives or writes them.
+
 Several correctness fixes. Removing a plan's last pentimento field no longer
 drops the foreign frontmatter keys and comments around it, and a hand-written
 value that fails validation (`project: "a #b"`) no longer makes every `set` and

@@ -32,6 +32,7 @@ HINTS = {
     "status-behind-progress": f"pentimento backfill, or {_SET_STATUS}",
     "pin-behind-progress": f"{_SET_STATUS}, or pentimento set <id> --unpin",
     "unadopted-reference": "pentimento backfill, or leave it if the omission was deliberate",
+    "unadopted-tag": "pentimento set <id> --add-tag <tag>",
 }
 
 
@@ -237,6 +238,31 @@ def _unadopted_reference(plans, sessions):
     return findings
 
 
+def _thread_tags(parent, tagged_siblings):
+    shared = tags_module.normalized(parent.tags)
+    for sibling in tagged_siblings:
+        shared &= tags_module.normalized(sibling.tags)
+    return sorted(shared)
+
+
+def _unadopted_tags(plans, by_id):
+    tagged_children = {}
+    for p in plans:
+        if p.tags and p.parent in by_id:
+            tagged_children.setdefault(p.parent, []).append(p)
+    findings = []
+    for p in plans:
+        parent = by_id.get(p.parent)
+        siblings = tagged_children.get(p.parent)
+        if p.tags or parent is None or not parent.tags or not siblings:
+            continue
+        shared = _thread_tags(parent, siblings)
+        if shared:
+            message = f"no tags, but its thread carries {tags_module.render(shared)}"
+            findings.append(Finding("unadopted-tag", p.id, message))
+    return findings
+
+
 def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
@@ -246,6 +272,8 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     when given, enables `status-behind-history` the same way. `skips`, when
     given, is the `(source, path, error)` list `corpus.load_all` collected
     for files it could not read; each becomes an `unreadable-file` finding.
+    `unadopted-tag` needs no input: an untagged plan whose tagged parent and
+    tagged siblings share tags is the evidence.
     """
     sessions = sessions or {}
     touches = touches or {}
@@ -267,4 +295,5 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         *_status_behind_progress(plans),
         *_pin_behind_progress(plans),
         *_unadopted_reference(plans, sessions),
+        *_unadopted_tags(plans, by_id),
     ]

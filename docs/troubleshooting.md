@@ -93,15 +93,13 @@ below what `## Progress` derives.
 
 ## A `list` column I expected is missing
 
-`TAGS` and `CREATED` only appear when at least one plan in the result has
-tags or a `created` date; every other column always appears unless the
-table is too narrow, in which case columns drop right-to-left by rank
-(`created`, `tags`, `source`, `project`, `intent`, `status`, then `id`)
-before any column is truncated -- `title` and `modified` never drop, only
-shrink ([docs/reference.md#columns](reference.md#columns)). `--columns`
-(or `PENTIMENTO_COLUMNS`) names exactly the columns you want, in order, and
-overrides both rules; the column the active `--sort` key uses never drops
-either way.
+`TAGS`, `CREATED`, and `FINDING` only appear when at least one plan in the
+result has tags, a `created` date, or a finding; every other column always
+appears unless the table is too narrow, in which case columns drop by rank
+before any column is truncated ([docs/reference.md#columns](reference.md#columns)).
+`--columns` (or `PENTIMENTO_COLUMNS`) names exactly the columns you want, in
+order, and overrides both rules; the column the active `--sort` key uses
+never drops either way.
 
 ## `history` is empty
 

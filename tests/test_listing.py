@@ -22,6 +22,7 @@ class FakePlan:
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
     created_date: datetime.date | None = None
+    findings: list = dataclasses.field(default_factory=list)
 
     @property
     def modified(self) -> datetime.datetime:
@@ -144,6 +145,24 @@ class RenderTests(unittest.TestCase):
         plans = [FakePlan(id="a-plan", title="Alpha")]
         header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
         self.assertNotIn("TAGS", header)
+
+    def test_finding_column_shown_when_any_plan_has_findings(self):
+        plans = [FakePlan(id="a-plan", title="Alpha", findings=["cycle", "missing-title"])]
+        rendered = _with_width(120, lambda: listing.render(plans, on_color=False))
+        self.assertIn("FINDING", rendered.split("\n")[0])
+        self.assertIn("cycle, missing-title", rendered.split("\n")[1])
+
+    def test_finding_column_omitted_when_no_plan_has_findings(self):
+        plans = [FakePlan(id="a-plan", title="Alpha")]
+        header = _with_width(120, lambda: listing.render(plans, on_color=False)).split("\n")[0]
+        self.assertNotIn("FINDING", header)
+
+    def test_finding_column_drops_last_and_truncates_before_dropping(self):
+        plans = [FakePlan(id="a-plan", title="Alpha", findings=["underivable-status"])]
+        for width in (60, 40):
+            lines = _with_width(width, lambda: listing.render(plans, on_color=False)).split("\n")
+            self.assertIn("FINDING", lines[0])
+            self.assertTrue(all(len(line) <= width for line in lines))
 
     def test_created_column_shown_when_any_plan_has_it(self):
         plans = [FakePlan(id="a-plan", title="Alpha", created_date=datetime.date(2026, 1, 1))]
@@ -301,7 +320,8 @@ class ColumnSelectionTests(unittest.TestCase):
         )[0]
         self.assertNotIn("CREATED", without_selection)
 
-        selection = columns.parse("all", listing.NAMES)
+        spec = ",".join(name for name in listing.NAMES if name != "finding")
+        selection = columns.parse(spec, listing.NAMES)
         header = _with_width(
             90, lambda: listing.render(plans, on_color=False, selection=selection)
         ).split("\n")[0]

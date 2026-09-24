@@ -18,6 +18,15 @@ field. `CODE` no longer drops at narrow widths, the summary is dimmed after a
 blank line as in `list`, and finding messages state the fact only, with the fix
 in the hint. `docs/troubleshooting.md` now lists `unreadable-file`.
 
+A finding is now a plan attribute. `list` and `tree` take `--finding [CODE]`
+(bare means any finding), `list` shows a `FINDING` column under it or through
+`--columns`, `show` prints each finding with its fix above the body, and the
+`list`, `tree`, and `show` `--format json|tsv` records gain a `findings` field.
+`check` ends with `narrow with: pentimento list --finding <code>`, and
+`docs/workflows.md` has a "Working through `check`" section. The
+`docs/reference.md` columns section now says `TAGS` and `CREATED` follow the
+listed plans, not the whole corpus.
+
 ## 0.1.13
 
 Fixes: `show` no longer cuts a long line in a fenced or indented code block

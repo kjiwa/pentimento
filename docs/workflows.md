@@ -1,7 +1,7 @@
 # Workflows
 
 Task-oriented recipes: triage, reusing past decisions, supersession, lineage,
-auditing, scripting.
+working through `check`, auditing, scripting.
 Look here for what to do; for exact flags, see [reference.md](reference.md).
 
 ## Triage
@@ -150,6 +150,39 @@ directly. Its footer reports `N plans updated` (or `N plans would change
 id list. `--rederive` and `--recreate` are correction tools, not routine
 flags — see the README's Frontmatter table for what each overwrites.
 
+## Working through `check`
+
+`check` is the overview: every finding, with the fix for each code under the
+summary. To work through them, take one code, and one project if the list is
+long, oldest plans first:
+
+```sh
+pentimento check
+pentimento list --finding underivable-status --project claude-settings --sort created
+```
+
+For each plan, `show` prints its findings with their fixes above the body.
+Read the plan, then state its status; `set --status` pins it, so `check`
+stops second-guessing the plan (see
+[docs/troubleshooting.md](troubleshooting.md#check-findings)):
+
+```sh
+pentimento show some-plan-id
+pentimento set some-plan-id --status complete
+```
+
+A cluster under a project name that no longer exists, such as a renamed
+repo, is one mistake, not many. List the plans under the old name and point
+them at the new one:
+
+```sh
+pentimento list --project old-name
+pentimento set some-plan-id --project new-name
+```
+
+`status-behind-history` is the exception: it needs the session trail before
+you can judge it; see "Auditing what was actually done" below.
+
 ## Auditing what was actually done
 
 Frontmatter `status` only reflects what the operator set or `backfill`
@@ -162,7 +195,7 @@ session, `authored` for the session that wrote the plan and `worked` for
 every session since that touched it.
 
 ```sh
-pentimento check --format tsv | grep status-behind-history
+pentimento list --finding status-behind-history
 pentimento history some-plan-id
 ```
 

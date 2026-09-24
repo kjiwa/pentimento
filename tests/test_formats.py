@@ -25,6 +25,7 @@ class FakePlan:
     started: str = "2026-01-01T00:00:00.000Z"
     mtime: float = 0.0
     fields: dict = dataclasses.field(default_factory=dict)
+    findings: list = dataclasses.field(default_factory=list)
 
     @property
     def modified(self) -> datetime.datetime:
@@ -132,6 +133,15 @@ class TsvScrubTests(unittest.TestCase):
 
 
 class RecordTimestampTests(unittest.TestCase):
+    def test_findings_are_carried_as_a_list(self):
+        plan = FakePlan(id="p", title="P", findings=["cycle", "missing-title"])
+        self.assertEqual(record.as_dict(plan)["findings"], ["cycle", "missing-title"])
+
+    def test_findings_join_with_commas_in_tsv(self):
+        plan = FakePlan(id="p", title="P", findings=["cycle", "missing-title"])
+        rendered = _emit([record.as_dict(plan)], "tsv", ("findings",))
+        self.assertEqual(rendered.split("\n")[1], "cycle,missing-title")
+
     def test_modified_and_started_are_utc_whole_seconds(self):
         plan = FakePlan(
             id="p", title="P", mtime=1_800_000_000.5, started="2026-01-01T00:00:00.123Z"

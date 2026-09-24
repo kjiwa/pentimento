@@ -216,7 +216,7 @@ platform
 # Roll out the new auth API
 
 id: api-auth-rollout
-path: /var/folders/tj/h8yv0kr53zs5_07wc9_h37f80000gn/T/pentimento-fixture.Ky1cY3/api-auth-rollout.md
+path: ~/.claude/plans/api-auth-rollout.md
 status: partial   intent: active   tags: [auth, security]
 parent: api-auth-redesign   project: platform
 created: 2026-08-25   source: claude   modified: 2026-08-25 12:30

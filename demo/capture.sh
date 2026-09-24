@@ -78,8 +78,11 @@ main() {
   REPO_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
   README="$REPO_ROOT/README.md"
 
-  FIXTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-fixture.XXXXXX")
-  CAPTURE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-capture.XXXXXX")
+  # A trailing slash on $TMPDIR (macOS) doubles the slash in FIXTURE_DIR, which
+  # then never matches the normalized path the CLI prints.
+  _main_tmp=${TMPDIR:-/tmp}
+  FIXTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-fixture.XXXXXX")
+  CAPTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-capture.XXXXXX")
   trap 'rm -rf "$FIXTURE_DIR" "$CAPTURE_DIR"' EXIT
 
   # `show` collapses $HOME to ~ before printing a path (cli.py:_display_path),

@@ -42,6 +42,52 @@ class HintTests(unittest.TestCase):
         self.assertEqual(finding.hint, check.HINTS["dangling-parent"])
 
 
+class UnadoptedTagTests(unittest.TestCase):
+    def _codes(self, plans):
+        return [(f.code, f.id) for f in check.run(plans) if f.code == "unadopted-tag"]
+
+    def _thread(self, parent_tags, *sibling_tags, child_tags=()):
+        plans = [FakePlan(id="root", tags=list(parent_tags))]
+        for i, tags in enumerate(sibling_tags):
+            plans.append(FakePlan(id=f"sib{i}", parent="root", tags=list(tags)))
+        plans.append(FakePlan(id="child", parent="root", tags=list(child_tags)))
+        return plans
+
+    def test_fires_with_the_sibling_consensus(self):
+        plans = self._thread(["a", "b"], ["a", "b"], ["b", "a", "c"])
+        finding = check.run(plans)[0]
+        self.assertEqual((finding.code, finding.id), ("unadopted-tag", "child"))
+        self.assertEqual(finding.message, "no tags, but its thread carries [a, b]")
+
+    def test_silent_with_no_tagged_sibling(self):
+        self.assertEqual(self._codes(self._thread(["a"])), [])
+
+    def test_excludes_a_tag_some_tagged_sibling_lacks(self):
+        finding = check.run(self._thread(["a", "b"], ["a", "b"], ["a"]))[0]
+        self.assertEqual(finding.message, "no tags, but its thread carries [a]")
+
+    def test_silent_when_no_tag_is_shared(self):
+        self.assertEqual(self._codes(self._thread(["a"], ["b"])), [])
+
+    def test_silent_when_the_plan_has_any_tag(self):
+        self.assertEqual(self._codes(self._thread(["a"], ["a"], child_tags=["z"])), [])
+
+    def test_silent_when_the_parent_is_untagged(self):
+        self.assertEqual(self._codes(self._thread([], ["a"])), [])
+
+    def test_silent_when_the_parent_is_dangling(self):
+        plans = [
+            FakePlan(id="sib", parent="gone", tags=["a"]),
+            FakePlan(id="child", parent="gone"),
+        ]
+        self.assertEqual(self._codes(plans), [])
+
+    def test_case_insensitive(self):
+        findings = check.run(self._thread(["Loadtest"], ["LOADTEST"]))
+        finding = next(f for f in findings if f.code == "unadopted-tag")
+        self.assertEqual(finding.message, "no tags, but its thread carries [loadtest]")
+
+
 class ShowHintTests(unittest.TestCase):
     def test_no_show_hint_names_the_show_command(self):
         for code in check.HINTS:

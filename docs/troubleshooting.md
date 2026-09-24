@@ -95,6 +95,7 @@ below what `## Progress` derives.
 | `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
 | `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
+| `unadopted-tag` | The plan has no tags, but its parent is tagged and at least one tagged sibling exists; the thread's evidence is the tags the parent and every tagged sibling share, and the message names them. Any tag on the plan clears the finding. | `pentimento set <id> --add-tag <tag>`; `set` takes several ids, so one command clears a thread. |
 
 ## `list` shows records instead of a table
 

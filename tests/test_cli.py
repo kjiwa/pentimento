@@ -1347,6 +1347,37 @@ class CmdFooterTests(unittest.TestCase):
         self.assertIn("0 of 1 plan", output)
 
 
+class UnadoptedTagSurfaceTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        done = "status: complete\n"
+        _write(self.directory, "root", f"---\n{done}tags: [loadtest]\n---\n\n# Root\n")
+        _write(
+            self.directory,
+            "tagged",
+            f"---\n{done}parent: root\ntags: [loadtest]\n---\n\n# Tagged\n",
+        )
+        _write(self.directory, "bare", f"---\n{done}parent: root\n---\n\n# Bare\n")
+
+    def test_list_finding_filters_to_the_plan(self):
+        code, out, _ = _main(["list", "--finding", "unadopted-tag", "--format", "json"])
+        self.assertEqual(code, 0)
+        self.assertEqual([p["id"] for p in json.loads(out)], ["bare"])
+        self.assertEqual(json.loads(out)[0]["findings"], ["unadopted-tag"])
+
+    def test_list_table_shows_the_code(self):
+        _, out, _ = _main(["list", "--finding", "unadopted-tag", "--color", "never"])
+        self.assertIn("unadopted-tag", out)
+
+    def test_show_lists_the_finding_with_its_hint(self):
+        _, out, _ = _main(["show", "bare", "--color", "never"])
+        self.assertIn("unadopted-tag: no tags, but its thread carries [loadtest]", out)
+        self.assertIn("  pentimento set <id> --add-tag <tag>", out)
+
+
 class FindingTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

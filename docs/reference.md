@@ -29,8 +29,8 @@ Run `pentimento <command> --help` for that command's own examples.
 | `--color auto\|always\|never` | Defaults to `auto`: ANSI colour on a tty, off when piped, when `NO_COLOR` is set, or when `TERM=dumb`. |
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
-| `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |
-| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` adds a `FINDING` column. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
+| `--project .` | Resolves to the current directory's name, for `list`, `tree`, and `set`. |
+| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` shows the `FINDING` column only under this flag or when `--columns` names it. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
 | `tree <id>` | Roots the tree at that plan: it plus every plan beneath it, resolved against the whole corpus, so `--project` is unnecessary. Filters apply inside the selection. |
 | `tree --ancestors` | Also walks up from `<id>` to its topmost ancestor, spine only -- the ancestors' other children stay out. Requires `<id>`; without one, exits 2 with `--ancestors requires a plan id`. |
 | `--title PATTERN` | Case-insensitive regex over the title only. An invalid pattern exits 2 with the regex error on stderr. |
@@ -43,20 +43,24 @@ Run `pentimento <command> --help` for that command's own examples.
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
 | `set <id>...` | Edits every named plan in one run. Every id is resolved first, so a miss exits 1 and writes nothing; with more than one id, each change block is headed by the plan's short id. `--dry-run` applies to all. A `--parent` that would create a cycle, counting every plan being edited, exits 2. Changes print as `field: old -> new`, `field: set to value`, or `field: cleared`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
+| `hook` | Reads a `PostToolUse` payload on stdin and backfills the one plan it wrote: fills `intent`, `created`, `project`, and `parent`, and derives `status` capped at `partial`. Only a full `backfill` advances `status` to `complete`. Always exits 0. |
+
+## Plan ids
 
 `list`, `tree`, and `check` tables display the short id: the shortest
-trailing run of at least two hyphen-separated segments that's unique across
-the corpus. `show`, `set`, `history`, `tree`, `set --parent`, and
-`backfill --only` accept the short id, the full id, the filename, or the path
-as input. `--format json|tsv` output always emits the full id.
+trailing run of at least two hyphen-separated segments that is unique across
+the corpus. `show`, `set` (including `--parent`), `tree`, `history`, and
+`backfill --only` accept the short id, the full id, the filename (`<id>.md`
+or `<id>.plan.md`), or the path. `--format json|tsv` output always emits the
+full id.
 
 ## Columns
 
 `list`'s columns, left to right: `id status intent project source title
 finding tags created modified`, shown as `PLAN`, `STATUS`, `INTENT`, `PROJECT`,
-`SOURCE`, `TITLE`, `FINDING`, `TAGS`, `CREATED`, `UPDATED`. `TAGS`, `CREATED`,
-and `FINDING` only appear when at least one listed plan has tags, a `created`
-date, or a finding (`FINDING` also shows under `--finding`); every other
+`SOURCE`, `TITLE`, `FINDING`, `TAGS`, `CREATED`, `UPDATED`. `TAGS` and
+`CREATED` appear only when at least one listed plan has a value. `FINDING`
+appears only under `--finding` or when `--columns` names it. Every other
 column always appears. No column is ever dropped for width.
 
 `list`, `check`, and `history` choose one of two layouts by terminal width:
@@ -95,14 +99,14 @@ columns appear, regardless of content. `SPEC` is one of:
 - `all`, every column in canonical order
 
 Mixing absolute and relative names in one `--columns` is an error, as is an
-unknown or empty name; both messages list the valid names.
+unknown, duplicate, or empty name; both messages list the valid names.
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. `pentimento hook` always exits 0. |
-| `1` | `check` found something, or a plan id named on the command line matches no plan. |
+| `1` | `check` found something; a plan id named on the command line matches no plan or is ambiguous; or `backfill` refused to run because two plans share an id. |
 | `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error, reported as `pentimento: <path>: <reason>`. |
 | `141` | A reader closed the pipe early, as `\| head` does; the shell's 128 + `SIGPIPE`. |
 

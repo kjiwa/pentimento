@@ -36,6 +36,17 @@ class HintTests(unittest.TestCase):
         documented = set(re.findall(r"^\| `([a-z-]+)` \|", docs.read_text(), re.MULTILINE))
         self.assertEqual(set(check.HINTS), documented)
 
+    def test_troubleshooting_fix_column_starts_with_the_hint(self):
+        docs = Path(__file__).parent.parent / "docs" / "troubleshooting.md"
+        fixes = dict(
+            re.findall(r"^\| `([a-z-]+)` \|.*\| ([^|]*) \|$", docs.read_text(), re.MULTILINE)
+        )
+        for code, hint in check.HINTS.items():
+            fix = fixes[code].replace("`", "")
+            self.assertEqual(
+                fix[:1].lower() + fix[1 : len(hint)], hint[:1].lower() + hint[1:], msg=code
+            )
+
     def test_every_finding_carries_its_codes_hint(self):
         plan = FakePlan(id="orphan", parent="no-such-plan")
         finding = check.run([plan])[0]

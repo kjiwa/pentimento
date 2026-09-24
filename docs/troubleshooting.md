@@ -32,8 +32,8 @@ anomaly worth investigating, not the steady state.
 candidate: a reference in the originating session's first prompt, then the
 same reference scan over the plan's body above its first `##` heading. A
 reference is either an `<id>.md` / `<id>.plan.md` literal or a trailing
-codename — the same segment-aligned suffix `pentimento show` and `list`
-accept, e.g. `wobbly-willow` for an id ending `...-wobbly-willow`. A codename
+codename — a trailing segment run like a [short id](reference.md#plan-ids),
+e.g. `wobbly-willow` for an id ending `...-wobbly-willow`. A codename
 that matches more than one candidate id resolves to nothing. Either way, the
 reference must also pass every one of these guards: not the plan itself, in
 the same project, from the same source, and strictly earlier by `started`.
@@ -86,53 +86,48 @@ below what `## Progress` derives.
 | `cycle` | Following `parent` links eventually loops back to the plan itself. | `pentimento set <id> --parent <id>`, or `--clear-parent`, on one plan in the chain. |
 | `duplicate-id` | The same id appears from two sources (e.g. a Claude plan and a Cursor plan share a filename stem). | Rename one of the files. |
 | `off-vocabulary-status` | `status` isn't one of `not-started`, `partial`, `complete`, `superseded`, `unknown`. | `pentimento set <id> --status <value>`. |
-| `off-vocabulary-intent` | `intent` isn't one of `active`, `queued`, `someday`, `abandoned`, `unset`. | Fix with `pentimento set <id> --intent <value>`. |
-| `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a `# Title` line to the plan body. |
-| `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | Fix with `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
+| `off-vocabulary-intent` | `intent` isn't one of `active`, `queued`, `someday`, `abandoned`, `unset`. | `pentimento set <id> --intent <value>`. |
+| `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a '# Title' line to the plan body. |
+| `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
 | `underived-project` | The plan has no `project`, but its session log supplies one, meaning `backfill` hasn't caught up. | `pentimento backfill`. With the `PostToolUse` hook installed ([docs/integrations.md](integrations.md)) this finding is an anomaly. |
-| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add a checklist to `## Progress`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add a checklist to '## Progress', or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
 | `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (`pentimento history <id>` lists them). | `pentimento history <id>`, then `pentimento set <id> --status <value>`. This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
 | `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
 | `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
-| `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
+| `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill`, or leave it if the omission was deliberate. `backfill` adopts the reference. |
 | `unadopted-tag` | The plan has no tags, but its parent is tagged and at least one tagged sibling exists; the thread's evidence is the tags the parent and every tagged sibling share, and the message names them. Any tag on the plan clears the finding. | `pentimento set <id> --add-tag <tag>`; `set` takes several ids, so one command clears a thread. |
 
 ## `list` shows records instead of a table
 
-When the terminal is too narrow for every column, `list` prints each plan as a
-title line with its other fields beneath, and truncates `TITLE`, `PROJECT`,
-and `TAGS` in a table. Widen the terminal (about 135 columns), or pick fewer columns with
-`--columns`; see [docs/reference.md#columns](reference.md#columns). `TAGS`,
-`CREATED`, and `FINDING` are omitted when no listed plan has a value.
+The terminal is too narrow for every column. Widen it, or pick fewer columns
+with `--columns`; see [Columns](reference.md#columns) for the layout rule and
+which columns appear when.
 
 ## `history` is empty
 
-`pentimento: no session history for <id>; searched: <directory>` (on stderr, exit 0) means no transcript
-under that directory (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`)
-contains a `tool_use` call naming that plan's path — never a claim the plan
+`pentimento: no session history for <id>; searched: <directory>` (on stderr,
+exit 0) means no transcript under that directory (`AGENT_SESSIONS_DIR`,
+default `~/.claude/projects`) contains a `tool_use` call naming that plan's path — never a claim the plan
 wasn't worked. Common causes: the work happened in a session whose
 transcript has since been deleted (Claude Code prunes old transcripts), or
 on a different machine. Absent history is not evidence of absent work.
 
 ## No colour
 
-`--color` defaults to `auto`: off when stdout isn't a tty, when `NO_COLOR`
-is set, or when `TERM=dumb`. Pass `--color always` to force it, e.g. when piping `list` through `less -R`. `show --full` needs no flag: it
-pages with colour on its own.
+Colour follows `--color`; see [reference.md](reference.md#flags) for when it is
+off. Pass `--color always` to force it, e.g. when piping `list` through
+`less -R`.
 
-## `set` or `show` exits 1
+## A plan id doesn't resolve
 
-Both exit 1 and print `no such plan: <id>` to stderr when the id doesn't
-resolve to exactly one plan; if a close match exists in the corpus, the
-message also appends `-- did you mean: <id>?` (a close-match search over the
-corpus's ids). If a short id matches more than one plan, the message is
-instead `ambiguous plan id: <id> -- matches: <id1>, <id2>` — use the full id
-to disambiguate. `set --parent` also exits 1, before writing anything, if the
+`show`, `set`, `tree`, `history`, and `backfill --only` exit 1 and print
+`no such plan: <id>` to stderr when the id doesn't resolve to exactly one plan;
+see [Plan ids](reference.md#plan-ids) for the accepted forms. If a close match
+exists in the corpus, the message also appends `-- did you mean: <id>?`. If a
+short id matches more than one plan, the message is instead
+`ambiguous plan id: <id> -- matches: <id1>, <id2>` — use the full id to
+disambiguate. `set --parent` also exits 1, before writing anything, if the
 given parent id doesn't resolve, and exits 2 if the parent would create a cycle.
-
-Every command that takes a plan id accepts more than the bare id: a full filename
-(`some-plan.md`), or the id with a `.md` or `.plan.md` suffix still
-attached, both resolve the same as the bare id.
 
 `--clear-parent` clears the `parent` key; `--clear-project` clears the
 `project` key. `--parent ""` and `--project ""` are not shorthand for

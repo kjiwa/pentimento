@@ -9,14 +9,13 @@ agent search past plans on its own.
 Two hooks, split by what each field needs to be trustworthy:
 
 - A `PostToolUse` hook on `Write|Edit` runs `pentimento hook` after every
-  plan-file write. It backfills `project` and `created` on the spot, and
-  derives `status` capped at `partial` so a half-written `## Progress`
-  section can't prematurely land `complete`.
-- A `SessionEnd` hook runs `pentimento backfill` as a sweep — the only
-  thing that advances `status` all the way to `complete`. `SessionEnd`
-  supports a `matcher` on the exit reason (`clear`, `resume`, `logout`,
-  `prompt_input_exit`, `other`) if you want to filter which exits trigger
-  it; leaving it unset runs on every exit reason.
+  plan-file write and backfills that plan on the spot; what it fills is in
+  [reference.md](reference.md#flags).
+- A `SessionEnd` hook runs `pentimento backfill` as a full sweep, which
+  advances `status` to `complete`. `SessionEnd` supports a `matcher` on the
+  exit reason (`clear`, `resume`, `logout`, `prompt_input_exit`, `other`) if
+  you want to filter which exits trigger it; leaving it unset runs on every
+  exit reason.
 
 Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
 into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to
@@ -28,8 +27,9 @@ terminal to see what a sweep would change before it runs unattended.
 Two gaps the hooks don't close: `--rederive` is the correction for a `parent`
 that was derived from a transient preamble reference; and a wholesale
 re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
-outright, dropping an operator-set `intent` until the next sweep gap-fills it
-back to the default.
+outright, dropping every operator-set field (`intent`, `tags`, `pinned`,
+`parent`). The next `backfill` refills only what it derives: `intent` at its
+default, `created`, `project`, `parent`, and `status`.
 
 Both hooks run the plain, monotonic form of `backfill` — never `--rederive`
 — so neither ever sets or clears `pinned`, and both leave a pinned `status`

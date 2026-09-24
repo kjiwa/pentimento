@@ -106,7 +106,9 @@ pentimento set old-plan-id --parent new-plan-id
 
 `intent` is never touched by this — a superseded plan can still be
 `abandoned` (nobody's picking it up) or `active` (its replacement is what's
-active, but you still want the paper trail flagged). See the README's
+active, but you still want the paper trail flagged). A corpus-wide `backfill
+--rederive` replaces or drops a `parent` set this way, since no plan reference
+derives it. See the README's
 [Frontmatter table](../README.md#frontmatter) for the full `status`/`intent`
 ownership rules.
 
@@ -233,9 +235,9 @@ says how the field is computed:
 | Field | Survives a checkout | Why |
 | --- | --- | --- |
 | `status` | Yes | Derived from `## Progress` checkboxes in the body — no transcript involved. |
-| `parent` (body-referenced) | Yes | One of two lineage signals: a reference to another plan's id in the body preamble above the first `##` heading. |
-| `parent` (session-prompt-derived) | No | The other lineage signal: a reference in the originating session's first prompt — that transcript is machine-local. |
-| `project` | No | Derived from the common path of a session's `cwd` entries — no session, no derivation. A session launched in `$HOME` takes the outermost launch directory its `cwd` entries and tool-call paths land in most. |
+| `parent` (body-referenced) | Yes | Derived from the plan body, with no transcript involved; see [`parent` is empty](troubleshooting.md#parent-is-empty). |
+| `parent` (session-prompt-derived) | No | Derived from the originating session's first prompt, and that transcript is machine-local. |
+| `project` | No | Derived from a session's `cwd` entries: no session, no derivation. |
 | `modified` | No | Not a frontmatter field at all: `max(session end time, file mtime)` — a fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
 | `tags`, `intent`, operator-set `status` | Yes | Operator-authored frontmatter, written by `set`, never derived — plain YAML that travels with the file. |
 

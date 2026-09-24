@@ -13,6 +13,7 @@ import unicodedata
 from pentimento import vocabulary as vocabulary_module
 
 GUTTER = 2
+ELLIPSIS = "..."
 
 
 def _require_matching_keys(mapping: dict, expected, what: str) -> None:
@@ -117,10 +118,9 @@ def split_width(text: str, width: int) -> tuple[str, str]:
     return text, ""
 
 
-def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
-    """Truncate `text` to `width` display columns, appending an ellipsis glyph."""
-    ellipsis = "…" if unicode_ok else "..."
-    ellipsis_width = display_width(ellipsis)
+def truncate(text: str, width: int) -> str:
+    """Truncate `text` to `width` display columns, appending an ellipsis."""
+    ellipsis_width = display_width(ELLIPSIS)
     if width <= 0 or display_width(text) <= width:
         return text
     if width <= ellipsis_width:
@@ -128,7 +128,7 @@ def truncate(text: str, width: int, *, unicode_ok: bool) -> str:
         return kept
 
     kept, _ = split_width(text, width - ellipsis_width)
-    return kept.rstrip() + ellipsis
+    return kept.rstrip() + ELLIPSIS
 
 
 def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[str, str]:
@@ -138,9 +138,7 @@ def render_cells(cells: list[Cell], separator: str, *, on_color: bool) -> tuple[
     return plain, painted
 
 
-def truncate_cells(
-    cells: list[Cell], separator: str, width: int, *, unicode_ok: bool, on_color: bool
-) -> str:
+def truncate_cells(cells: list[Cell], separator: str, width: int, *, on_color: bool) -> str:
     """Join `cells` under a `width` column budget.
 
     Only the cell that straddles the limit is truncated, and its unpainted
@@ -163,38 +161,14 @@ def truncate_cells(
         if remaining > 0:
             if gap:
                 parts.append(separator)
-            parts.append(
-                paint(truncate(text, remaining, unicode_ok=unicode_ok), *codes, on=on_color)
-            )
+            parts.append(paint(truncate(text, remaining), *codes, on=on_color))
         break
     return "".join(parts)
 
 
-GLYPHS_UNICODE = {
-    "branch": "├─ ",
-    "last": "└─ ",
-    "vertical": "│  ",
-    "space": "   ",
-    "ellipsis": "…",
+GLYPHS = {
+    "branch": "|-- ",
+    "last": "`-- ",
+    "vertical": "|   ",
+    "space": "    ",
 }
-
-GLYPHS_ASCII = {
-    "branch": "+- ",
-    "last": "`- ",
-    "vertical": "|  ",
-    "space": "   ",
-    "ellipsis": "...",
-}
-
-
-def glyphs(unicode_ok: bool) -> dict:
-    return GLYPHS_UNICODE if unicode_ok else GLYPHS_ASCII
-
-
-def unicode_enabled(stream, ascii_flag: bool) -> bool:
-    """Resolve whether Unicode glyphs are safe to emit on `stream`."""
-    if ascii_flag:
-        return False
-    if os.environ.get("TERM") == "dumb":
-        return False
-    return (stream.encoding or "").lower().startswith("utf")

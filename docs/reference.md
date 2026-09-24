@@ -6,15 +6,15 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 ## Commands
 
 ```sh
-pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
-pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--ascii] [--sort modified|created|id|status|title] [--order asc|desc]
-pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
+pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--sort modified|created|id|status|title] [--order asc|desc]
+pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never]
 pentimento set <id> [--status STATUS] [--unpin] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
 pentimento hook
 pentimento index
-pentimento check [--format table|json|tsv] [--color auto|always|never] [--ascii]
-pentimento history <id> [--format table|json|tsv] [--color auto|always|never] [--ascii]
+pentimento check [--format table|json|tsv] [--color auto|always|never]
+pentimento history <id> [--format table|json|tsv] [--color auto|always|never]
 pentimento completion <bash|zsh|fish>
 pentimento --version
 ```
@@ -27,7 +27,6 @@ Run `pentimento <command> --help` for that command's own examples.
 | --- | --- |
 | `--format table\|json\|tsv` | Defaults to `table` (human-readable); `json` and `tsv` are for scripting. |
 | `--color auto\|always\|never` | Defaults to `auto`: ANSI colour on a tty, off when piped, when `NO_COLOR` is set, or when `TERM=dumb`. |
-| `--ascii` | Forces `+- `/`` `- ``/`\|  ` box-drawing instead of the Unicode `├─ `/`└─ `/`│  `. `list`, `tree`, `show`, `check`, and `history` use Unicode by default whenever the output stream's encoding is UTF-8 and `TERM` isn't `dumb`. |
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` flips it. The sorted-on column never drops, so the order it produces is always visible in `list`'s table. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only -- combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, the same way `backfill` derives `project` from a session's `cwd`. |

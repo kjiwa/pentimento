@@ -135,7 +135,7 @@ thread". A plan whose recorded parent isn't in the selection gets a
 above — `--ancestors` shows it.
 
 `pentimento tree --project platform` still groups a whole project's plans
-into Unicode trees, root to leaf (`--ascii` for plain-text glyphs), for
+into trees, root to leaf, for
 when the unit you want is a project rather than a thread.
 
 ## Backfilling safely

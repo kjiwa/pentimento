@@ -42,8 +42,8 @@ class RenderTests(unittest.TestCase):
     def test_node_shape_is_title_then_metadata(self):
         root = FakePlan(id="root", title="Root Plan")
         lines = _with_width(120, lambda: tree.render([root])).split("\n")
-        self.assertEqual(lines[0], "`- Root Plan")
-        self.assertTrue(lines[1].startswith("     root  "))
+        self.assertEqual(lines[0], "`-- Root Plan")
+        self.assertTrue(lines[1].startswith("      root  "))
 
     def test_meta_line_shows_the_short_id(self):
         root = FakePlan(id="is-it-possible-to-abundant-rabbit", title="Root Plan")
@@ -57,16 +57,8 @@ class RenderTests(unittest.TestCase):
         a = FakePlan(id="a", title="A", parent="root")
         b = FakePlan(id="b", title="B", parent="root")
         lines = _with_width(120, lambda: tree.render([root, a, b])).split("\n")
-        self.assertTrue(lines[2].startswith("   +- A"))
-        self.assertTrue(lines[4].startswith("   `- B"))
-
-    def test_unicode_glyphs_use_box_drawing_connectors(self):
-        a = FakePlan(id="a", title="A")
-        b = FakePlan(id="b", title="B", parent="a")
-        rendered = _with_width(
-            120, lambda: tree.render([a, b], glyphs=style.GLYPHS_UNICODE, unicode_ok=True)
-        )
-        self.assertIn("└─ ", rendered)
+        self.assertTrue(lines[2].startswith("    |-- A"))
+        self.assertTrue(lines[4].startswith("    `-- B"))
 
     def test_promoted_root_is_annotated_with_elided_parent(self):
         orphan = FakePlan(id="orphan", title="Orphan", parent="missing-parent")

@@ -5,8 +5,8 @@ import unittest
 from pentimento import markdown, style
 
 
-def _render(body, width=40, on_color=False, unicode_ok=True):
-    return markdown.render(body, on_color=on_color, unicode_ok=unicode_ok, width=width)
+def _render(body, width=40, on_color=False):
+    return markdown.render(body, on_color=on_color, width=width)
 
 
 class WrapTests(unittest.TestCase):
@@ -26,10 +26,10 @@ class WrapTests(unittest.TestCase):
     def test_hanging_indent_aligns_continuation_under_text(self):
         text = "- a long item that must wrap onto more than one output line for sure"
         lines = _render(text, width=20)
-        self.assertTrue(lines[0].startswith("• "))
+        self.assertTrue(lines[0].startswith("- "))
         for line in lines[1:]:
             self.assertTrue(line.startswith("  "))
-            self.assertFalse(line.startswith("  •"))
+            self.assertFalse(line.startswith("  -"))
 
     def test_a_token_wider_than_the_width_is_broken_into_full_rows(self):
         token = "a" * 60
@@ -73,32 +73,20 @@ class ListItemContinuationTests(unittest.TestCase):
 
 
 class GlyphTests(unittest.TestCase):
-    def test_checked_box_unicode(self):
-        lines = _render("- [x] done", unicode_ok=True)
-        self.assertEqual(lines, ["✓ done"])
-
-    def test_checked_box_ascii(self):
-        lines = _render("- [x] done", unicode_ok=False)
+    def test_checked_box(self):
+        lines = _render("- [x] done")
         self.assertEqual(lines, ["[x] done"])
 
-    def test_unchecked_box_unicode(self):
-        lines = _render("- [ ] todo", unicode_ok=True)
-        self.assertEqual(lines, ["☐ todo"])
-
-    def test_unchecked_box_ascii(self):
-        lines = _render("- [ ] todo", unicode_ok=False)
+    def test_unchecked_box(self):
+        lines = _render("- [ ] todo")
         self.assertEqual(lines, ["[ ] todo"])
 
-    def test_bullet_unicode(self):
-        lines = _render("- item", unicode_ok=True)
-        self.assertEqual(lines, ["• item"])
-
-    def test_bullet_ascii(self):
-        lines = _render("- item", unicode_ok=False)
+    def test_bullet(self):
+        lines = _render("- item")
         self.assertEqual(lines, ["- item"])
 
     def test_checked_box_is_painted_green(self):
-        lines = _render("- [x] done", on_color=True, unicode_ok=True)
+        lines = _render("- [x] done", on_color=True)
         self.assertIn(style.GREEN, lines[0])
 
 
@@ -120,17 +108,15 @@ class FencedCodeTests(unittest.TestCase):
         self.assertGreater(len(lines), 1)
         for line in lines:
             self.assertLessEqual(style.display_width(line), 20)
-            self.assertTrue(line.startswith("    ") or line.startswith("  ↪ "))
+            self.assertTrue(line.startswith("    ") or line.startswith(" -> "))
         self.assertNotIn("…", "".join(lines))
         self.assertEqual(" ".join(line[4:] for line in lines), source)
 
     def test_continuation_rows_carry_a_wrap_glyph(self):
         body = "```\none two three four five six seven\n```"
-        unicode_lines = _render(body, width=15)
-        ascii_lines = _render(body, width=15, unicode_ok=False)
-        self.assertTrue(unicode_lines[0].startswith("    one"))
-        self.assertTrue(all(line.startswith("  ↪ ") for line in unicode_lines[1:]))
-        self.assertTrue(all(line.startswith("  > ") for line in ascii_lines[1:]))
+        lines = _render(body, width=15)
+        self.assertTrue(lines[0].startswith("    one"))
+        self.assertTrue(all(line.startswith(" -> ") for line in lines[1:]))
 
     def test_wrap_glyph_is_painted_dim(self):
         lines = _render("```\none two three four five\n```", width=15, on_color=True)
@@ -336,36 +322,33 @@ class SqueezeTests(unittest.TestCase):
 class ClipTests(unittest.TestCase):
     def test_under_limit_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, 10, "hint", on_color=False, unicode_ok=True), lines)
+        self.assertEqual(markdown.clip(lines, 10, "hint", on_color=False), lines)
 
     def test_limit_none_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, None, "hint", on_color=False, unicode_ok=True), lines)
+        self.assertEqual(markdown.clip(lines, None, "hint", on_color=False), lines)
 
     def test_at_limit_is_unchanged(self):
         lines = ["a", "b", "c"]
-        self.assertEqual(markdown.clip(lines, 3, "hint", on_color=False, unicode_ok=True), lines)
+        self.assertEqual(markdown.clip(lines, 3, "hint", on_color=False), lines)
 
     def test_over_limit_trims_and_appends_hint(self):
         lines = [str(n) for n in range(10)]
-        clipped = markdown.clip(
-            lines, 5, "pentimento show foo --full", on_color=False, unicode_ok=True
-        )
+        clipped = markdown.clip(lines, 5, "pentimento show foo --full", on_color=False)
         self.assertEqual(len(clipped), markdown.MIN_BODY_LINES + 1)
         self.assertIn("more lines", clipped[-1])
         self.assertIn("pentimento show foo --full", clipped[-1])
 
     def test_over_limit_trims_trailing_blank_lines(self):
         lines = ["0", "1", "2", "3", "4", "", "6", "7"]
-        clipped = markdown.clip(lines, 6, "hint", on_color=False, unicode_ok=True)
+        clipped = markdown.clip(lines, 6, "hint", on_color=False)
         self.assertEqual(clipped[:-1], ["0", "1", "2", "3", "4"])
         self.assertIn("more lines", clipped[-1])
 
-    def test_ascii_mode_never_emits_unicode_clip_glyphs(self):
+    def test_clip_message_is_ascii(self):
         lines = [str(n) for n in range(10)]
-        clipped = markdown.clip(lines, 5, "hint", on_color=False, unicode_ok=False)
-        self.assertNotIn("…", clipped[-1])
-        self.assertNotIn("—", clipped[-1])
+        clipped = markdown.clip(lines, 5, "hint", on_color=False)
+        self.assertTrue(clipped[-1].isascii())
 
 
 if __name__ == "__main__":

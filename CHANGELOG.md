@@ -16,6 +16,11 @@ is a usage error. `list --grep` no longer matches across the title and body
 boundary, and `--finding` no longer offers `unreadable-file`, which names a file
 rather than a plan and still appears in `check`.
 
+All output is ASCII. `--ascii` is removed from `list`, `tree`, `show`, `check`,
+and `history`; trees draw with `tree(1)` connectors (`|--`, `` `-- ``), `show`
+uses `-` bullets, `[x]`/`[ ]` checkboxes, and `...`, and truncation ends in
+`...`. Plan text is passed through unchanged.
+
 ## 0.1.15
 
 `backfill` no longer names a plan `home` when its session was launched in `$HOME`.

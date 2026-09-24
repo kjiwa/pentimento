@@ -80,7 +80,6 @@ def _render_row(
     widths: dict[Column, int],
     cells: list[Cell],
     width: int,
-    unicode_ok: bool,
     on_color: bool,
 ) -> str:
     parts = []
@@ -93,7 +92,7 @@ def _render_row(
         if remaining <= 0:
             break
         col_width = min(widths[column], remaining)
-        cell_text = style.truncate(text, col_width, unicode_ok=unicode_ok)
+        cell_text = style.truncate(text, col_width)
         if column.align == "right" or not is_last:
             cell_text = _pad(cell_text, col_width, column.align)
         parts.append(style.paint(cell_text, *codes, on=on_color))
@@ -106,7 +105,6 @@ def render(
     rows: list[tuple[Cell, ...]],
     *,
     on_color: bool,
-    unicode_ok: bool,
     width: int,
 ) -> str:
     natural = _natural_widths(columns, rows)
@@ -114,11 +112,11 @@ def render(
     index_by_column = {c: i for i, c in enumerate(columns)}
 
     header_cells = [(c.header, ()) for c in active]
-    header_line = _render_row(active, widths, header_cells, width, unicode_ok, on_color=False)
+    header_line = _render_row(active, widths, header_cells, width, on_color=False)
     header = style.paint(header_line, style.BOLD, on=on_color)
 
     lines = [header]
     for row in rows:
         active_cells = [row[index_by_column[c]] for c in active]
-        lines.append(_render_row(active, widths, active_cells, width, unicode_ok, on_color))
+        lines.append(_render_row(active, widths, active_cells, width, on_color))
     return "\n".join(lines)

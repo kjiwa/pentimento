@@ -13,14 +13,14 @@ class NaturalWidthTests(unittest.TestCase):
     def test_no_row_is_padded_to_width(self):
         columns = (_column("A"), _column("B"))
         rows = [((("x", ()), ("y", ())))]
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=200)
+        rendered = table.render(columns, rows, on_color=False, width=200)
         for line in rendered.split("\n"):
             self.assertLess(style.display_width(line), 200)
 
     def test_no_trailing_whitespace(self):
         columns = (_column("A"), _column("B"))
         rows = [(("x", ()), ("y", ()))]
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=200)
+        rendered = table.render(columns, rows, on_color=False, width=200)
         for line in rendered.split("\n"):
             self.assertEqual(line, line.rstrip())
 
@@ -33,7 +33,7 @@ class ShrinkBeforeDropTests(unittest.TestCase):
         )
         rows = [(("fixed-value", ()), ("a very long flexible value", ()))]
         width = style.display_width("fixed-value") + style.GUTTER + 5
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=width)
+        rendered = table.render(columns, rows, on_color=False, width=width)
         header = rendered.split("\n")[0]
         self.assertIn("FIXED", header)
         self.assertIn("FLEX", header)
@@ -47,7 +47,7 @@ class NoWasteShrinkTests(unittest.TestCase):
         )
         rows = [(("fixed-value", ()), ("abcdefghijklmnopqrstuvwxyz", ()))]
         width = style.display_width("fixed-value") + style.GUTTER + 8
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=width)
+        rendered = table.render(columns, rows, on_color=False, width=width)
         record_line = rendered.split("\n")[1]
         self.assertEqual(style.display_width(record_line), width)
 
@@ -62,7 +62,7 @@ class DropOrderTests(unittest.TestCase):
         rows = [(("keep", ()), ("first", ()), ("second", ()))]
         # Wide enough for natural widths, narrow enough to force a drop.
         width = style.display_width("keep") + style.GUTTER + style.display_width("second") + 1
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=width)
+        rendered = table.render(columns, rows, on_color=False, width=width)
         header = rendered.split("\n")[0]
         self.assertNotIn("FIRST", header)
         self.assertIn("SECOND", header)
@@ -72,7 +72,7 @@ class FloorPassTests(unittest.TestCase):
     def test_shrinks_to_floor_once_dropping_is_exhausted(self):
         columns = (_column("FLEX", flex=1, comfort=10, floor=3),)
         rows = [(("x" * 30, ()),)]
-        rendered = table.render(columns, rows, on_color=False, unicode_ok=True, width=3)
+        rendered = table.render(columns, rows, on_color=False, width=3)
         for line in rendered.split("\n"):
             self.assertLessEqual(style.display_width(line), 3)
 
@@ -99,15 +99,12 @@ class UnconditionalFitTests(unittest.TestCase):
                 ("2w", ()),
             ),
         ]
-        for unicode_ok in (True, False):
-            for width in range(10, 201):
-                rendered = table.render(
-                    columns, rows, on_color=False, unicode_ok=unicode_ok, width=width
+        for width in range(10, 201):
+            rendered = table.render(columns, rows, on_color=False, width=width)
+            for line in rendered.split("\n"):
+                self.assertLessEqual(
+                    style.display_width(line), width, f"width={width} overflowed: {line!r}"
                 )
-                for line in rendered.split("\n"):
-                    self.assertLessEqual(
-                        style.display_width(line), width, f"width={width} overflowed: {line!r}"
-                    )
 
 
 if __name__ == "__main__":

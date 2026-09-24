@@ -224,11 +224,6 @@ def _add_format_args(parser):
         default="auto",
         help="colour policy (default: auto)",
     )
-    group.add_argument(
-        "--ascii",
-        action="store_true",
-        help="draw with ASCII characters instead of Unicode, even on a UTF-8 terminal",
-    )
     return group
 
 
@@ -422,7 +417,7 @@ def build_parser() -> argparse.ArgumentParser:
             "lineage thread whatever its subplans are tagged."
         ),
         epilog=(
-            "Examples:\n  pentimento tree --project .\n  pentimento tree --starred --ascii\n"
+            "Examples:\n  pentimento tree --project .\n  pentimento tree --starred\n"
             "  pentimento tree wobbly-willow\n  pentimento tree wobbly-willow --ancestors"
         ),
     )
@@ -636,7 +631,7 @@ def _apply_limit(plans, args):
 
 def _render_table_or_empty(corpus_plans, plans, args, render):
     """Shared `list`/`tree` table-format tail: nothing for an empty corpus, empty-filter
-    summary, or `render(on_color, unicode_ok, short_ids)` followed by the
+    summary, or `render(on_color, short_ids)` followed by the
     filtered/total summary line."""
     if not corpus_plans:
         return 0
@@ -645,9 +640,8 @@ def _render_table_or_empty(corpus_plans, plans, args, render):
         print(style.paint(counts.summary(0, len(corpus_plans)), style.DIM, on=on_color))
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
     short_ids = shortid.shorten(p.id for p in corpus_plans)
-    print(render(on_color, unicode_ok, short_ids))
+    print(render(on_color, short_ids))
     print()
     print(style.paint(counts.summary(len(plans), len(corpus_plans)), style.DIM, on=on_color))
     return 0
@@ -694,8 +688,8 @@ def cmd_list(args) -> int:
         corpus_plans,
         plans,
         args,
-        lambda on_color, unicode_ok, short_ids: listing.render(
-            plans, on_color, unicode_ok, short_ids=short_ids, selection=selection, pin=pin
+        lambda on_color, short_ids: listing.render(
+            plans, on_color, short_ids=short_ids, selection=selection, pin=pin
         ),
     )
 
@@ -724,13 +718,11 @@ def cmd_tree(args) -> int:
         corpus_plans,
         plans,
         args,
-        lambda on_color, unicode_ok, short_ids: tree_module.render_grouped(
+        lambda on_color, short_ids: tree_module.render_grouped(
             plans,
             on_color,
             key=key,
             reverse=reverse,
-            glyphs=style.glyphs(unicode_ok),
-            unicode_ok=unicode_ok,
             short_ids=short_ids,
             root_id=root_id,
         ),
@@ -854,12 +846,11 @@ def cmd_show(args) -> int:
         return 0
 
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
     width = min(style.terminal_width(), markdown.MAX_WIDTH)
 
     header = _show_header(target, width, on_color=on_color) + _show_findings(found, on_color)
     body_text = plan_module.body_below_title(target.body)
-    body = markdown.render(body_text, on_color=on_color, unicode_ok=unicode_ok, width=width)
+    body = markdown.render(body_text, on_color=on_color, width=width)
     if _should_page(args, len(header) + len(body)):
         pager.page(header + body)
         return 0
@@ -868,7 +859,7 @@ def cmd_show(args) -> int:
     if sys.stdout.isatty() and not args.full:
         limit = max(style.terminal_height() - len(header) - 2, markdown.MIN_BODY_LINES)
     hint = f"pentimento show {args.id} --full"
-    body = markdown.clip(body, limit, hint, on_color=on_color, unicode_ok=unicode_ok)
+    body = markdown.clip(body, limit, hint, on_color=on_color)
     for line in header + body:
         print(line)
     return 0
@@ -1117,7 +1108,6 @@ def cmd_check(args) -> int:
     findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:
         on_color = style.enabled(sys.stdout, args.color)
-        unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
         if findings:
             columns = (
                 table.Column("CODE"),
@@ -1130,9 +1120,7 @@ def cmd_check(args) -> int:
                 for f in findings
             ]
             width = style.terminal_width()
-            print(
-                table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
-            )
+            print(table.render(columns, rows, on_color=on_color, width=width))
             print()
         plan_count = counts.plural(len(plans), "plan")
         finding_count = counts.plural(len(findings), "finding")
@@ -1173,8 +1161,7 @@ def cmd_history(args) -> int:
         )
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    unicode_ok = style.unicode_enabled(sys.stdout, args.ascii)
-    print(history_module.render(target.id, plan_touches, on_color, unicode_ok))
+    print(history_module.render(target.id, plan_touches, on_color))
     return 0
 
 

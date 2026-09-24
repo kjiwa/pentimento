@@ -140,26 +140,26 @@ ancestor, spine only, for pulling a single thread out of a larger forest.
 <!-- sample:tree -->
 ```
 (no project)
-└─ Write the onboarding checklist
-     onboarding-checklist  unknown  unset  2026-09-13  1d
+`-- Write the onboarding checklist
+      onboarding-checklist  unknown  unset  2026-09-13  1d
 
 billing
-├─ Rewrite dunning email copy
-│    dunning-copy  complete  someday  [billing]  2026-08-20  3w
-├─ Retry failed invoice charges (parent elided: no-such-plan)
-│    invoice-retry  unknown  unset  [billing]  2026-09-04  1w
-└─ Tune search relevance
-     relevance-tuning  not-started  active  [search]  2026-09-09  5d
+|-- Rewrite dunning email copy
+|     dunning-copy  complete  someday  [billing]  2026-08-20  3w
+|-- Retry failed invoice charges (parent elided: no-such-plan)
+|     invoice-retry  unknown  unset  [billing]  2026-09-04  1w
+`-- Tune search relevance
+      relevance-tuning  not-started  active  [search]  2026-09-09  5d
 
 platform
-├─ Write a docs style guide
-│    style-guide  superseded  abandoned  2026-07-31  6w
-└─ Redesign the auth API
-     auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
-   └─ Roll out the new auth API
-        auth-rollout  partial  active  [auth, security]  2026-08-25  2w
-      └─ Remove the old auth API
-           auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+|-- Write a docs style guide
+|     style-guide  superseded  abandoned  2026-07-31  6w
+`-- Redesign the auth API
+      auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
+    `-- Roll out the new auth API
+          auth-rollout  partial  active  [auth, security]  2026-08-25  2w
+        `-- Remove the old auth API
+              auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
 
 8 plans
 ```
@@ -168,12 +168,12 @@ platform
 <!-- sample:tree-thread -->
 ```
 platform
-└─ Redesign the auth API
-     auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
-   └─ Roll out the new auth API
-        auth-rollout  partial  active  [auth, security]  2026-08-25  2w
-      └─ Remove the old auth API
-           auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
+`-- Redesign the auth API
+      auth-redesign  complete  abandoned  [auth, security]  2026-08-05  5w
+    `-- Roll out the new auth API
+          auth-rollout  partial  active  [auth, security]  2026-08-25  2w
+        `-- Remove the old auth API
+              auth-cleanup  not-started  queued  [auth, security]  2026-08-30  2w
 
 3 of 8 plans
 ```
@@ -193,8 +193,8 @@ created: 2026-08-25   source: claude   modified: 2026-08-25 12:30
 
 Progress
 
-✓ Ship behind a feature flag
-☐ Flip the flag for all tenants
+[x] Ship behind a feature flag
+[ ] Flip the flag for all tenants
 
 Context
 

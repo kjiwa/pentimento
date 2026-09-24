@@ -2083,5 +2083,50 @@ class HelpTextTests(unittest.TestCase):
             self.assertEqual(cm.exception.code, 0)
 
 
+class AsciiOutputTests(unittest.TestCase):
+    COMMANDS = (
+        ["list"],
+        ["tree"],
+        ["tree", "root", "--ancestors"],
+        ["show", "root", "--full", "--no-pager"],
+        ["check"],
+        ["history", "root"],
+    )
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def _write_plans(self, title, body):
+        _write(self.directory, "root", f"---\nproject: p\n---\n\n# {title}\n\n{body}")
+        _write(self.directory, "child", "---\nproject: p\nparent: root\n---\n\n# Child\n")
+        _write(self.directory, "orphan", "---\nparent: missing\n---\n\n# Orphan\n")
+
+    def _outputs(self, columns):
+        with mock.patch.dict(os.environ, {"COLUMNS": columns}):
+            for argv in self.COMMANDS:
+                _, out, _ = _main([*argv, "--color", "never"])
+                yield argv, out
+
+    def test_every_command_prints_ascii_for_ascii_content(self):
+        body = "- item\n- [x] done\n- [ ] todo\n\n---\n\n```\n" + "word " * 30 + "\n```\n"
+        self._write_plans("Root " + "long " * 20, body)
+        for columns in ("30", "200"):
+            for argv, out in self._outputs(columns):
+                self.assertTrue(out.strip(), f"{argv} printed nothing")
+                self.assertTrue(out.isascii(), f"{argv} at {columns} columns: {out!r}")
+
+    def test_non_ascii_plan_content_passes_through_unchanged(self):
+        self._write_plans("Caf\u00e9 plan", "- \u00fcn\u00ee\u00e7\u00f8d\u00e9\n")
+        outputs = dict((tuple(argv), out) for argv, out in self._outputs("200"))
+        self.assertIn("Caf\u00e9 plan", outputs[("list",)])
+        self.assertIn("Caf\u00e9 plan", outputs[("tree",)])
+        self.assertIn(
+            "\u00fcn\u00ee\u00e7\u00f8d\u00e9", outputs[("show", "root", "--full", "--no-pager")]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

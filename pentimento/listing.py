@@ -77,9 +77,7 @@ NAMES = tuple(name for name, _, _, _ in _SPECS)
 COLUMNS = tuple(spec[1] for spec in _SPECS)
 
 
-def render(
-    plans, on_color: bool, unicode_ok: bool = True, *, short_ids=None, selection=None, pin=()
-) -> str:
+def render(plans, on_color: bool, *, short_ids=None, selection=None, pin=()) -> str:
     """Render `plans` as a table.
 
     `short_ids`, when given, must be a corpus-wide `shortid.shorten` mapping
@@ -110,4 +108,4 @@ def render(
     rows = [tuple(by_name[name][1](p, short_ids) for name in names) for p in plans]
 
     width = style.terminal_width()
-    return table.render(columns, rows, on_color=on_color, unicode_ok=unicode_ok, width=width)
+    return table.render(columns, rows, on_color=on_color, width=width)

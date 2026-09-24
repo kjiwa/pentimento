@@ -83,26 +83,24 @@ class _RenderContext:
     lines: list
     visited: set
     on_color: bool
-    glyphs: dict
-    unicode_ok: bool
     width: int
     short_ids: dict
 
 
 def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
-    connector = ctx.glyphs["last"] if is_last else ctx.glyphs["branch"]
+    connector = style.GLYPHS["last"] if is_last else style.GLYPHS["branch"]
     annotation_text = f"({root_annotation})" if root_annotation else ""
     title_line = f"{prefix}{connector}{plan.title}"
     if annotation_text:
         title_line += f" {annotation_text}"
-    title_line = style.truncate(title_line, ctx.width, unicode_ok=ctx.unicode_ok)
+    title_line = style.truncate(title_line, ctx.width)
     if annotation_text and title_line.endswith(annotation_text):
         title_line = title_line[: -len(annotation_text)] + style.paint(
             annotation_text, style.DIM, on=ctx.on_color
         )
     ctx.lines.append(title_line)
 
-    child_prefix = prefix + (ctx.glyphs["space"] if is_last else ctx.glyphs["vertical"])
+    child_prefix = prefix + (style.GLYPHS["space"] if is_last else style.GLYPHS["vertical"])
     is_repeat = plan.id in ctx.visited
     cells: list[style.Cell] = [(ctx.short_ids[plan.id], ())]
     cells.append((plan.status, style.STATUS_CODES.get(plan.status, ())))
@@ -119,7 +117,6 @@ def _render_node(ctx, plan, prefix, is_last, root_annotation=None):
         cells,
         "  ",
         ctx.width - style.display_width(prefix_text),
-        unicode_ok=ctx.unicode_ok,
         on_color=ctx.on_color,
     )
     ctx.lines.append(meta_line)
@@ -137,13 +134,10 @@ def render(
     on_color: bool = False,
     key=_id_key,
     reverse: bool = False,
-    glyphs=None,
-    unicode_ok: bool = False,
     short_ids=None,
     root_id=None,
 ) -> str:
     """Tree for one project's worth of plans (roots and descendants)."""
-    glyphs = glyphs or style.GLYPHS_ASCII
     width = style.terminal_width()
     if short_ids is None:
         short_ids = shortid.shorten(p.id for p in plans)
@@ -155,8 +149,6 @@ def render(
         lines=[],
         visited=set(),
         on_color=on_color,
-        glyphs=glyphs,
-        unicode_ok=unicode_ok,
         width=width,
         short_ids=short_ids,
     )
@@ -173,8 +165,6 @@ def render_grouped(
     on_color: bool = False,
     key=_id_key,
     reverse: bool = False,
-    glyphs=None,
-    unicode_ok: bool = False,
     short_ids=None,
     root_id=None,
 ) -> str:
@@ -196,8 +186,6 @@ def render_grouped(
                 on_color,
                 key,
                 reverse,
-                glyphs,
-                unicode_ok,
                 short_ids,
                 root_id,
             )

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.17
+
+bash completion now completes the `--flag=value` form. bash 4 and later split
+`--columns=+cr` into three words at the `=`, so the generated script passed
+the engine a broken command line and offered nothing; bash 3 kept the word
+whole but inserted the flag twice. The script now rejoins the words and offers
+only the value, and behaves the same on both. zsh and fish were unaffected.
+
 ## 0.1.16
 
 `check` gains an `unadopted-tag` finding for an untagged plan whose parent is

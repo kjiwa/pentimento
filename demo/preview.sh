@@ -15,7 +15,7 @@ main() {
   MAGICK=${MAGICK:-magick}
   OUT_DIR=${1:-${TMPDIR:-/tmp}}
   FRAME="$REPO_ROOT/demo/pentimento-tree.png"
-  OUT="$OUT_DIR/pentimento-preview.png"
+  OUT="${OUT_DIR%/}/pentimento-preview.png"
 
   "$MAGICK" "$FRAME" -fuzz 8% -trim +repage \
     -bordercolor black -border 34 \

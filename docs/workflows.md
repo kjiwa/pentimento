@@ -51,6 +51,15 @@ pentimento list --status partial --starred
 <id>` lists the sessions that touched it since. When you resume, move it out
 of `someday` with `set <id> --intent active`.
 
+`set` takes several ids, so a triage pass can park or tag a batch at once.
+Every id is resolved before anything is written, and `--dry-run` previews the
+whole batch:
+
+```sh
+pentimento set wobbly-willow api-auth-cleanup --intent someday --dry-run
+pentimento set wobbly-willow api-auth-cleanup --intent someday --add-tag growthbook
+```
+
 ## Reusing a past decision
 
 A plan from one project often holds the reasoning a change in another

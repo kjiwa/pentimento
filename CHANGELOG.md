@@ -34,6 +34,24 @@ only a node's title and wraps its metadata line, with the `(parent elided: ...)`
 note, between fields; `history` stacks the touch count as `touches N`; `show` wraps
 finding lines to the terminal width.
 
+`set` takes several ids (`set ID... [flags]`). Every id is resolved before
+anything is written, so a miss exits 1 with no change; with more than one id,
+each change block is headed by the plan's short id, and a `--parent` that would
+create a cycle, counting every plan being edited, exits 2. Changes print as
+`field: old -> new`, `field: set to value`, and `field: cleared`, without
+Python quoting. `check` messages name values plainly (`status 'done' is not one
+of not-started, partial, ...`, `malformed tags [Bad Tag]`), and its help gains
+examples. `show` prints tags as `[a, b]` and the effective `status`, `intent`,
+and `created` when the frontmatter omits them. An I/O error prints
+`pentimento: <path>: <reason>`, and an empty `history` goes to stderr with the
+`pentimento: ` prefix. Help is hand-wrapped to 72 columns, says "color", states
+the tag form and that matching ignores case, and describes `backfill` as
+gap-filling `intent`/`created`/`project`/`parent` and advancing `status`.
+Completion handles `--flag=value`, completes `--columns` names after `,`, `+`,
+and `-`, offers `-h`/`--help` after a subcommand, describes candidates with the
+first sentence of their help, and completes further ids after the first for
+`set`.
+
 ## 0.1.15
 
 `backfill` no longer names a plan `home` when its session was launched in `$HOME`.

@@ -106,7 +106,7 @@ and `TAGS` in a table. Widen the terminal (about 135 columns), or pick fewer col
 
 ## `history` is empty
 
-`no session history for <id>; searched: <directory>` means no transcript
+`pentimento: no session history for <id>; searched: <directory>` (on stderr, exit 0) means no transcript
 under that directory (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`)
 contains a `tool_use` call naming that plan's path — never a claim the plan
 wasn't worked. Common causes: the work happened in a session whose

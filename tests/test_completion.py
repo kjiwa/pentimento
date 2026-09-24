@@ -96,6 +96,82 @@ class ColumnsChoicesTests(_CorpusTestCase):
         self.assertEqual(values, set(listing.NAMES) | {"all"})
 
 
+class MultiIdSetCompletionTests(_CorpusTestCase):
+    def test_further_ids_complete_after_the_first(self):
+        values = {value for value, _ in completion.candidates(["set", "abundant-rabbit", ""])}
+        self.assertIn("abundant-rabbit", values)
+
+    def test_further_ids_complete_after_flags_too(self):
+        words = ["set", "abundant-rabbit", "--intent", "active", ""]
+        values = {value for value, _ in completion.candidates(words)}
+        self.assertIn("abundant-rabbit", values)
+
+    def test_remove_tag_pools_the_tags_of_every_named_id(self):
+        words = ["set", "abundant-rabbit", "--remove-tag", ""]
+        values = {value for value, _ in completion.candidates(words)}
+        self.assertEqual(values, {"auth", "security"})
+
+
+class AssignedFlagTests(_CorpusTestCase):
+    def test_flag_equals_value_completes_with_the_flag_kept(self):
+        values = {value for value, _ in completion.candidates(["list", "--status=no"])}
+        self.assertEqual(values, {"--status=not-started"})
+
+    def test_flag_equals_value_does_not_consume_a_positional_slot(self):
+        words = ["set", "--intent=active", ""]
+        values = {value for value, _ in completion.candidates(words)}
+        self.assertIn("abundant-rabbit", values)
+
+    def test_boolean_flag_with_equals_offers_nothing(self):
+        self.assertEqual(completion.candidates(["list", "--starred=x"]), [])
+
+
+class ColumnSeparatorTests(_CorpusTestCase):
+    def _values(self, word):
+        return {value for value, _ in completion.candidates(["list", "--columns", word])}
+
+    def test_completes_after_a_comma(self):
+        self.assertEqual(self._values("status,ti"), {"status,title"})
+
+    def test_completes_after_plus_and_minus(self):
+        self.assertEqual(self._values("+ti"), {"+title"})
+        self.assertEqual(self._values("-cre"), {"-created"})
+
+    def test_all_is_offered_only_at_the_start(self):
+        self.assertIn("all", self._values(""))
+        self.assertNotIn("all,", "".join(self._values("status,")))
+        self.assertNotIn("status,all", self._values("status,"))
+
+    def test_equals_form_completes_columns(self):
+        values = {value for value, _ in completion.candidates(["list", "--columns=-sta"])}
+        self.assertEqual(values, {"--columns=-status"})
+
+
+class SubcommandFlagTests(_CorpusTestCase):
+    def test_help_flag_is_offered(self):
+        values = {value for value, _ in completion.candidates(["list", "--h"])}
+        self.assertEqual(values, {"--help"})
+
+    def test_short_help_flag_is_offered(self):
+        values = {value for value, _ in completion.candidates(["show", "-"])}
+        self.assertIn("-h", values)
+
+
+class DescriptionTests(_CorpusTestCase):
+    def test_descriptions_are_the_first_sentence_of_the_help(self):
+        pairs = dict(completion.candidates(["list", "--project"]))
+        self.assertEqual(
+            pairs["--project"], "filter by project; '.' resolves to the current directory's name"
+        )
+        pairs = dict(completion.candidates(["list", "--since"]))
+        self.assertNotIn(". ", pairs["--since"])
+
+    def test_first_sentence_stops_at_a_period_and_space(self):
+        self.assertEqual(completion._first_sentence("one thing. another"), "one thing")
+        self.assertEqual(completion._first_sentence("plain."), "plain")
+        self.assertEqual(completion._first_sentence(None), "")
+
+
 class ProjectTagTests(_CorpusTestCase):
     def test_project_offers_corpus_projects_plus_dot(self):
         values = {value for value, _ in completion.candidates(["list", "--project", ""])}

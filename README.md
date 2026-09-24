@@ -216,7 +216,7 @@ platform
 # Roll out the new auth API
 
 id: api-auth-rollout
-path: ~/.claude/plans/api-auth-rollout.md
+path: /var/folders/tj/h8yv0kr53zs5_07wc9_h37f80000gn/T/pentimento-fixture.Ky1cY3/api-auth-rollout.md
 status: partial   intent: active   tags: [auth, security]
 parent: api-auth-redesign   project: platform
 created: 2026-08-25   source: claude   modified: 2026-08-25 12:30
@@ -268,8 +268,8 @@ narrow with: pentimento list --finding <code>
 
 `history` shows which sessions touched a plan's file: the session whose id
 matches the plan's own id authored it; any later session that read, edited,
-or delegated work on it worked it. An empty result prints
-`no session history for <id>; searched: <directory>` — that means no matching
+or delegated work on it worked it. An empty result prints, to stderr,
+`pentimento: no session history for <id>; searched: <directory>` — that means no matching
 transcript was found there, never a claim the plan wasn't worked.
 
 <!-- sample:history -->
@@ -322,11 +322,11 @@ Cursor plans get body-only lineage and no `project` at all.
 | `list` | Flat table of plans, one line each. |
 | `tree [<id>]` | Plans nested under their parents, grouped by project; `<id>` roots the tree at one plan's thread instead, `--ancestors` walking up to its topmost ancestor. |
 | `show <id>` | One plan's title, frontmatter, and rendered body. |
-| `set <id>` | Rewrite one plan's frontmatter in place. |
+| `set <id>...` | Rewrite the named plans' frontmatter in place. |
 | `backfill` | Derive and write missing frontmatter across the corpus. |
 | `hook` | Run as a Claude Code `PostToolUse` hook, reading the payload on stdin. |
 | `index` | Write `INDEX.md` into the plans directory. |
-| `check` | Validate lineage, vocabulary, and status; exits 1 on any finding. |
+| `check` | Validate lineage, vocabulary, status, and tags; exits 1 on any finding. |
 | `history <id>` | Every session that touched one plan, oldest first. |
 | `completion <shell>` | Print a `bash`/`zsh`/`fish` tab-completion script. |
 

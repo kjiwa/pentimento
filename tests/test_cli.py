@@ -1152,22 +1152,17 @@ class CmdHistoryTests(unittest.TestCase):
 
     def test_no_history_prints_message_and_exits_zero(self):
         _write(self.directory, "root-plan", "# Root\n")
-        out = io.StringIO()
-        args = cli.build_parser().parse_args(["history", "root-plan"])
-        with contextlib.redirect_stdout(out):
-            result = cli.cmd_history(args)
-        self.assertEqual(result, 0)
-        self.assertIn("no session history for root-plan; searched: ", out.getvalue())
-        self.assertIn(os.environ["AGENT_SESSIONS_DIR"], out.getvalue())
+        code, out, err = _main(["history", "root-plan"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "")
+        self.assertIn("pentimento: no session history for root-plan; searched: ", err)
+        self.assertIn(os.environ["AGENT_SESSIONS_DIR"], err)
 
     def test_resolves_a_short_id(self):
         _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
-        out = io.StringIO()
-        args = cli.build_parser().parse_args(["history", "abundant-rabbit"])
-        with contextlib.redirect_stdout(out):
-            result = cli.cmd_history(args)
-        self.assertEqual(result, 0)
-        self.assertIn("no session history for is-it-possible-to-abundant-rabbit", out.getvalue())
+        code, _, err = _main(["history", "abundant-rabbit"])
+        self.assertEqual(code, 0)
+        self.assertIn("no session history for is-it-possible-to-abundant-rabbit", err)
 
 
 class AmbiguousShortIdTests(unittest.TestCase):
@@ -2007,12 +2002,12 @@ class BackfillOnlyTests(unittest.TestCase):
         code, out, _ = _main(["backfill", "--dry-run", "--only", "other-plan"])
         lines = out.splitlines()
         self.assertEqual(lines[0], "other-plan")
-        self.assertIn("  status: set to 'unknown'", lines)
+        self.assertIn("  status: set to unknown", lines)
         self.assertTrue(any(line.startswith("  intent: set to") for line in lines))
 
     def test_real_run_lists_field_changes_and_quiet_suppresses_them(self):
         _, out, _ = _main(["backfill", "--only", "other-plan"])
-        self.assertIn("  status: set to 'unknown'", out.splitlines())
+        self.assertIn("  status: set to unknown", out.splitlines())
         _write(self.directory, "quiet-plan", "# Q\n")
         _, out, _ = _main(["backfill", "--quiet", "--only", "quiet-plan"])
         self.assertEqual(out, "")
@@ -2024,7 +2019,7 @@ class BackfillOnlyTests(unittest.TestCase):
             "---\nstatus: not-started\n---\n\n# Done\n\n## Progress\n- [x] all\n",
         )
         _, out, _ = _main(["backfill", "--dry-run", "--rederive", "--only", "done-plan"])
-        self.assertIn("  status: 'not-started' -> 'complete'", out.splitlines())
+        self.assertIn("  status: not-started -> complete", out.splitlines())
 
 
 class TreeCycleRootTests(unittest.TestCase):
@@ -2084,6 +2079,163 @@ class HelpTextTests(unittest.TestCase):
             self.assertEqual(cm.exception.code, 0)
 
 
+class MultiIdSetTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(self.directory, "alpha-plan-one", "---\nintent: unset\n---\n\n# One\n")
+        _write(self.directory, "beta-plan-two", "---\nintent: unset\ntags: [a]\n---\n\n# Two\n")
+
+    def _fields(self, plan_id):
+        return corpus.by_id(corpus.load_all(self.directory), plan_id).fields
+
+    def test_edits_every_named_plan_with_headed_blocks(self):
+        code, out, _ = _main(["set", "alpha-plan-one", "beta-plan-two", "--intent", "active"])
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            out.splitlines(),
+            [
+                "plan-one",
+                "  intent: unset -> active",
+                "plan-two",
+                "  intent: unset -> active",
+            ],
+        )
+        self.assertEqual(self._fields("alpha-plan-one")["intent"], "active")
+        self.assertEqual(self._fields("beta-plan-two")["intent"], "active")
+
+    def test_a_missing_id_exits_one_and_writes_nothing(self):
+        code, _, err = _main(["set", "alpha-plan-one", "no-such-plan", "--intent", "active"])
+        self.assertEqual(code, 1)
+        self.assertIn("pentimento: no such plan: no-such-plan", err)
+        self.assertEqual(self._fields("alpha-plan-one")["intent"], "unset")
+
+    def test_dry_run_applies_to_all_and_writes_nothing(self):
+        code, out, _ = _main(
+            ["set", "alpha-plan-one", "beta-plan-two", "--add-tag", "b", "--dry-run"]
+        )
+        self.assertEqual(code, 0)
+        self.assertIn("  tags: set to [b] (dry run)", out.splitlines())
+        self.assertIn("  tags: [a] -> [a, b] (dry run)", out.splitlines())
+        self.assertNotIn("tags", self._fields("alpha-plan-one"))
+
+    def test_plans_without_a_change_are_not_headed(self):
+        code, out, _ = _main(["set", "alpha-plan-one", "beta-plan-two", "--remove-tag", "a"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out.splitlines(), ["plan-two", "  tags: cleared"])
+
+    def test_parent_among_the_ids_that_cycles_is_a_usage_error(self):
+        code, _, err = _main(
+            ["set", "alpha-plan-one", "beta-plan-two", "--parent", "beta-plan-two"]
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("would create a cycle", err)
+        self.assertNotIn("parent", self._fields("alpha-plan-one"))
+
+    def test_parent_among_the_ids_without_a_cycle_is_fine(self):
+        code, _, _ = _main(["set", "alpha-plan-one", "--parent", "beta-plan-two"])
+        self.assertEqual(code, 0)
+        self.assertEqual(self._fields("alpha-plan-one")["parent"], "beta-plan-two")
+
+    def test_repeated_ids_are_edited_once(self):
+        _, out, _ = _main(["set", "alpha-plan-one", "plan-one", "--intent", "active"])
+        self.assertEqual(out.count("intent:"), 1)
+
+
+class ChangeLineTests(unittest.TestCase):
+    def test_lines_use_plain_values(self):
+        before = {"a": "1", "b": "[x]", "c": "3"}
+        after = {"a": "2", "b": "[x, y]", "d": "4"}
+        self.assertEqual(
+            cli._describe_field_changes(before, after),
+            ["a: 1 -> 2", "b: [x] -> [x, y]", "c: cleared", "d: set to 4"],
+        )
+
+
+class ErrorReportTests(unittest.TestCase):
+    def test_os_error_names_the_path_and_reason(self):
+        error = FileNotFoundError(2, "No such file or directory", "/x/plan.md")
+        with mock.patch.object(cli, "_dispatch", side_effect=error):
+            code, _, err = _main(["list"])
+        self.assertEqual(code, 2)
+        self.assertEqual(err, "pentimento: /x/plan.md: No such file or directory\n")
+
+    def test_os_error_without_a_path_uses_its_text(self):
+        with mock.patch.object(cli, "_dispatch", side_effect=OSError("disk gone")):
+            _, _, err = _main(["list"])
+        self.assertEqual(err, "pentimento: disk gone\n")
+
+
+class ShowEffectiveValueTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_absent_status_intent_and_created_show_effective_values(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        _, out, _ = _main(["show", "root-plan", "--color", "never"])
+        header = " ".join(_header_block(out.splitlines()))
+        self.assertIn("status: unknown", header)
+        self.assertIn("intent: unset", header)
+        self.assertRegex(header, r"created: \d{4}-\d{2}-\d{2}")
+
+    def test_tags_render_as_a_sorted_bracket_list(self):
+        _write(self.directory, "root-plan", "---\ntags: b, a\n---\n\n# Root\n")
+        _, out, _ = _main(["show", "root-plan", "--color", "never"])
+        self.assertIn("tags: [a, b]", " ".join(_header_block(out.splitlines())))
+
+
+class CheckMessageTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_messages_carry_no_python_containers(self):
+        _write(
+            self.directory,
+            "bad-plan",
+            "---\nstatus: done\nintent: maybe\ntags: [Bad Tag]\n---\n\n# Bad\n",
+        )
+        _, out, _ = _main(["check", "--format", "tsv"])
+        self.assertIn("status 'done' is not one of not-started, partial, complete", out)
+        self.assertIn("intent 'maybe' is not one of active, queued, someday", out)
+        self.assertIn("malformed tags [Bad Tag]", out)
+        self.assertNotIn("(", out)
+
+
+class HelpWrapTests(unittest.TestCase):
+    def test_descriptions_and_epilogs_fit_72_columns(self):
+        parser = cli.build_parser()
+        for name, subparser in _subparsers_action(parser).choices.items():
+            for text in (subparser.description, subparser.epilog):
+                for line in (text or "").splitlines():
+                    self.assertLessEqual(len(line), 72, msg=f"{name}: {line}")
+
+    def test_no_british_spelling_or_non_ascii_in_help(self):
+        parser = cli.build_parser()
+        for name in _subparsers_action(parser).choices:
+            with self.assertRaises(SystemExit), contextlib.redirect_stdout(io.StringIO()) as out:
+                parser.parse_args([name, "--help"])
+            self.assertNotIn("colour", out.getvalue(), msg=name)
+            self.assertTrue(out.getvalue().isascii(), msg=name)
+
+    def test_check_has_examples(self):
+        check_parser = _subparsers_action(cli.build_parser()).choices["check"]
+        self.assertIn("Examples:", check_parser.epilog)
+
+    def test_tag_help_states_the_form_and_case_insensitivity(self):
+        set_parser = _subparsers_action(cli.build_parser()).choices["set"]
+        add = next(a for a in set_parser._actions if a.dest == "add_tag")
+        self.assertIn("^[a-z0-9][a-z0-9._/-]*$", add.help)
+        self.assertIn("ignores case", add.help)
+
+
 class AsciiOutputTests(unittest.TestCase):
     COMMANDS = (
         ["list"],
@@ -2108,8 +2260,8 @@ class AsciiOutputTests(unittest.TestCase):
     def _outputs(self, columns):
         with mock.patch.dict(os.environ, {"COLUMNS": columns}):
             for argv in self.COMMANDS:
-                _, out, _ = _main([*argv, "--color", "never"])
-                yield argv, out
+                _, out, err = _main([*argv, "--color", "never"])
+                yield argv, out + err
 
     def test_every_command_prints_ascii_for_ascii_content(self):
         body = "- item\n- [x] done\n- [ ] todo\n\n---\n\n```\n" + "word " * 30 + "\n```\n"

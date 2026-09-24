@@ -9,7 +9,7 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--columns SPEC] [--sort modified|created|id|status|title] [--order asc|desc] [-n N]
 pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--sort modified|created|id|status|title] [--order asc|desc]
 pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never]
-pentimento set <id> [--status STATUS] [--unpin] [--intent INTENT] [--parent ID] [--clear-parent] [--project PROJECT] [--clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
+pentimento set <id>... [--status STATUS | --unpin] [--intent INTENT] [--parent ID | --clear-parent] [--project PROJECT | --clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
 pentimento hook
 pentimento index
@@ -41,6 +41,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `show --full` | Prints the whole body unclipped. Plain `show` clips to the terminal height on a tty and prints a hint to rerun with `--full`. |
 | `show --no-pager` | With `--full`, never pages. `--full` pipes through `$PAGER` (`less` if unset) only on a tty and only when the plan is longer than the terminal, so `show <id> --full > out.md` and `... \| cat` write the plain text with no pager and no colour. |
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
+| `set <id>...` | Edits every named plan in one run. Every id is resolved first, so a miss exits 1 and writes nothing; with more than one id, each change block is headed by the plan's short id. `--dry-run` applies to all. A `--parent` that would create a cycle, counting every plan being edited, exits 2. Changes print as `field: old -> new`, `field: set to value`, or `field: cleared`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
 
 `list`, `tree`, and `check` tables display the short id: the shortest
@@ -102,7 +103,7 @@ unknown or empty name; both messages list the valid names.
 | --- | --- |
 | `0` | Success. `pentimento hook` always exits 0. |
 | `1` | `check` found something, or a plan id named on the command line matches no plan. |
-| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error. |
+| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error, reported as `pentimento: <path>: <reason>`. |
 | `141` | A reader closed the pipe early, as `\| head` does; the shell's 128 + `SIGPIPE`. |
 
 Every error message goes to stderr, prefixed `pentimento: `.

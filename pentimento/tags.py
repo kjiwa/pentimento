@@ -6,7 +6,8 @@ import re
 
 from pentimento import style
 
-_VALID = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
+PATTERN = r"^[a-z0-9][a-z0-9._/-]*$"
+_VALID = re.compile(PATTERN)
 
 
 def parse(raw: str | None) -> list[str]:

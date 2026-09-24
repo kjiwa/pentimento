@@ -52,16 +52,29 @@ to land here:
   in this case — a `## Progress` heading commits the section to being the
   only signal read.
 
-Add checkboxes or one of the prose phrases to the `## Progress` section,
-then run `backfill` — status is recomputed on every run now, not just
-`--rederive`.
+`check` reports it as `underivable-status`. Two ways out:
+
+- Add checkboxes, or one of the prose phrases, to the `## Progress`
+  section, then run `backfill`. Status is recomputed on every run, not just
+  `--rederive`.
+- State the status yourself: `pentimento set <id> --status <value>`. That
+  pins it, so `backfill` leaves it alone and `check` stops reporting status
+  findings for the plan.
 
 ## `check` findings
 
-Every finding's `code`:
+Every finding's `code`, with its fix. `check` prints the same fix as a
+hint under its summary, and `--format json|tsv` carries it in `hint`.
+
+A plan whose status is explicit is never second-guessed: one with `pinned`
+set (any `set --status` pins) or a `superseded` status. The status findings
+`underivable-status`, `status-behind-history`, and `status-behind-progress`
+skip it. Only `pin-behind-progress` applies, and only when the pin sits
+below what `## Progress` derives.
 
 | Code | Meaning | Fix |
 | --- | --- | --- |
+| `unreadable-file` | A plan file couldn't be read, e.g. for permissions or a non-UTF-8 encoding; the message names the path and the error. | Fix the file's permissions or encoding. |
 | `dangling-parent` | `parent` doesn't match any plan's id. | Fix the reference by hand, or run `backfill --rederive`, which drops a `parent` that no longer resolves. |
 | `self-parent` | `parent` is the plan's own id. | Fix the frontmatter by hand. |
 | `cross-project-parent` | `parent` resolves to a plan in a different `project`. | Usually one of the two plans has the wrong `project`; fix with `pentimento set <id> --project <name>`. |
@@ -71,11 +84,11 @@ Every finding's `code`:
 | `off-vocabulary-intent` | `intent` isn't one of `active`, `queued`, `someday`, `abandoned`, `unset`. | Fix with `pentimento set <id> --intent <value>`. |
 | `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a `# Title` line to the body. |
 | `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | Fix with `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
-| `missing-progress` | The body has no `## Progress` heading, so `status` can never be more than a guess from body-wide checkboxes. | Add a `## Progress` heading with `- [ ]` / `- [x]` items. |
 | `underived-project` | The plan has no `project`, but its session log supplies one, meaning `backfill` hasn't caught up. | Run `pentimento backfill`. With the `PostToolUse` hook installed this finding is now an anomaly, not the steady state — see [docs/integrations.md](integrations.md). |
-| `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (`pentimento history <id>` lists them). | Run `pentimento history <id>` to see the sessions, then `pentimento set <id> --status <value>` on your own judgement — this finding never fires the other way, so a plan with no history isn't flagged as unworked. |
-| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than what's stored. Skipped when `pinned` is set. | Run `pentimento backfill`. |
-| `pin-diverged` | `pinned` is set but the stored `status` disagrees with what `## Progress` would derive. | The pin is authoritative and nothing is fixed automatically; re-`set --status` or `--unpin` on your own judgement. |
+| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add checkboxes to `## Progress`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (`pentimento history <id>` lists them). | Run `pentimento history <id>` to see the sessions, then `pentimento set <id> --status <value>` on your own judgement. This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
+| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | Run `pentimento backfill`, or `pentimento set <id> --status <value>`. |
+| `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | Nothing is fixed automatically. `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `--unpin` to hand the status back to `backfill`. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | Run `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
 
 ## A `list` column I expected is missing

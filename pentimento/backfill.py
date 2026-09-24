@@ -5,8 +5,6 @@ from __future__ import annotations
 from pentimento import frontmatter, lineage, status, times, vocabulary
 from pentimento import plan as plan_module
 
-_PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary.PROGRESS_ORDER)}
-
 
 def _created_date(target) -> str:
     return times.local_date(target.created_at) or target.started[:10]
@@ -48,7 +46,7 @@ def derive_fields(
 
     existing_status = fields.get("status")
     derived_status = status.derive_status(target.body)
-    if max_status and _PROGRESS_RANK.get(derived_status, -1) > _PROGRESS_RANK[max_status]:
+    if max_status and status.rank(derived_status) > status.rank(max_status):
         derived_status = max_status
     if existing_status is None:
         fields["status"] = derived_status
@@ -56,8 +54,8 @@ def derive_fields(
         if rederive:
             fields["status"] = derived_status
         else:
-            existing_rank = _PROGRESS_RANK.get(existing_status, -1)
-            derived_rank = _PROGRESS_RANK.get(derived_status, -1)
+            existing_rank = status.rank(existing_status)
+            derived_rank = status.rank(derived_status)
             if derived_rank > existing_rank:
                 fields["status"] = derived_status
 

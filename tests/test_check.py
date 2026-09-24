@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 import unittest
+from pathlib import Path
 
 from pentimento import check
 from pentimento import touches as touches_module
@@ -26,6 +28,18 @@ class FakePlan:
 class FakeSession:
     project: str = ""
     prompt: str = ""
+
+
+class HintTests(unittest.TestCase):
+    def test_hints_cover_the_codes_documented_in_troubleshooting(self):
+        docs = Path(__file__).parent.parent / "docs" / "troubleshooting.md"
+        documented = set(re.findall(r"^\| `([a-z-]+)` \|", docs.read_text(), re.MULTILINE))
+        self.assertEqual(set(check.HINTS), documented)
+
+    def test_every_finding_carries_its_codes_hint(self):
+        plan = FakePlan(id="orphan", parent="no-such-plan")
+        finding = check.run([plan])[0]
+        self.assertEqual(finding.hint, check.HINTS["dangling-parent"])
 
 
 class RunTests(unittest.TestCase):
@@ -116,17 +130,55 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="good-tags", tags=["auth", "security"])
         self.assertEqual(check.run([plan]), [])
 
-    def test_missing_progress_is_reported(self):
-        plan = FakePlan(id="no-progress", body="# Root\n\nJust prose, no heading.\n")
+    def test_underivable_status_fires_for_unknown_status_with_prose_only_progress(self):
+        plan = FakePlan(id="prose", status="unknown", body="## Progress\n\nWorking on it.\n")
         findings = check.run([plan])
-        self.assertEqual(len(findings), 1)
-        self.assertEqual(findings[0].code, "missing-progress")
-        self.assertEqual(findings[0].id, "no-progress")
-        self.assertNotIn("no-progress", findings[0].message)
+        self.assertEqual([f.code for f in findings], ["underivable-status"])
+        self.assertEqual(findings[0].id, "prose")
+        self.assertNotIn("prose", findings[0].message)
+        self.assertIn("no checkboxes", findings[0].message)
 
-    def test_missing_progress_is_silent_when_heading_is_present(self):
-        plan = FakePlan(id="has-progress", body="## Progress\n\n- [ ] todo\n")
+    def test_underivable_status_names_a_missing_heading(self):
+        plan = FakePlan(id="bare", status="unknown", body="# Root\n\nJust prose.\n")
+        findings = check.run([plan])
+        self.assertEqual([f.code for f in findings], ["underivable-status"])
+        self.assertIn("no '## Progress' heading", findings[0].message)
+
+    def test_underivable_status_is_silent_when_progress_derives(self):
+        plan = FakePlan(id="derivable", status="unknown", body="## Progress\n\n- [ ] todo\n")
+        codes = [f.code for f in check.run([plan])]
+        self.assertNotIn("underivable-status", codes)
+
+    def test_underivable_status_is_silent_for_a_recorded_status(self):
+        plan = FakePlan(id="recorded", status="partial", body="# Root\n\nJust prose.\n")
         self.assertEqual(check.run([plan]), [])
+
+    def test_explicit_status_silences_status_findings(self):
+        prose = "## Progress\n\nDone, see the notes.\n"
+        unticked = "## Progress\n\n- [ ] Decision: adopt nothing\n"
+        for plan in (
+            FakePlan(id="pinned-prose", status="complete", pinned=True, body=prose),
+            FakePlan(id="pinned-unticked", status="complete", pinned=True, body=unticked),
+            FakePlan(id="pinned-unknown", status="unknown", pinned=True, body=prose),
+            FakePlan(id="superseded", status="superseded", body="## Progress\n\n- [x] done\n"),
+        ):
+            with self.subTest(plan.id):
+                self.assertEqual(check.run([plan]), [])
+
+    def test_explicit_status_silences_status_behind_history(self):
+        plan = FakePlan(id="pinned-history", status="not-started", pinned=True)
+        touches = {
+            "pinned-history": [
+                touches_module.Touch(
+                    plan_id="pinned-history",
+                    session="later-session",
+                    tool="Edit",
+                    at="2026-09-05T00:00:00.000Z",
+                    cwd="/home/user/example",
+                )
+            ]
+        }
+        self.assertEqual(check.run([plan], touches=touches), [])
 
     def test_underived_project_fires_when_session_supplies_a_project(self):
         plan = FakePlan(id="no-project", project=None)
@@ -207,42 +259,29 @@ class RunTests(unittest.TestCase):
             any(f.code == "status-behind-progress" and f.id == "stale" for f in findings)
         )
 
-    def test_status_behind_progress_is_silent_for_superseded(self):
-        plan = FakePlan(id="stale", status="superseded", body="## Progress\n\n- [x] done\n")
-        self.assertEqual(check.run([plan]), [])
+    def test_status_behind_progress_fires_for_stored_unknown(self):
+        plan = FakePlan(id="stale", status="unknown", body="## Progress\n\n- [x] done\n")
+        self.assertEqual([f.code for f in check.run([plan])], ["status-behind-progress"])
 
     def test_status_behind_progress_is_silent_when_in_sync(self):
         plan = FakePlan(id="synced", status="complete", body="## Progress\n\n- [x] done\n")
         self.assertEqual(check.run([plan]), [])
 
-    def test_status_behind_progress_is_silent_for_pinned(self):
+    def test_pin_behind_progress_fires_when_progress_outranks_pinned_status(self):
         plan = FakePlan(
-            id="stale", status="not-started", pinned=True, body="## Progress\n\n- [x] done\n"
+            id="stale", status="partial", pinned=True, body="## Progress\n\n- [x] done\n"
         )
         findings = check.run([plan])
-        self.assertFalse(any(f.code == "status-behind-progress" for f in findings))
+        self.assertEqual([f.code for f in findings], ["pin-behind-progress"])
+        self.assertEqual(findings[0].id, "stale")
 
-    def test_pin_diverged_fires_when_pinned_status_disagrees_with_derived(self):
-        plan = FakePlan(
-            id="stale", status="not-started", pinned=True, body="## Progress\n\n- [x] done\n"
-        )
-        findings = check.run([plan])
-        self.assertTrue(any(f.code == "pin-diverged" and f.id == "stale" for f in findings))
-
-    def test_pin_diverged_is_silent_when_pinned_status_agrees(self):
-        plan = FakePlan(
-            id="synced", status="complete", pinned=True, body="## Progress\n\n- [x] done\n"
-        )
-        self.assertEqual(check.run([plan]), [])
-
-    def test_pin_diverged_is_silent_when_unpinned(self):
-        plan = FakePlan(id="unpinned", status="not-started", body="## Progress\n\n- [x] done\n")
-        findings = check.run([plan])
-        self.assertFalse(any(f.code == "pin-diverged" for f in findings))
+    def test_pin_behind_progress_is_silent_when_pin_is_ahead_or_equal(self):
+        for body in ("## Progress\n\n- [x] done\n", "## Progress\n\n- [x] a\n- [ ] b\n"):
+            with self.subTest(body=body):
+                plan = FakePlan(id="pin", status="complete", pinned=True, body=body)
+                self.assertEqual(check.run([plan]), [])
 
     def test_unreadable_file_is_reported(self):
-        from pathlib import Path
-
         skips = [("claude", Path("/plans/secret.md"), OSError("Permission denied"))]
         findings = check.run([], skips=skips)
         self.assertEqual(len(findings), 1)

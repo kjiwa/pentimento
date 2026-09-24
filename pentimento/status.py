@@ -67,6 +67,12 @@ def _from_prose(section: str) -> str | None:
     return None
 
 
+def rank(status: str) -> int:
+    """Position in `PROGRESS_ORDER`, or -1 for a status derivation can't produce."""
+    order = vocabulary.PROGRESS_ORDER
+    return order.index(status) if status in order else -1
+
+
 def derive_status(body: str) -> str:
     section = progress_section(body)
     if section is None:

@@ -12,12 +12,37 @@ from pentimento import vocabulary as vocabulary_module
 
 _HISTORY_ELIGIBLE_STATUSES = vocabulary_module.UNWORKED_STATUSES
 
+_SET_STATUS = "pentimento show <id>, then pentimento set <id> --status <value>"
+
+HINTS = {
+    "unreadable-file": "check the file's permissions and encoding",
+    "dangling-parent": "pentimento set <id> --parent <id>, or --clear-parent",
+    "self-parent": "pentimento set <id> --clear-parent",
+    "cross-project-parent": "pentimento set <id> --project <name> on whichever plan is wrong",
+    "cycle": "pentimento set <id> --parent <id>, or --clear-parent, on one plan in the chain",
+    "duplicate-id": "rename one of the files",
+    "off-vocabulary-status": "pentimento set <id> --status <value>",
+    "off-vocabulary-intent": "pentimento set <id> --intent <value>",
+    "missing-title": "add a '# Title' line to the plan body",
+    "malformed-tag": "pentimento set <id> --remove-tag <bad> --add-tag <fixed>",
+    "underived-project": "pentimento backfill",
+    "underivable-status": f"add a checklist to '## Progress', or {_SET_STATUS}",
+    "status-behind-history": "pentimento history <id>, then pentimento set <id> --status <value>",
+    "status-behind-progress": f"pentimento backfill, or {_SET_STATUS}",
+    "pin-behind-progress": f"{_SET_STATUS}, or pentimento set <id> --unpin",
+    "unadopted-reference": "pentimento backfill, or leave it if the omission was deliberate",
+}
+
 
 @dataclasses.dataclass
 class Finding:
     code: str
     id: str
     message: str
+    hint: str = dataclasses.field(init=False)
+
+    def __post_init__(self):
+        self.hint = HINTS[self.code]
 
 
 def _dangling_parents(plans, by_id):
@@ -85,10 +110,6 @@ def _malformed_tags(plans):
     return [p for p in plans if any(not tags_module.is_valid(t) for t in p.tags)]
 
 
-def _missing_progress(plans):
-    return [p for p in plans if status_module.progress_section(p.body) is None]
-
-
 def _underived_project(plans, sessions):
     findings = []
     for p in plans:
@@ -100,10 +121,29 @@ def _underived_project(plans, sessions):
     return findings
 
 
+def _explicit(p):
+    return p.pinned or p.status == vocabulary_module.SUPERSEDED
+
+
+def _underivable_status(plans):
+    findings = []
+    for p in plans:
+        if _explicit(p) or p.status != vocabulary_module.UNKNOWN:
+            continue
+        if status_module.derive_status(p.body) != vocabulary_module.UNKNOWN:
+            continue
+        if status_module.progress_section(p.body) is None:
+            message = "no '## Progress' heading and no checkboxes in the body"
+        else:
+            message = "'## Progress' has no checkboxes or recognized phrase"
+        findings.append(Finding("underivable-status", p.id, message))
+    return findings
+
+
 def _status_behind_history(plans, touches):
     findings = []
     for p in plans:
-        if p.status not in _HISTORY_ELIGIBLE_STATUSES:
+        if _explicit(p) or p.status not in _HISTORY_ELIGIBLE_STATUSES:
             continue
         worked = touches_module.worked(touches.get(p.id, []), p.id)
         if not worked:
@@ -111,45 +151,40 @@ def _status_behind_history(plans, touches):
         sessions_worked = len({t.session for t in worked})
         message = (
             f"status {p.status!r} but "
-            f"{counts.plural(sessions_worked, 'later session')} worked this plan; "
-            f"see `pentimento history {p.id}`"
+            f"{counts.plural(sessions_worked, 'later session')} worked this plan"
         )
         findings.append(Finding("status-behind-history", p.id, message))
     return findings
 
 
-_PROGRESS_RANK = {s: i for i, s in enumerate(vocabulary_module.PROGRESS_ORDER)}
+def _behind_progress(p):
+    derived = status_module.derive_status(p.body)
+    if status_module.rank(derived) > status_module.rank(p.status):
+        return derived
+    return None
 
 
 def _status_behind_progress(plans):
     findings = []
     for p in plans:
-        if p.pinned:
+        if _explicit(p):
             continue
-        if p.status not in _PROGRESS_RANK:
-            continue
-        derived = status_module.derive_status(p.body)
-        if derived not in _PROGRESS_RANK:
-            continue
-        if _PROGRESS_RANK[derived] <= _PROGRESS_RANK[p.status]:
-            continue
-        message = (
-            f"status {p.status!r} but '## Progress' derives {derived!r}; run pentimento backfill"
-        )
-        findings.append(Finding("status-behind-progress", p.id, message))
+        derived = _behind_progress(p)
+        if derived:
+            message = f"status {p.status!r} but '## Progress' derives {derived!r}"
+            findings.append(Finding("status-behind-progress", p.id, message))
     return findings
 
 
-def _pin_diverged(plans):
+def _pin_behind_progress(plans):
     findings = []
     for p in plans:
-        if not p.pinned:
+        if not p.pinned or p.status == vocabulary_module.SUPERSEDED:
             continue
-        derived = status_module.derive_status(p.body)
-        if derived == p.status:
-            continue
-        message = f"pinned status {p.status!r} disagrees with derived {derived!r}"
-        findings.append(Finding("pin-diverged", p.id, message))
+        derived = _behind_progress(p)
+        if derived:
+            message = f"pinned status {p.status!r} but '## Progress' derives {derived!r}"
+            findings.append(Finding("pin-behind-progress", p.id, message))
     return findings
 
 
@@ -161,7 +196,7 @@ def _unadopted_reference(plans, sessions):
         ids = lineage.references(p, plans, sessions)
         if not ids:
             continue
-        message = f"no parent, but {ids[0]!r} is an eligible reference; run pentimento backfill"
+        message = f"no parent, but {ids[0]!r} is an eligible reference"
         findings.append(Finding("unadopted-reference", p.id, message))
     return findings
 
@@ -213,15 +248,13 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         bad = [t for t in p.tags if not tags_module.is_valid(t)]
         message = f"malformed tag(s) {bad!r}"
         findings.append(Finding("malformed-tag", p.id, message))
-    for p in _missing_progress(plans):
-        message = "body has no '## Progress' heading; status can't be derived"
-        findings.append(Finding("missing-progress", p.id, message))
+    findings.extend(_underivable_status(plans))
     for p in _underived_project(plans, sessions):
         message = f"session supplies project {sessions[p.id].project!r} but frontmatter has none"
         findings.append(Finding("underived-project", p.id, message))
     findings.extend(_status_behind_history(plans, touches))
     findings.extend(_status_behind_progress(plans))
-    findings.extend(_pin_diverged(plans))
+    findings.extend(_pin_behind_progress(plans))
     findings.extend(_unadopted_reference(plans, sessions))
 
     return findings

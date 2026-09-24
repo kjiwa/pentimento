@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.14
+
+`check` treats an explicit status as an answer. A plan with `pinned` set, which
+`set --status` does by design, or with status `superseded`, no longer gets
+`status-behind-progress`, `status-behind-history`, or a prose-Progress finding;
+the one exception is `pin-behind-progress` (was `pin-diverged`), which fires
+only when the pin is below what `## Progress` derives. `underivable-status`
+(was `missing-progress`) now flags any unpinned `unknown` plan whose status
+can't be derived, whether the `## Progress` heading is absent or holds no
+checkboxes, and `status-behind-progress` now also catches a stored `unknown`,
+matching what `backfill` would advance.
+
+Every finding carries a `hint`: the table prints one `code: fix` line per code
+under its summary, and `--format json|tsv` records gain a trailing `hint`
+field. `CODE` no longer drops at narrow widths, the summary is dimmed after a
+blank line as in `list`, and finding messages state the fact only, with the fix
+in the hint. `docs/troubleshooting.md` now lists `unreadable-file`.
+
 ## 0.1.13
 
 Fixes: `show` no longer cuts a long line in a fenced or indented code block

@@ -170,7 +170,7 @@ def _plan_candidates(plans, word: str) -> list[tuple[str, str]]:
 def _all_tags(plans) -> set[str]:
     tags: set[str] = set()
     for plan in plans:
-        tags.update(tags_module.normalize(t) for t in plan.tags)
+        tags.update(tags_module.normalized(plan.tags))
     return tags
 
 
@@ -181,7 +181,7 @@ def _tag_candidates(plans, word: str) -> list[tuple[str, str]]:
 def _remove_tag_candidates(plans, subparser, prior_words, word: str) -> list[tuple[str, str]]:
     assigned, _ = _assigned_positionals(subparser, prior_words)
     target = corpus.by_id(plans, assigned["id"]) if "id" in assigned else None
-    pool = {tags_module.normalize(t) for t in target.tags} if target else _all_tags(plans)
+    pool = tags_module.normalized(target.tags) if target else _all_tags(plans)
     return [(t, "") for t in sorted(pool) if t.startswith(word)]
 
 

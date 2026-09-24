@@ -72,21 +72,9 @@ def _cross_project_parents(plans, by_id):
     return findings
 
 
-def _in_cycle(plan, by_id):
-    if plan.parent == plan.id:
-        return False
-    seen = set()
-    current = plan
-    while current is not None and current.parent:
-        if current.id in seen:
-            return current.id == plan.id
-        seen.add(current.id)
-        current = by_id.get(current.parent)
-    return False
-
-
-def _cycle_members(plans, by_id):
-    return [p for p in plans if p.parent and _in_cycle(p, by_id)]
+def _cycle_members(plans):
+    parent_of = {p.id: p.parent for p in plans}
+    return [p for p in plans if p.parent and p.parent != p.id and lineage.in_cycle(p.id, parent_of)]
 
 
 def duplicate_ids(plans):
@@ -235,7 +223,7 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     for p in _cross_project_parents(plans, by_id):
         message = f"parent {p.parent!r} is in a different project"
         findings.append(Finding("cross-project-parent", p.id, message))
-    for p in _cycle_members(plans, by_id):
+    for p in _cycle_members(plans):
         message = "parent chain cycles back to itself"
         findings.append(Finding("cycle", p.id, message))
     for p in duplicate_ids(plans):

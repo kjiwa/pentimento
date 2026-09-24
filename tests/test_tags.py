@@ -72,5 +72,13 @@ class IsValidTests(unittest.TestCase):
         self.assertFalse(tags.is_valid(""))
 
 
+class NormalizedTests(unittest.TestCase):
+    def test_lowercases_strips_and_dedupes(self):
+        self.assertEqual(tags.normalized(["Auth", " auth ", "b"]), {"auth", "b"})
+
+    def test_empty(self):
+        self.assertEqual(tags.normalized([]), set())
+
+
 if __name__ == "__main__":
     unittest.main()

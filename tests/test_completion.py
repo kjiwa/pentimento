@@ -163,7 +163,7 @@ class FreeformFlagTests(_CorpusTestCase):
 
     def test_finding_offers_the_check_codes(self):
         values = {value for value, _ in completion.candidates(["list", "--finding", ""])}
-        self.assertEqual(values, set(check.HINTS))
+        self.assertEqual(values, set(check.HINTS) - {"unreadable-file"})
 
     def test_limit_offers_nothing(self):
         self.assertEqual(completion.candidates(["list", "-n", ""]), [])

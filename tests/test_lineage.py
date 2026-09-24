@@ -236,5 +236,23 @@ class DeriveParentTests(unittest.TestCase):
         self.assertEqual(parent_id, parent.id)
 
 
+class InCycleTests(unittest.TestCase):
+    def test_a_chain_returning_to_the_plan_is_a_cycle(self):
+        self.assertTrue(lineage.in_cycle("a", {"a": "b", "b": "c", "c": "a"}))
+
+    def test_a_self_parent_is_a_cycle(self):
+        self.assertTrue(lineage.in_cycle("a", {"a": "a"}))
+
+    def test_a_chain_into_another_plans_cycle_is_not_a_cycle(self):
+        parent_of = {"x": "a", "a": "b", "b": "a"}
+        self.assertFalse(lineage.in_cycle("x", parent_of))
+        self.assertTrue(lineage.in_cycle("a", parent_of))
+
+    def test_a_chain_ending_at_a_root_or_a_missing_plan_is_not_a_cycle(self):
+        self.assertFalse(lineage.in_cycle("a", {"a": "b", "b": None}))
+        self.assertFalse(lineage.in_cycle("a", {"a": "gone"}))
+        self.assertFalse(lineage.in_cycle("a", {}))
+
+
 if __name__ == "__main__":
     unittest.main()

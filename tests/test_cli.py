@@ -179,12 +179,47 @@ class CmdSetTests(unittest.TestCase):
             "child-plan",
             "---\nstatus: not-started\nintent: unset\nparent: root-plan\n---\n\n# Child\n",
         )
-        args = cli.build_parser().parse_args(["set", "root-plan", "--parent", "child-plan"])
-        result = cli.cmd_set(args)
-        self.assertEqual(result, 1)
+        code, _, err = _main(["set", "root-plan", "--parent", "child-plan"])
+        self.assertEqual(code, 2)
+        self.assertIn("--parent child-plan would create a cycle", err)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.fields["parent"], "child-plan")
+
+    def test_parent_leading_into_another_plans_cycle_is_accepted(self):
+        _write(self.directory, "plan-a", "---\nparent: plan-b\n---\n\n# A\n")
+        _write(self.directory, "plan-b", "---\nparent: plan-a\n---\n\n# B\n")
+        _write(self.directory, "plan-x", "# X\n")
+        with _silenced():
+            code = cli.cmd_set(
+                cli.build_parser().parse_args(["set", "plan-x", "--parent", "plan-a"])
+            )
+        self.assertEqual(code, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "plan-x")
+        self.assertEqual(reloaded.fields["parent"], "plan-a")
+
+    def test_add_tag_is_normalized_before_it_is_validated(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        code, _, _ = _main(["set", "root-plan", "--add-tag", "Auth"])
+        self.assertEqual(code, 0)
+
+        reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
+        self.assertEqual(reloaded.tags, ["auth"])
+
+    def test_invalid_remove_tag_is_a_usage_error(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        code, _, err = _main(["set", "root-plan", "--remove-tag", "Nope!"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid tag: 'Nope!'", err)
+
+    def test_the_same_tag_added_and_removed_is_a_usage_error(self):
+        original = "---\nstatus: not-started\nintent: unset\ntags: [auth]\n---\n\n# Root\n"
+        _write(self.directory, "root-plan", original)
+        code, _, err = _main(["set", "root-plan", "--add-tag", "Auth", "--remove-tag", "auth"])
+        self.assertEqual(code, 2)
+        self.assertIn("tag 'auth' is in both --add-tag and --remove-tag", err)
+        self.assertEqual((self.directory / "root-plan.md").read_text(), original)
 
     def test_dry_run_reports_without_writing(self):
         original = "---\nstatus: not-started\nintent: unset\n---\n\n# Root\n"
@@ -366,6 +401,24 @@ class CmdListTagFilterTests(unittest.TestCase):
         )
         matched = json.loads(self._run_json(["list", "--tag", "auth", "--format", "json"]))
         self.assertEqual([p["id"] for p in matched], ["auth-plan"])
+
+    def test_invalid_tag_filter_is_a_usage_error(self):
+        _write(self.directory, "root-plan", "# Root\n")
+        code, _, err = _main(["list", "--tag", "Nope!"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid tag: 'Nope!'", err)
+
+    def test_grep_does_not_match_across_the_title_body_boundary(self):
+        _write(self.directory, "root-plan", "# Alpha\nbeta\n")
+        hit = json.loads(self._run_json(["list", "--grep", "Alpha\\n# ", "--format", "json"]))
+        self.assertEqual([p["id"] for p in hit], ["root-plan"])
+        joined = json.loads(self._run_json(["list", "--grep", "Alpha# ", "--format", "json"]))
+        self.assertEqual(joined, [])
+
+    def test_unreadable_file_is_not_a_finding_filter(self):
+        code, _, err = _main(["list", "--finding", "unreadable-file"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid choice", err)
 
     def test_empty_result_emits_empty_json_array(self):
         _write(self.directory, "root-plan", "# Root\n")

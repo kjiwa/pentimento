@@ -21,6 +21,7 @@ from pentimento import (
     counts,
     formats,
     frontmatter,
+    lineage,
     listing,
     markdown,
     pager,
@@ -109,6 +110,13 @@ def _regex(value: str) -> re.Pattern:
         raise argparse.ArgumentTypeError(f"invalid regex: {exc}") from exc
 
 
+def _tag(value: str) -> str:
+    tag = tags_module.normalize(value)
+    if not tags_module.is_valid(tag):
+        raise argparse.ArgumentTypeError(f"invalid tag: '{value}' -- {_TAG_FORM}")
+    return tag
+
+
 def _when(value: str) -> datetime.date:
     day = times_module.parse_when(value)
     if day is None:
@@ -135,7 +143,10 @@ def _add_filter_args(parser):
     group.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
     group.add_argument("--starred", action="store_true", help="only active/queued intent")
     group.add_argument(
-        "--tag", action="append", help="filter by tag; repeatable, every given tag must be present"
+        "--tag",
+        type=_tag,
+        action="append",
+        help="filter by tag; repeatable, every given tag must be present",
     )
     group.add_argument(
         "--grep",
@@ -153,7 +164,7 @@ def _add_filter_args(parser):
         "--finding",
         nargs="?",
         metavar="CODE",
-        choices=tuple(check_module.HINTS),
+        choices=tuple(code for code in check_module.HINTS if code != "unreadable-file"),
         const=None,
         default=False,
         help="only plans with a check finding, or with the finding CODE",
@@ -295,10 +306,10 @@ def _apply_filters(plans, args):
     if args.starred:
         plans = [p for p in plans if p.intent in STARRED_INTENTS]
     if args.tag:
-        wanted = {tags_module.normalize(t) for t in args.tag}
-        plans = [p for p in plans if wanted <= {tags_module.normalize(t) for t in p.tags}]
+        wanted = set(args.tag)
+        plans = [p for p in plans if wanted <= tags_module.normalized(p.tags)]
     if args.grep is not None:
-        plans = [p for p in plans if args.grep.search(p.title + p.body)]
+        plans = [p for p in plans if args.grep.search(p.title + "\n" + p.body)]
     if args.title is not None:
         plans = [p for p in plans if args.title.search(p.title)]
     if _finding_requested(args):
@@ -483,9 +494,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--project", help="new project; '.' resolves to the current directory's name"
     )
     project_group.add_argument("--clear-project", action="store_true", help="clear project")
-    p_set.add_argument("--add-tag", metavar="TAG", action="append", help="add a tag; repeatable")
     p_set.add_argument(
-        "--remove-tag", metavar="TAG", action="append", help="remove a tag; repeatable"
+        "--add-tag", metavar="TAG", type=_tag, action="append", help="add a tag; repeatable"
+    )
+    p_set.add_argument(
+        "--remove-tag", metavar="TAG", type=_tag, action="append", help="remove a tag; repeatable"
     )
     p_set.add_argument(
         "--clear-tags",
@@ -861,29 +874,21 @@ def cmd_show(args) -> int:
     return 0
 
 
-def _apply_tag_edits(target, args) -> str | None:
+def _apply_tag_edit(target, args) -> None:
     """Apply --clear-tags, --remove-tag, --add-tag in order.
 
     Existing tags are normalized on any edit, so a hand-written `Auth`
-    self-heals the next time `set` touches tags. Each `--add-tag` value must
-    already pass `tags.is_valid` as given -- normalize only lowercases, it
-    doesn't fix a malformed tag -- so this mutates `target.fields["tags"]`
-    on success, or returns the offending value without mutating anything.
+    self-heals the next time `set` touches tags.
     """
-    current = {tags_module.normalize(t) for t in target.tags}
-    if args.clear_tags:
-        current = set()
-    for tag in args.remove_tag or ():
-        current.discard(tags_module.normalize(tag))
-    for tag in args.add_tag or ():
-        if not tags_module.is_valid(tag):
-            return tag
-        current.add(tags_module.normalize(tag))
+    if not (args.clear_tags or args.remove_tag or args.add_tag):
+        return
+    current = set() if args.clear_tags else tags_module.normalized(target.tags)
+    current -= set(args.remove_tag or ())
+    current |= set(args.add_tag or ())
     if current:
         target.fields["tags"] = tags_module.render(sorted(current))
     else:
         target.fields.pop("tags", None)
-    return None
 
 
 def _describe_field_changes(before: dict, after: dict) -> list[str]:
@@ -904,6 +909,9 @@ def _describe_field_changes(before: dict, after: dict) -> list[str]:
 def _require_set_changes(args) -> None:
     if args.clear_tags and (args.add_tag or args.remove_tag):
         raise UsageError("--clear-tags cannot be combined with --add-tag or --remove-tag")
+    both = sorted(set(args.add_tag or ()) & set(args.remove_tag or ()))
+    if both:
+        raise UsageError(f"tag '{both[0]}' is in both --add-tag and --remove-tag")
     requested = (
         args.status,
         args.unpin,
@@ -920,6 +928,44 @@ def _require_set_changes(args) -> None:
         raise UsageError("nothing to set; name a field flag such as --status or --add-tag")
 
 
+def _apply_project_edit(target, args) -> None:
+    if args.clear_project:
+        target.fields.pop("project", None)
+    elif args.project is not None:
+        resolved = _resolve_project(args.project)
+        if not frontmatter.is_valid_value(resolved):
+            raise UsageError(f"invalid project: {resolved!r} -- {_PROJECT_FORM}")
+        target.fields["project"] = resolved
+
+
+def _apply_parent_edit(target, plans, args) -> int | None:
+    """Exit code when the edit is refused, else `None`."""
+    if args.clear_parent:
+        target.fields.pop("parent", None)
+    elif args.parent is not None:
+        parent_plan = corpus.by_id(plans, args.parent)
+        if parent_plan is None:
+            _report(_no_such_plan(plans, args.parent))
+            return 1
+        parent_of = {p.id: p.fields.get("parent") for p in plans}
+        parent_of[target.id] = parent_plan.id
+        if lineage.in_cycle(target.id, parent_of):
+            raise UsageError(f"--parent {parent_plan.id} would create a cycle")
+        target.fields["parent"] = parent_plan.id
+    return None
+
+
+def _apply_status_edit(target, args) -> None:
+    for field in ("status", "intent"):
+        value = getattr(args, field, None)
+        if value is not None:
+            target.fields[field] = value
+    if args.status is not None:
+        target.fields["pinned"] = "true"
+    if args.unpin:
+        target.fields.pop("pinned", None)
+
+
 def cmd_set(args) -> int:
     _require_set_changes(args)
     plans = corpus.load_all()
@@ -929,43 +975,12 @@ def cmd_set(args) -> int:
         return 1
 
     before_fields = dict(target.fields)
-
-    if args.clear_project:
-        target.fields.pop("project", None)
-    elif args.project is not None:
-        resolved = _resolve_project(args.project)
-        if not frontmatter.is_valid_value(resolved):
-            raise UsageError(f"invalid project: {resolved!r} -- {_PROJECT_FORM}")
-        target.fields["project"] = resolved
-
-    if args.clear_parent:
-        target.fields.pop("parent", None)
-    elif args.parent is not None:
-        parent_plan = corpus.by_id(plans, args.parent)
-        if parent_plan is None:
-            _report(_no_such_plan(plans, args.parent))
-            return 1
-        fields_by_id = {p.id: p.fields for p in plans}
-        fields_by_id[target.id] = {**target.fields, "parent": parent_plan.id}
-        if backfill_module._resolves_to_cycle(target.id, parent_plan.id, fields_by_id):
-            _report(f"--parent {parent_plan.id} would create a cycle")
-            return 1
-        target.fields["parent"] = parent_plan.id
-
-    if args.clear_tags or args.remove_tag or args.add_tag:
-        invalid = _apply_tag_edits(target, args)
-        if invalid is not None:
-            raise UsageError(f"invalid tag: {invalid!r} -- {_TAG_FORM}")
-
-    for field in ("status", "intent"):
-        value = getattr(args, field, None)
-        if value is not None:
-            target.fields[field] = value
-
-    if args.status is not None:
-        target.fields["pinned"] = "true"
-    if args.unpin:
-        target.fields.pop("pinned", None)
+    _apply_project_edit(target, args)
+    refused = _apply_parent_edit(target, plans, args)
+    if refused is not None:
+        return refused
+    _apply_tag_edit(target, args)
+    _apply_status_edit(target, args)
 
     changes = _describe_field_changes(before_fields, target.fields)
     if not changes:

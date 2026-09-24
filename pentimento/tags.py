@@ -33,5 +33,9 @@ def normalize(tag: str) -> str:
     return tag.strip().lower()
 
 
+def normalized(tags) -> set[str]:
+    return {normalize(t) for t in tags}
+
+
 def is_valid(tag: str) -> bool:
     return bool(_VALID.match(tag))

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.16
+
+Several correctness fixes. Removing a plan's last pentimento field no longer
+drops the foreign frontmatter keys and comments around it, and a hand-written
+value that fails validation (`project: "a #b"`) no longer makes every `set` and
+`backfill` raise: only a value being changed is validated, and an unchanged one
+is re-emitted as written. `backfill` validates every plan before writing any.
+A parent whose chain runs into another plan's cycle is no longer treated as
+cyclic, so `backfill` keeps it and `set --parent` accepts it; a parent that
+would close a cycle now exits 2 instead of 1. `set --add-tag` lowercases before
+validating, so `Auth` becomes `auth`; `--remove-tag` and `list --tag` reject
+malformed tags with exit 2, and adding and removing the same tag in one `set`
+is a usage error. `list --grep` no longer matches across the title and body
+boundary, and `--finding` no longer offers `unreadable-file`, which names a file
+rather than a plan and still appears in `check`.
+
 ## 0.1.15
 
 `backfill` no longer names a plan `home` when its session was launched in `$HOME`.

@@ -1,4 +1,4 @@
-"""Derive and write frontmatter for plans that don't have it."""
+"""Gap-fill intent, created, project, and parent in plan frontmatter, and advance status."""
 
 from __future__ import annotations
 
@@ -15,17 +15,6 @@ def _derive_project(target, sessions) -> str | None:
     if session and session.project:
         return session.project
     return target.fields.get("project")
-
-
-def _resolves_to_cycle(plan_id: str, parent_id: str, fields_by_id: dict[str, dict]) -> bool:
-    seen = {plan_id}
-    current = parent_id
-    while current is not None:
-        if current in seen:
-            return True
-        seen.add(current)
-        current = fields_by_id.get(current, {}).get("parent")
-    return False
 
 
 def derive_fields(
@@ -64,20 +53,14 @@ def derive_fields(
         if project:
             fields["project"] = project
 
-    if rederive:
+    if rederive or "parent" not in fields:
         parent_id = lineage.derive_parent(
             target, candidates, sessions, project=fields.get("project")
         )
         if parent_id:
             fields["parent"] = parent_id
-        else:
+        elif rederive:
             fields.pop("parent", None)
-    elif "parent" not in fields:
-        parent_id = lineage.derive_parent(
-            target, candidates, sessions, project=fields.get("project")
-        )
-        if parent_id:
-            fields["parent"] = parent_id
 
     return fields
 
@@ -100,7 +83,7 @@ def run(
 
     `only`, when given, restricts writes to those ids; derivation still spans
     `plans` entire, because `lineage.derive_parent` resolves against the whole
-    corpus and `_resolves_to_cycle` needs every plan's new fields.
+    corpus and `lineage.in_cycle` needs every plan's new fields.
     """
     sessions = sessions or {}
     new_fields_by_path = {
@@ -114,26 +97,24 @@ def run(
         )
         for target in plans
     }
-    # Cycle traversal walks `parent` id references, so it needs an id-keyed view.
-    # A shared id makes the choice of which plan's fields represent that id
-    # arbitrary here, but that ambiguity is inherent to duplicate ids, not
-    # introduced by this map -- it does not affect which plan's fields get
-    # written, which is keyed by path above.
-    new_fields_by_id = {target.id: new_fields_by_path[target.path] for target in plans}
-
+    parent_of = {target.id: new_fields_by_path[target.path].get("parent") for target in plans}
     for target in plans:
-        new_fields = new_fields_by_path[target.path]
-        parent_id = new_fields.get("parent")
-        if parent_id and _resolves_to_cycle(target.id, parent_id, new_fields_by_id):
-            new_fields.pop("parent", None)
+        if parent_of[target.id] and lineage.in_cycle(target.id, parent_of):
+            new_fields_by_path[target.path].pop("parent", None)
+            parent_of[target.id] = None
 
+    rendered = {
+        target.path: frontmatter.serialize(
+            new_fields_by_path[target.path], target.body, target.extras
+        )
+        for target in plans
+        if only is None or target.id in only
+    }
     changed = []
     for target in plans:
-        if only is not None and target.id not in only:
+        if target.path not in rendered or rendered[target.path] == target.text:
             continue
         new_fields = new_fields_by_path[target.path]
-        if frontmatter.serialize(new_fields, target.body, target.extras) == target.text:
-            continue
         changed.append(target.id)
         if details is not None:
             details[target.id] = (dict(target.fields), new_fields)

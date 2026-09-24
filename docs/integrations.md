@@ -104,8 +104,7 @@ reference scan.
 
 ## `check` in CI
 
-`check` exits 1 when it finds a lineage or vocabulary defect, so it plugs
-into CI as a plain step:
+`check` exits 1 on any finding, so it plugs into CI as a plain step:
 
 ```yaml
 - run: pentimento check

@@ -141,7 +141,7 @@ ancestor, spine only, for pulling a single thread out of a larger forest.
 ```
 (no project)
 └─ Write the onboarding checklist
-     onboarding-checklist  unknown  unset  1d
+     onboarding-checklist  unknown  unset  2026-09-13  1d
 
 billing
 ├─ Rewrite dunning email copy
@@ -209,15 +209,13 @@ beta      in progress
 
 ### check
 
-`check` validates the corpus and exits 1 on any finding. It takes no plan id
-— it always checks the whole corpus. The table's `PLAN` column uses the same
-short id as `list`/`tree`, and a line under the summary gives the fix for each
-`CODE`; `--format json|tsv` emits the full id in its `id` field and the fix in
-`hint`. To work through the findings, narrow with `list --finding <code>` or
-read one plan's with `show <id>`; the same codes are the `findings` field in
-`list`, `tree`, and `show` `--format json|tsv`. See
-[docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
-for what each `CODE` means.
+`check` validates the whole corpus and exits 1 on any finding; it takes no
+plan id. `PLAN` uses the short id, and a line under the summary gives the fix
+for each `CODE`. `--format json|tsv` emits the full id in `id` and the fix in
+`hint`. To work through findings, see
+[Working through `check`](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md#working-through-check);
+[docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#check-findings)
+explains each `CODE`.
 
 <!-- sample:check -->
 ```
@@ -241,8 +239,8 @@ narrow with: pentimento list --finding <code>
 `history` shows which sessions touched a plan's file: the session whose id
 matches the plan's own id authored it; any later session that read, edited,
 or delegated work on it worked it. An empty result prints
-`no session history for <id>` — that means no matching transcript was found
-on this machine, never a claim the plan wasn't worked.
+`no session history for <id>; searched: <directory>` — that means no matching
+transcript was found there, never a claim the plan wasn't worked.
 
 <!-- sample:history -->
 ```
@@ -272,8 +270,8 @@ The vocabulary lives in one place:
 
 | Field | Set by | How |
 | --- | --- | --- |
-| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly — the only way to set `superseded`, which no derivation ever produces or overwrites — and pins it (see `pinned`). |
-| `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched and `check` skips the plan's status findings. |
+| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`) recomputes it from `## Progress` checkboxes. The hook caps the result at `partial`; only a full `backfill` sweep advances it to `complete`. `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
+| `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched and `check` reports only `pin-behind-progress` for it. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived. `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
 | `parent` | derived, or operator | `backfill` fills it in from a session-prompt or body reference (an `<id>.md` literal or a trailing codename) to an earlier same-project, same-source plan. `--rederive` recomputes it from scratch, including removing one that no longer resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |
@@ -298,7 +296,7 @@ Cursor plans get body-only lineage and no `project` at all.
 | `backfill` | Derive and write missing frontmatter across the corpus. |
 | `hook` | Run as a Claude Code `PostToolUse` hook, reading the payload on stdin. |
 | `index` | Write `INDEX.md` into the plans directory. |
-| `check` | Validate lineage and vocabulary; exits 1 on any finding. |
+| `check` | Validate lineage, vocabulary, and status; exits 1 on any finding. |
 | `history <id>` | Every session that touched one plan, oldest first. |
 | `completion <shell>` | Print a `bash`/`zsh`/`fish` tab-completion script. |
 
@@ -369,6 +367,6 @@ runs all three on Ubuntu and macOS.
   triage-nudge pattern, `check` in CI.
 - [docs/workflows.md](https://github.com/kjiwa/pentimento/blob/main/docs/workflows.md)
   — triage, picking a plan back up, reusing a past decision, supersession,
-  lineage trees, scripting with `--format json`.
+  lineage trees, working through `check`, scripting with `--format json`.
 - [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md)
   — every empty field and `check` finding, explained.

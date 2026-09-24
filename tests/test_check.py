@@ -42,6 +42,22 @@ class HintTests(unittest.TestCase):
         self.assertEqual(finding.hint, check.HINTS["dangling-parent"])
 
 
+class ShowHintTests(unittest.TestCase):
+    def test_no_show_hint_names_the_show_command(self):
+        for code in check.HINTS:
+            self.assertNotIn("pentimento show", check.show_hint(code), msg=code)
+
+    def test_a_hint_without_a_show_step_is_unchanged(self):
+        self.assertEqual(check.show_hint("self-parent"), check.HINTS["self-parent"])
+
+    def test_a_show_step_is_dropped_from_the_status_hint(self):
+        self.assertIn("pentimento show <id>", check.HINTS["underivable-status"])
+        self.assertEqual(
+            check.show_hint("underivable-status"),
+            "add a checklist to '## Progress', or pentimento set <id> --status <value>",
+        )
+
+
 class RunTests(unittest.TestCase):
     def test_clean_corpus_has_no_findings(self):
         root = FakePlan(id="root")

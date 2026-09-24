@@ -5,10 +5,14 @@ when the output is not what you expected.
 
 ## No output at all
 
-`AGENT_PLANS_DIR` (default `~/.claude/plans`) or `CURSOR_PLANS_DIR` unset or
-pointing at a directory that doesn't exist contributes nothing, silently —
-a missing harness is a normal, supported state, not an error. Check the
-directory actually holds `.md` files (or `.plan.md` for Cursor).
+`pentimento: no plans found; searched: <directories>` on stderr, with exit 0,
+means every plan directory is missing or empty. `AGENT_PLANS_DIR` (default
+`~/.claude/plans`) or `CURSOR_PLANS_DIR` pointing at a directory that doesn't
+exist contributes nothing: a missing harness is a normal, supported state,
+not an error. Check the directories named in the message actually hold `.md`
+files (or `.plan.md` for Cursor). `list`, `tree`, `index`, `backfill`, and
+`check` print the message in every `--format`; `--format json` still prints
+`[]` on stdout.
 
 ## `project` is empty
 
@@ -63,8 +67,9 @@ to land here:
 
 ## `check` findings
 
-Every finding's `code`, with its fix. `check` prints the same fix as a
-hint under its summary, and `--format json|tsv` carries it in `hint`.
+Every finding's `code`, with its fix. `check` prints the fix as a hint under
+its summary, and `--format json|tsv` carries it in `hint`; `show <id>` prints
+it with that plan's findings.
 
 A plan whose status is explicit is never second-guessed: one with `pinned`
 set (any `set --status` pins) or a `superseded` status. The status findings
@@ -74,41 +79,37 @@ below what `## Progress` derives.
 
 | Code | Meaning | Fix |
 | --- | --- | --- |
-| `unreadable-file` | A plan file couldn't be read, e.g. for permissions or a non-UTF-8 encoding; the message names the path and the error. | Fix the file's permissions or encoding. |
-| `dangling-parent` | `parent` doesn't match any plan's id. | Fix the reference by hand, or run `backfill --rederive`, which drops a `parent` that no longer resolves. |
-| `self-parent` | `parent` is the plan's own id. | Fix the frontmatter by hand. |
-| `cross-project-parent` | `parent` resolves to a plan in a different `project`. | Usually one of the two plans has the wrong `project`; fix with `pentimento set <id> --project <name>`. |
-| `cycle` | Following `parent` links eventually loops back to the plan itself. | Break the cycle by clearing or correcting one link in the chain. |
+| `unreadable-file` | A plan file couldn't be read, e.g. for permissions or a non-UTF-8 encoding; the message names the path and the error. | Check the file's permissions and encoding. |
+| `dangling-parent` | `parent` doesn't match any plan's id. | `pentimento set <id> --parent <id>`, or `--clear-parent`. `backfill --rederive` also drops a `parent` that no longer resolves. |
+| `self-parent` | `parent` is the plan's own id. | `pentimento set <id> --clear-parent`. |
+| `cross-project-parent` | `parent` resolves to a plan in a different `project`. | `pentimento set <id> --project <name>` on whichever plan is wrong. |
+| `cycle` | Following `parent` links eventually loops back to the plan itself. | `pentimento set <id> --parent <id>`, or `--clear-parent`, on one plan in the chain. |
 | `duplicate-id` | The same id appears from two sources (e.g. a Claude plan and a Cursor plan share a filename stem). | Rename one of the files. |
-| `off-vocabulary-status` | `status` isn't one of `not-started`, `partial`, `complete`, `superseded`, `unknown`. | Fix by hand or run `backfill --rederive`. |
+| `off-vocabulary-status` | `status` isn't one of `not-started`, `partial`, `complete`, `superseded`, `unknown`. | `pentimento set <id> --status <value>`. |
 | `off-vocabulary-intent` | `intent` isn't one of `active`, `queued`, `someday`, `abandoned`, `unset`. | Fix with `pentimento set <id> --intent <value>`. |
-| `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a `# Title` line to the body. |
+| `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a `# Title` line to the plan body. |
 | `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | Fix with `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
-| `underived-project` | The plan has no `project`, but its session log supplies one, meaning `backfill` hasn't caught up. | Run `pentimento backfill`. With the `PostToolUse` hook installed this finding is now an anomaly, not the steady state — see [docs/integrations.md](integrations.md). |
-| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add checkboxes to `## Progress`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
-| `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (`pentimento history <id>` lists them). | Run `pentimento history <id>` to see the sessions, then `pentimento set <id> --status <value>` on your own judgement. This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
-| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | Run `pentimento backfill`, or `pentimento set <id> --status <value>`. |
-| `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | Nothing is fixed automatically. `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `--unpin` to hand the status back to `backfill`. |
-| `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | Run `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
+| `underived-project` | The plan has no `project`, but its session log supplies one, meaning `backfill` hasn't caught up. | `pentimento backfill`. With the `PostToolUse` hook installed ([docs/integrations.md](integrations.md)) this finding is an anomaly. |
+| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add a checklist to `## Progress`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session read, edited, or delegated work on the plan (`pentimento history <id>` lists them). | `pentimento history <id>`, then `pentimento set <id> --status <value>`. This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
+| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
+| `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill` to adopt it, or leave it if the omission was deliberate. |
 
 ## A `list` column I expected is missing
 
-`TAGS`, `CREATED`, and `FINDING` only appear when at least one plan in the
-result has tags, a `created` date, or a finding; every other column always
-appears unless the table is too narrow, in which case columns drop by rank
-before any column is truncated ([docs/reference.md#columns](reference.md#columns)).
-`--columns` (or `PENTIMENTO_COLUMNS`) names exactly the columns you want, in
-order, and overrides both rules; the column the active `--sort` key uses
-never drops either way.
+`TAGS`, `CREATED`, and `FINDING` are hidden when no listed plan has a value,
+and any column drops when the table is too narrow. `--columns` names exactly
+the columns you want; see [docs/reference.md#columns](reference.md#columns).
 
 ## `history` is empty
 
-`no session history for <id>` means no transcript under
-`AGENT_SESSIONS_DIR` (default `~/.claude/projects`) contains a `tool_use`
-call naming that plan's path — never a claim the plan wasn't worked. Common
-causes: the work happened in a session whose transcript has since been
-deleted (Claude Code prunes old transcripts), or on a different machine.
-Absent history is not evidence of absent work.
+`no session history for <id>; searched: <directory>` means no transcript
+under that directory (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`)
+contains a `tool_use` call naming that plan's path — never a claim the plan
+wasn't worked. Common causes: the work happened in a session whose
+transcript has since been deleted (Claude Code prunes old transcripts), or
+on a different machine. Absent history is not evidence of absent work.
 
 ## No colour
 
@@ -135,6 +136,10 @@ attached, both resolve the same as the bare id.
 clearing — `--project ""` writes a literal empty string, and `--parent ""`
 looks up a plan with the empty string as its id and fails with `no such
 plan`.
+
+A `--project` or `--add-tag` value that can't be written to frontmatter is a
+usage error, not a missing plan: it exits 2, writes nothing, and the message
+states the valid form.
 
 ## Completions don't fire
 

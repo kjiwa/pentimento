@@ -59,6 +59,11 @@ class Plan:
         return times.parse_date(self.fields.get("created", "")) or times.local_day(self.created_at)
 
     @property
+    def created(self) -> str | None:
+        """`created_date` as `YYYY-MM-DD`, the form every view shows."""
+        return self.created_date.isoformat() if self.created_date else None
+
+    @property
     def title(self) -> str:
         return _first_h1(self.body) or self.id
 

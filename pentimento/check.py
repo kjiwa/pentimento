@@ -12,7 +12,8 @@ from pentimento import vocabulary as vocabulary_module
 
 _HISTORY_ELIGIBLE_STATUSES = vocabulary_module.UNWORKED_STATUSES
 
-_SET_STATUS = "pentimento show <id>, then pentimento set <id> --status <value>"
+_REVIEW_FIRST = "pentimento show <id>, then "
+_SET_STATUS = f"{_REVIEW_FIRST}pentimento set <id> --status <value>"
 
 HINTS = {
     "unreadable-file": "check the file's permissions and encoding",
@@ -32,6 +33,11 @@ HINTS = {
     "pin-behind-progress": f"{_SET_STATUS}, or pentimento set <id> --unpin",
     "unadopted-reference": "pentimento backfill, or leave it if the omission was deliberate",
 }
+
+
+def show_hint(code: str) -> str:
+    """`HINTS[code]` for a reader already in `pentimento show`."""
+    return HINTS[code].replace(_REVIEW_FIRST, "")
 
 
 @dataclasses.dataclass

@@ -89,6 +89,11 @@ class RenderTests(unittest.TestCase):
         self.assertIn("implement-it-later", lines[1])
         self.assertIn("worked", lines[1])
 
+    def test_when_never_drops_at_a_narrow_width(self):
+        plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        rendered = _with_width(30, lambda: history.render("the-plan", plan_touches, on_color=False))
+        self.assertIn("WHEN", rendered.split("\n")[0])
+
 
 if __name__ == "__main__":
     unittest.main()

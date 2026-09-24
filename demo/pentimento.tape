@@ -4,8 +4,8 @@ Output demo/pentimento.gif
 Require pentimento
 
 Set Shell "bash"
-Set FontSize 20
-Set Width 1320
+Set FontSize 16
+Set Width 1500
 Set Height 800
 Set Theme "Builtin Dark"
 Set TypingSpeed 30ms
@@ -84,3 +84,16 @@ Sleep 1500ms
 Type "pentimento list --starred"
 Enter
 Sleep 3000ms
+
+Type "clear"
+Enter
+Sleep 500ms
+
+# Act 5: narrow panes lose no columns
+Type "# in a narrow pane, list stacks each plan and drops nothing"
+Enter
+Sleep 1500ms
+
+Type "COLUMNS=60 pentimento list --starred"
+Enter
+Sleep 4000ms

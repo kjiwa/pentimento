@@ -31,8 +31,7 @@ uses `-` bullets, `[x]`/`[ ]` checkboxes, and `...`, and truncation ends in
 A table prints when every column fits (`TITLE` at 30 columns or more, `TAGS` at
 14 or more, `PROJECT` at 10 or more; `TITLE` then `TAGS` then `PROJECT` grow to
 50, 30, and 16 before spare width is shared out; `TAGS` ends in `+N` for tags
-left out), about 135 columns for a full `list`; otherwise each row prints as a
-stacked record with every field kept. Output that is not a
+left out); otherwise each row prints as a stacked record with every field kept. Output that is not a
 terminal, with `COLUMNS` unset, is never width-bound, so `list | grep` sees
 whole lines. `list` columns now run `id status intent project source title
 finding tags created modified`, and tags print as `[a, b]`. `tree` truncates

@@ -25,7 +25,7 @@ changes.
 
 `sh demo/preview.sh` fits the `pentimento-tree.png` frame to GitHub's
 1280x640 social-preview size and writes it under `$TMPDIR`, printing the
-path. Run `record.sh` first if that frame doesn't exist yet -- it's
+path. Run `record.sh` first if that frame doesn't exist yet — it's
 gitignored, not committed. The output itself is uploaded to GitHub rather
 than committed either, so rebuild and re-upload it only after a recording
 changes that frame.

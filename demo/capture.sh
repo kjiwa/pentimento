@@ -3,17 +3,12 @@
 #
 # Usage: sh demo/capture.sh
 #
-# Runs `pentimento list` (wide enough for the table, then at 80 columns for
-# the stacked layout), `tree`, `show`, `check`, and `history` against a fresh
-# `demo/fixture.sh` corpus and splices each result into README.md between
-# `<!-- sample:NAME -->` / `<!-- /sample -->` marker pairs, so the samples
-# are regenerable. Pins `PENTIMENTO_NOW` and `TZ` unconditionally, overriding
-# any value already in the environment, so the fixture's mtimes and the
-# captured relative and absolute times agree byte-for-byte no matter the
-# real wall clock or timezone at capture time. Rewrites the fixture's temp
-# directory to `~/.claude/plans` in each capture for the same reason, in
-# both the absolute form and the `~`-collapsed form `show` prints when the
-# temp directory falls under `$HOME`.
+# Splices each command's output against a fresh `demo/fixture.sh` corpus into
+# README.md between `<!-- sample:NAME -->` / `<!-- /sample -->` markers. Pins
+# `PENTIMENTO_NOW` and `TZ`, overriding the environment, so relative and
+# absolute times are reproducible. Rewrites the fixture's temp directory to
+# `~/.claude/plans` in each capture, in both the absolute form and the
+# `~`-collapsed form `show` prints when the temp directory is under `$HOME`.
 set -eu
 
 _capture() {

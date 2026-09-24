@@ -72,8 +72,8 @@ def resolve(selection: Selection, default_names: tuple[str, ...]) -> list[str]:
 
     `default_names` is the content-derived default set, in canonical order.
     An absolute selection is the final word and keeps the given order. A
-    relative selection keeps canonical order and applies `add`/`remove` on
-    top of the default set.
+    relative selection removes `remove` from the default set, then appends
+    the `add` names, sorted.
     """
     if selection.absolute is not None:
         return list(selection.absolute)

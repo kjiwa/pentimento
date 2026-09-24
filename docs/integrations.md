@@ -100,7 +100,7 @@ your harness names sessions and where it keeps state.
 Cursor has no hook system, so there's no way to run `backfill` automatically.
 Configure `CURSOR_PLANS_DIR` (see [docs/reference.md](reference.md)) and run
 `pentimento backfill` by hand, or on a schedule (e.g. a cron job or a CI
-job). Because Cursor keeps no session logs, a Cursor plan's `project` is
+job). Because Cursor keeps no session transcripts, a Cursor plan's `project` is
 never derived and its `parent` only ever comes from the body-preamble
 reference scan.
 

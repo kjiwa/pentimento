@@ -3,11 +3,11 @@
 Two signals, tried in order:
 1. Session prompt -- plan ids referenced in the originating session's first
    user prompt, either as `<id>.md` / `<id>.plan.md` or by a trailing
-   codename (the segment-aligned suffix `pentimento show` and `list` also
-   accept, e.g. `wobbly-willow` for `...-wobbly-willow`).
+   codename (a segment-aligned suffix, e.g. `wobbly-willow` for
+   `...-wobbly-willow`).
 2. Plan preamble -- the same reference scan over the body above the first
    `##` heading, so a parent's `## Progress` notes about executed children
-   can no longer make those children its parents.
+   are not read as references.
 
 Both are filtered by the same guards -- not the plan itself, same project,
 same source, strictly earlier `started`. Within a tier, an exact `<id>.md`

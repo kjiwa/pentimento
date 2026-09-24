@@ -72,7 +72,7 @@ ORDER_CHOICES = (_ORDER_ASC, _ORDER_DESC)
 
 DATE_CHOICES = ("created", "modified")
 
-_ID_HELP = "plan id, short id, filename, or path"
+_ID_HELP = "full id, short id, filename, or path"
 _DRY_RUN_HELP = "report what would change, without writing"
 _PROJECT_FORM = "use a single line with no surrounding space, '#', or ': '"
 _TAG_FORM = "use lowercase letters, digits, and . _ / -, starting with a letter or digit"

@@ -6,9 +6,8 @@ from pentimento import columns as columns_module
 from pentimento import shortid, style, table, times
 from pentimento import tags as tags_module
 
-# (name, Column, include(plans) -> bool, cell(plan, short_ids) -> table.Cell), one
-# spelling per column; `name` is the lowercase token `--columns` and
-# `PENTIMENTO_COLUMNS` accept.
+# (name, Column, include(plans) -> bool, cell(plan, short_ids) -> table.Cell);
+# `name` is the token `--columns` accepts.
 _SPECS = (
     (
         "id",

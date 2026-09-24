@@ -81,9 +81,7 @@ def run(
     `details`, when given, receives `id -> (fields before, fields after)` for
     each changed plan.
 
-    `only`, when given, restricts writes to those ids; derivation still spans
-    `plans` entire, because `lineage.derive_parent` resolves against the whole
-    corpus and `lineage.in_cycle` needs every plan's new fields.
+    `only`, when given, restricts writes to those ids; derivation still spans all `plans`.
     """
     sessions = sessions or {}
     new_fields_by_path = {

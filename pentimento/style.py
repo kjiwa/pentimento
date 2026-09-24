@@ -1,4 +1,4 @@
-"""Colour policy and ANSI primitives. No other module touches escape codes.
+"""Color policy and ANSI primitives. No other module touches escape codes.
 
 Widths must be computed on unpainted strings -- pad first, then paint, so
 SGR bytes never enter a column width.

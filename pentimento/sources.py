@@ -1,7 +1,8 @@
 """Where plan files live, per harness.
 
 Two harnesses are discovered: Claude Code (`~/.claude/plans/*.md`) and
-Cursor (`~/.cursor/plans/*.plan.md`, plus its legacy pre-migration location).
+Cursor (`.plan.md` files under `~/.cursor/plans` and its Application Support
+directory).
 A directory that does not exist contributes nothing.
 """
 

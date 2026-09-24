@@ -1,4 +1,4 @@
-"""Read harness session logs into a slug-keyed index.
+"""Read harness session transcripts into a slug-keyed index.
 
 Each Claude Code session is recorded as `~/.claude/projects/<encoded-dir>/
 <uuid>.jsonl`, one line per event. Lines carry a `slug` (identical to the

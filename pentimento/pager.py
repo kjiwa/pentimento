@@ -1,6 +1,6 @@
 """Pipe rendered lines through the user's pager.
 
-Colour and width are resolved against the real stdout before this module is
+Color and width are resolved against the real stdout before this module is
 reached, so the pager receives exactly what a tty would have shown.
 """
 
@@ -28,7 +28,7 @@ def command() -> list[str] | None:
 def _environment(argv: list[str]) -> dict[str, str]:
     """`LESS=FRX` when the pager is `less` and the operator has not set `LESS`.
 
-    -R keeps ANSI colour, -F exits at once for one-screen output, -X leaves
+    -R keeps ANSI color, -F exits at once for one-screen output, -X leaves
     the text on screen after quitting.
     """
     env = dict(os.environ)

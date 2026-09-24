@@ -20,6 +20,18 @@ def _extract_commands_block(readme_text: str) -> list[str]:
     ]
 
 
+def _extract_commands_table(readme_text: str) -> dict[str, str]:
+    """README `## Commands` table rows: command name -> `Does` cell."""
+    start = readme_text.index("\n## Commands") + 1
+    end = readme_text.index("\n## ", start + 1)
+    rows = {}
+    for line in readme_text[start:end].splitlines():
+        if line.startswith("| `"):
+            command, does = (cell.strip() for cell in line.strip("| ").split(" | ", 1))
+            rows[command.strip("`").split()[0]] = does.rstrip(" |")
+    return rows
+
+
 def _extract_sample(readme_text: str, name: str) -> list[str]:
     start_marker = f"<!-- sample:{name} -->"
     start = readme_text.index(start_marker)
@@ -60,8 +72,8 @@ class ReadmeShowSampleTests(unittest.TestCase):
         self.assertIn("modified:", provenance_line)
 
 
-class ReadmeCommandsTests(unittest.TestCase):
-    """The `## Commands` block's flags must match the parser exactly, in parser order."""
+class ReferenceCommandsTests(unittest.TestCase):
+    """The reference's `## Commands` block's flags must match the parser exactly, in order."""
 
     def setUp(self):
         self.reference_path = Path(__file__).parent.parent / "docs" / "reference.md"
@@ -114,6 +126,19 @@ class ReadmeCommandsTests(unittest.TestCase):
                 else:
                     metavar = action.metavar or action.dest.upper()
                     self.assertEqual(value, metavar, msg=flag)
+
+
+class ReadmeCommandsTableTests(unittest.TestCase):
+    """The README's `Commands` table repeats each subcommand's `help=` string verbatim."""
+
+    def test_does_column_equals_each_help_string(self):
+        readme = (Path(__file__).parent.parent / "README.md").read_text()
+        rows = _extract_commands_table(readme)
+        helps = {
+            action.dest: action.help
+            for action in _subparsers_action(cli.build_parser())._choices_actions
+        }
+        self.assertEqual(rows, helps)
 
 
 if __name__ == "__main__":

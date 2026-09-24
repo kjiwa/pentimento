@@ -97,3 +97,18 @@ def derive_parent(plan, candidates, sessions, *, project=None) -> str | None:
     """`project` overrides `plan.project` for callers deriving it in the same pass."""
     ids = references(plan, candidates, sessions, project=project)
     return ids[0] if ids else None
+
+
+def in_cycle(plan_id: str, parent_of: dict) -> bool:
+    """True when following `parent_of` from `plan_id` returns to `plan_id`.
+
+    A chain that runs into some other plan's cycle is not itself cyclic.
+    """
+    seen = set()
+    current = parent_of.get(plan_id)
+    while current is not None and current not in seen:
+        if current == plan_id:
+            return True
+        seen.add(current)
+        current = parent_of.get(current)
+    return False

@@ -224,11 +224,39 @@ class UnknownValueTests(unittest.TestCase):
         fields["status"] = "partial"
         self.assertIn('name: "Plan # one"', frontmatter.serialize(fields, body, extras))
 
-    def test_known_field_values_are_still_validated(self):
-        text = "---\npentimento:\n  project: a: b\n---\nbody\n"
+    def test_changed_known_field_values_are_still_validated(self):
+        text = "---\npentimento:\n  project: ok\n---\nbody\n"
         fields, body, extras = frontmatter.parse(text)
+        fields["project"] = "a: b"
         with self.assertRaises(ValueError):
             frontmatter.serialize(fields, body, extras)
+
+    def test_unchanged_invalid_known_value_is_reemitted_verbatim(self):
+        text = '---\npentimento:\n  status: complete\n  project: "a #b"\n---\nbody\n'
+        fields, body, extras = frontmatter.parse(text)
+        self.assertEqual(frontmatter.serialize(fields, body, extras), text)
+        fields["status"] = "partial"
+        self.assertIn('project: "a #b"', frontmatter.serialize(fields, body, extras))
+        fields["project"] = "a #c"
+        with self.assertRaises(ValueError):
+            frontmatter.serialize(fields, body, extras)
+
+
+class RemovingTheLastFieldTests(unittest.TestCase):
+    def test_foreign_frontmatter_survives_without_the_namespace_opener(self):
+        text = "---\nother:\n  k: v\n# a note\npentimento:\n  status: complete\n---\nbody\n"
+        fields, body, extras = frontmatter.parse(text)
+        fields.pop("status")
+        self.assertEqual(
+            frontmatter.serialize(fields, body, extras),
+            "---\nother:\n  k: v\n# a note\n---\nbody\n",
+        )
+
+    def test_a_block_holding_only_pentimento_fields_becomes_the_bare_body(self):
+        text = "---\npentimento:\n  status: complete\n---\nbody\n"
+        fields, body, extras = frontmatter.parse(text)
+        fields.pop("status")
+        self.assertEqual(frontmatter.serialize(fields, body, extras), "body\n")
 
 
 class IsValidValueTests(unittest.TestCase):

@@ -79,7 +79,7 @@ below what `## Progress` derives.
 
 | Code | Meaning | Fix |
 | --- | --- | --- |
-| `unreadable-file` | A plan file couldn't be read, e.g. for permissions or a non-UTF-8 encoding; the message names the path and the error. | Check the file's permissions and encoding. |
+| `unreadable-file` | A plan file couldn't be read, e.g. for permissions or a non-UTF-8 encoding; the message names the path and the error. Only `check` reports it; `--finding` does not take it. | Check the file's permissions and encoding. |
 | `dangling-parent` | `parent` doesn't match any plan's id. | `pentimento set <id> --parent <id>`, or `--clear-parent`. `backfill --rederive` also drops a `parent` that no longer resolves. |
 | `self-parent` | `parent` is the plan's own id. | `pentimento set <id> --clear-parent`. |
 | `cross-project-parent` | `parent` resolves to a plan in a different `project`. | `pentimento set <id> --project <name>` on whichever plan is wrong. |
@@ -125,7 +125,7 @@ message also appends `-- did you mean: <id>?` (a close-match search over the
 corpus's ids). If a short id matches more than one plan, the message is
 instead `ambiguous plan id: <id> -- matches: <id1>, <id2>` — use the full id
 to disambiguate. `set --parent` also exits 1, before writing anything, if the
-given parent id doesn't resolve.
+given parent id doesn't resolve, and exits 2 if the parent would create a cycle.
 
 Every command that takes a plan id accepts more than the bare id: a full filename
 (`some-plan.md`), or the id with a `.md` or `.plan.md` suffix still

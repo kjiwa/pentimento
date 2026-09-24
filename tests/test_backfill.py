@@ -452,6 +452,40 @@ class BackfillTests(unittest.TestCase):
         self.assertNotIn("parent", reloaded["plan-a"].fields)
         self.assertEqual(reloaded["plan-b"].fields["parent"], "plan-a")
 
+    def test_a_derived_parent_leading_into_another_plans_cycle_is_kept(self):
+        _write(self.directory, "plan-a", "# A\n\nSee ~/.claude/plans/plan-b.md\n")
+        _write(self.directory, "plan-b", "---\nproject: p\nparent: plan-c\n---\n\n# B\n")
+        _write(self.directory, "plan-c", "---\nproject: p\nparent: plan-b\n---\n\n# C\n")
+        session_sessions = {
+            name: sessions.Session(slug=name, project="p", started=started, prompt="")
+            for name, started in (
+                ("plan-a", "2026-09-02T00:00:00.000Z"),
+                ("plan-b", "2026-09-01T00:00:00.000Z"),
+                ("plan-c", "2026-09-01T00:00:00.000Z"),
+            )
+        }
+        plans = corpus.load_all(self.directory, sessions=session_sessions)
+        backfill.run(plans, session_sessions)
+
+        reloaded = {p.id: p for p in corpus.load_all(self.directory, sessions=session_sessions)}
+        self.assertEqual(reloaded["plan-a"].fields["parent"], "plan-b")
+
+    def test_an_invalid_value_writes_no_plan(self):
+        _write(self.directory, "plan-a", "# A\n\n## Progress\n- [x] done\n")
+        _write(self.directory, "plan-b", "# B\n\n## Progress\n- [x] done\n")
+        bad = {
+            "plan-b": sessions.Session(
+                slug="plan-b", project="a #b", started="2026-09-01T00:00:00.000Z", prompt=""
+            )
+        }
+        before = {n: (self.directory / f"{n}.md").read_text() for n in ("plan-a", "plan-b")}
+        plans = corpus.load_all(self.directory, sessions=bad)
+        with self.assertRaises(ValueError):
+            backfill.run(plans, bad)
+
+        after = {n: (self.directory / f"{n}.md").read_text() for n in ("plan-a", "plan-b")}
+        self.assertEqual(after, before)
+
     def test_only_restricts_writes_and_returned_changed(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")
         _write(self.directory, "other-plan", "# Other\n\n## Progress\n- [x] done\n")

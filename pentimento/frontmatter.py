@@ -35,12 +35,15 @@ class Extras:
     doesn't silently normalize CRLF to LF (or the reverse). `unknown_lines`
     maps each unrecognized top-level key to its original line, re-emitted
     as written so a value that could not be rebuilt from its parsed form
-    (`name: Plan: the sequel`) survives.
+    (`name: Plan: the sequel`) survives. `raw_values` maps each parsed known
+    field to its value text as written, so a value that fails
+    `is_valid_value` (`"a #b"`) is re-emitted verbatim while it is unchanged.
     """
 
     lines: list[str]
     newline: str = "\n"
     unknown_lines: dict[str, str] = dataclasses.field(default_factory=dict)
+    raw_values: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 def is_valid_value(value: str) -> bool:
@@ -55,10 +58,17 @@ def is_valid_value(value: str) -> bool:
     return not any(bad in value for bad in ("\n", "\r", "#", ": "))
 
 
-def _validate_values(fields: dict[str, str], skip=()) -> None:
-    for key, value in fields.items():
-        if key not in skip and not is_valid_value(value):
-            raise ValueError(f"invalid frontmatter value for {key!r}: {value!r}")
+def _is_unchanged(key: str, value: str, extras: Extras | None) -> bool:
+    raw = extras.raw_values.get(key) if extras is not None else None
+    return raw is not None and _clean_value(raw) == value
+
+
+def _emit_value(key: str, value: str, extras: Extras | None) -> str:
+    if is_valid_value(value):
+        return value
+    if _is_unchanged(key, value, extras):
+        return extras.raw_values[key]
+    raise ValueError(f"invalid frontmatter value for {key!r}: {value!r}")
 
 
 def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
@@ -79,9 +89,10 @@ def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
     if closing_index is None:
         return {}, text, None
 
-    fields, raw_lines, unknown_lines = _parse_block(lines[1:closing_index])
+    fields, raw_lines, unknown_lines, raw_values = _parse_block(lines[1:closing_index])
     body = nl.join(lines[closing_index + 1 :])
-    return fields, body, Extras(lines=raw_lines, newline=nl, unknown_lines=unknown_lines)
+    extras = Extras(lines=raw_lines, newline=nl, unknown_lines=unknown_lines, raw_values=raw_values)
+    return fields, body, extras
 
 
 def _find_closing_delimiter(lines: list[str]) -> int | None:
@@ -113,7 +124,9 @@ def _clean_value(raw: str) -> str:
     return _COMMENT.split(value, maxsplit=1)[0].strip()
 
 
-def _parse_block(lines: list[str]) -> tuple[dict[str, str], list[str], dict[str, str]]:
+def _parse_block(
+    lines: list[str],
+) -> tuple[dict[str, str], list[str], dict[str, str], dict[str, str]]:
     """Parse pentimento fields while capturing everything else verbatim.
 
     A comment or blank line inside the pentimento block is dropped (there is
@@ -125,6 +138,7 @@ def _parse_block(lines: list[str]) -> tuple[dict[str, str], list[str], dict[str,
     fields: dict[str, str] = {}
     extras: list[str] = []
     unknown_lines: dict[str, str] = {}
+    raw_values: dict[str, str] = {}
     in_namespace = False
     marker_inserted = False
     for line in lines:
@@ -155,16 +169,19 @@ def _parse_block(lines: list[str]) -> tuple[dict[str, str], list[str], dict[str,
         if indented and in_namespace:
             if value:
                 fields[key] = value
+                raw_values[key] = raw_value.strip()
             continue
         if value:
             fields[key] = value
-            if key not in FIELD_ORDER:
+            if key in FIELD_ORDER:
+                raw_values[key] = raw_value.strip()
+            else:
                 unknown_lines[key] = line
         else:
             extras.append(line)
     if not marker_inserted:
         extras.insert(0, _MARKER)
-    return fields, extras, unknown_lines
+    return fields, extras, unknown_lines, raw_values
 
 
 def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -> str:
@@ -178,11 +195,7 @@ def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -
     comments, and blank lines to their original position, and the source
     file's line ending.
     """
-    if not fields:
-        return body
-
     unknown_lines = extras.unknown_lines if extras is not None else {}
-    _validate_values(fields, skip=unknown_lines)
 
     known = set(FIELD_ORDER)
     namespaced = [key for key in FIELD_ORDER if key in fields]
@@ -192,13 +205,17 @@ def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -
     if namespaced:
         pentimento_block.append(f"{NAMESPACE}:")
         for key in namespaced:
-            pentimento_block.append(f"{INDENT}{key}: {fields[key]}")
+            pentimento_block.append(f"{INDENT}{key}: {_emit_value(key, fields[key], extras)}")
     for key in unknown:
-        pentimento_block.append(unknown_lines.get(key) or f"{key}: {fields[key]}")
+        pentimento_block.append(
+            unknown_lines.get(key) or f"{key}: {_emit_value(key, fields[key], None)}"
+        )
 
     raw_lines = list(extras.lines) if extras is not None else [_MARKER]
     if _MARKER not in raw_lines:
         raw_lines = [_MARKER, *raw_lines]
+    if not pentimento_block and raw_lines == [_MARKER]:
+        return body
 
     lines = [DELIMITER]
     for raw_line in raw_lines:

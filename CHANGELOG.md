@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.15
+
+`backfill` no longer names a plan `home` when its session was launched in `$HOME`.
+Such a session takes the outermost directory, among the launch directories of
+all sessions, that most of its `cwd` entries and tool-call paths fall under, so
+work on `~/src/github/fankado` from a terminal opened in `~` is filed under
+`fankado`. With no evidence, or a tie, the project is the home directory's own
+name, which is what `--project .` already resolved to there. The first run
+re-reads session transcripts once to collect the new signals.
+
 ## 0.1.14
 
 `check` treats an explicit status as an answer. A plan with `pinned` set, which

@@ -5,10 +5,11 @@ but looks for `tool_use` records that name a plan's *path* rather than for
 the `slug` field a session was started with -- a plan's authoring
 session (see `author`) and every later session that reads, edits, or delegates work on it
 both leave records here; only edits, writes, and delegation count as work.
-Restricting to tool_use inputs that name the plan path (rather than
-free-text substring matching) keeps this signal clean: pentimento's own dev
-sessions and `/plans` listings mention every id, but rarely as a
-`Read`/`Edit`/`Write`/`Task` input.
+A tool call names a plan only through its target path (`file_path`,
+`notebook_path`, `path`); file content or an edit's new text that merely
+mentions a plan does not. `Task` is the exception: a delegation prompt naming
+a plan is the signal, so its whole input is scanned. pentimento's own dev
+sessions and `/plans` listings mention every id, but rarely as a tool target.
 
 A prescan for the literal `/plans/` before `json.loads` keeps a full sweep
 of the transcript corpus fast.
@@ -26,6 +27,7 @@ from pentimento import sessions
 
 _TOOLS = {"Read", "Edit", "Write", "NotebookEdit", "MultiEdit", "Task"}
 _WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Task"}
+_PATH_KEYS = ("file_path", "notebook_path", "path")
 _PLAN_PATH = re.compile(r"/plans/([^/\"\s]+?)\.(?:plan\.)?md")
 
 
@@ -95,9 +97,14 @@ def _touches_in_record(record: dict, log_path: Path):
         tool = block.get("name")
         if tool not in _TOOLS:
             continue
-        serialized = json.dumps(block.get("input", {}))
-        for plan_id in _PLAN_PATH.findall(serialized):
+        for plan_id in _PLAN_PATH.findall(_scanned_text(tool, block.get("input", {}))):
             yield Touch(plan_id=plan_id, session=session, tool=tool, at=at, cwd=cwd)
+
+
+def _scanned_text(tool: str, tool_input) -> str:
+    if tool == "Task" or not isinstance(tool_input, dict):
+        return json.dumps(tool_input)
+    return "\n".join(tool_input[key] for key in _PATH_KEYS if isinstance(tool_input.get(key), str))
 
 
 def author(touches: list[Touch], plan_id: str) -> str:

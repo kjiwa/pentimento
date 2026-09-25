@@ -244,6 +244,58 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class TargetPathTests(unittest.TestCase):
+    PLAN = "/home/user/.claude/plans/other-plan.md"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_cache(self)
+
+    def _load(self, tool, input_, slug="some-session"):
+        _write_jsonl(
+            self.directory / "session.jsonl",
+            [
+                _tool_use_record(
+                    slug=slug,
+                    cwd="/home/user/example",
+                    timestamp="2026-09-01T00:00:00.000Z",
+                    tool=tool,
+                    input_=input_,
+                )
+            ],
+        )
+        return touches.load(self.directory)
+
+    def test_write_content_naming_a_plan_is_not_a_touch(self):
+        result = self._load(
+            "Write", {"file_path": "/home/user/notes.md", "content": "see " + self.PLAN}
+        )
+        self.assertNotIn("other-plan", result)
+
+    def test_edit_new_string_naming_a_plan_is_not_a_touch(self):
+        result = self._load(
+            "Edit",
+            {"file_path": "/home/user/notes.md", "old_string": "x", "new_string": self.PLAN},
+        )
+        self.assertNotIn("other-plan", result)
+
+    def test_read_file_path_naming_a_plan_is_a_touch(self):
+        result = self._load("Read", {"file_path": self.PLAN})
+        self.assertEqual([t.tool for t in result["other-plan"]], ["Read"])
+
+    def test_task_prompt_naming_a_plan_is_a_touch(self):
+        result = self._load("Task", {"prompt": "Execute " + self.PLAN})
+        self.assertEqual([t.tool for t in result["other-plan"]], ["Task"])
+
+    def test_author_ignores_a_session_that_only_mentions_the_plan_in_content(self):
+        result = self._load(
+            "Write", {"file_path": "/home/user/notes.md", "content": self.PLAN}, slug="mentioner"
+        )
+        self.assertEqual(touches.author(result.get("other-plan", []), "other-plan"), "other-plan")
+
+
 class AuthorTests(unittest.TestCase):
     def _touch(self, session, tool, at):
         return touches.Touch(

@@ -63,6 +63,14 @@ class ReadWriteTests(unittest.TestCase):
         cache_path.write_text(json.dumps(data), encoding="utf-8")
         self.assertEqual(cache.read("sessions"), {})
 
+    def test_version_2_file_is_discarded(self):
+        cache.write("touches", {"a:1:2": {"x": 1}})
+        cache_path = cache.cache_dir() / "touches.json"
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        data["version"] = 2
+        cache_path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(cache.read("touches"), {})
+
     def test_corrupt_file_reads_as_empty(self):
         cache.cache_dir().mkdir(parents=True, exist_ok=True)
         (cache.cache_dir() / "sessions.json").write_text("not json", encoding="utf-8")

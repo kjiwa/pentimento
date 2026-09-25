@@ -33,6 +33,7 @@ class TouchedPlanPathTests(unittest.TestCase):
         for key, value in (
             ("AGENT_PLANS_DIR", str(self.plans_dir)),
             ("CURSOR_PLANS_DIR", str(self.directory / "no-such-cursor-plans-dir")),
+            ("CURSOR_SESSIONS_DIR", str(self.directory / "no-such-cursor-sessions-dir")),
         ):
             previous = os.environ.get(key)
             os.environ[key] = value

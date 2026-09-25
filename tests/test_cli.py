@@ -61,6 +61,7 @@ def _isolate_env(test, directory):
         ("AGENT_PLANS_DIR", str(directory)),
         ("AGENT_SESSIONS_DIR", str(directory / "no-such-sessions-dir")),
         ("CURSOR_PLANS_DIR", str(directory / "no-such-cursor-plans-dir")),
+        ("CURSOR_SESSIONS_DIR", str(directory / "no-such-cursor-sessions-dir")),
     ):
         previous = os.environ.get(key)
         os.environ[key] = value
@@ -2515,6 +2516,7 @@ class EmptyCorpusHintTests(unittest.TestCase):
                 {
                     "AGENT_PLANS_DIR": str(Path(tmp) / "none"),
                     "CURSOR_PLANS_DIR": str(Path(tmp) / "none-cursor"),
+                    "CURSOR_SESSIONS_DIR": str(Path(tmp) / "none-cursor-sessions"),
                 },
             ):
                 _, _, err = _main(["list"])

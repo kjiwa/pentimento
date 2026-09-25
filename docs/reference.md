@@ -122,8 +122,9 @@ Every error message goes to stderr, prefixed `pentimento: `.
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `AGENT_PLANS_DIR` | `~/.claude/plans` | Claude Code's plan directory. |
-| `AGENT_SESSIONS_DIR` | `~/.claude/projects` | Claude Code's session transcripts, the source for `project`, `parent`, `modified`, and `history`. |
+| `AGENT_SESSIONS_DIR` | `~/.claude/projects` | Claude Code's session transcripts, the source for a Claude Code plan's `project`, `parent`, `modified`, and `history`. |
 | `CURSOR_PLANS_DIR` | `~/.cursor/plans` and `~/Library/Application Support/Cursor/User/plans` (both searched) | Cursor's plan directory. Set to override the defaults; the value is an `os.pathsep`-separated list of paths, so more than one directory can be searched at once. |
+| `CURSOR_SESSIONS_DIR` | `~/.cursor/projects` | Cursor's agent transcripts, the source for a Cursor plan's `project` and prompt lineage. |
 | `PAGER` | `less` | Pager for `show --full`. Split with shell quoting, so `PAGER="less -S"` works. Empty disables paging. When it is `less` and `LESS` is unset, pentimento sets `LESS=FRX` so color survives and short output does not open the pager. |
 | `PENTIMENTO_COLUMNS` | unset | Default `--columns` value for `list`'s `--format table` output; same syntax. Ignored for `--format json\|tsv`. An invalid value prints `pentimento: PENTIMENTO_COLUMNS: <message>` to stderr and exits 2. |
 | `PENTIMENTO_DEBUG` | unset | When set, `pentimento hook` prints a traceback to stderr on an internal error instead of failing silently. |

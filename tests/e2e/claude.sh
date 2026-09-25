@@ -47,6 +47,7 @@ _run_claude() {
       ANTHROPIC_AUTH_TOKEN=e2e \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       CURSOR_PLANS_DIR=/nonexistent \
+      CURSOR_SESSIONS_DIR=/nonexistent \
       claude -p "Write the sample plan." --permission-mode bypassPermissions
   )
 }
@@ -71,7 +72,7 @@ main() {
   _run_claude
   [ -f "$HOME/.claude/plans/$PLAN_ID.md" ] || _fail "the scripted Write never created the plan"
 
-  export CURSOR_PLANS_DIR=/nonexistent
+  export CURSOR_PLANS_DIR=/nonexistent CURSOR_SESSIONS_DIR=/nonexistent
   _assert_output_has "status: partial" show "$PLAN_ID"
   _assert_output_has authored history "$PLAN_ID"
   echo "e2e ok: hooks derived status for $PLAN_ID"

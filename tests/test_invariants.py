@@ -51,6 +51,7 @@ class FixtureCorpusTestCase(unittest.TestCase):
                 "AGENT_PLANS_DIR": str(cls.directory),
                 "AGENT_SESSIONS_DIR": str(cls.directory / "sessions"),
                 "CURSOR_PLANS_DIR": str(cls.directory / "no-such-cursor-plans-dir"),
+                "CURSOR_SESSIONS_DIR": str(cls.directory / "no-such-cursor-sessions-dir"),
                 "XDG_CACHE_HOME": str(Path(cls._tmp.name) / "cache"),
             },
         )

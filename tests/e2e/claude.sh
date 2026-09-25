@@ -1,6 +1,7 @@
 #!/bin/sh
 # Drive the real Claude Code CLI against a scripted local Messages endpoint and
-# check that the shipped hooks keep a plan's frontmatter current.
+# check that a stock install (no hooks) already shows the session's project and
+# that the shipped hooks keep a plan's frontmatter current.
 #
 # Usage: sh tests/e2e/claude.sh
 #
@@ -11,6 +12,7 @@
 set -eu
 
 readonly PLAN_ID=e2e-sample
+readonly PROJECT_NAME=project
 readonly CLAUDE_TIMEOUT=120
 readonly START_TRIES=30
 
@@ -88,9 +90,15 @@ main() {
   readonly XDG_CACHE_HOME="$WORK_DIR/cache"
   export HOME XDG_CACHE_HOME
   mkdir -p "$HOME/.claude"
-  cp "$ROOT/integrations/claude/settings-snippet.json" "$HOME/.claude/settings.json"
 
   _start_server
+  _run_claude
+  [ -f "$HOME/.claude/plans/$PLAN_ID.md" ] || _fail "the scripted Write never created the plan"
+  _assert_output_has "\"project\": \"$PROJECT_NAME\"" list --format json
+  echo "e2e ok: no hooks, project derived for $PLAN_ID"
+
+  rm "$HOME/.claude/plans/$PLAN_ID.md"
+  cp "$ROOT/integrations/claude/settings-snippet.json" "$HOME/.claude/settings.json"
   _run_claude
   [ -f "$HOME/.claude/plans/$PLAN_ID.md" ] || _fail "the scripted Write never created the plan"
 

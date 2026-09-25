@@ -23,16 +23,11 @@ class FakePlan:
     body: str = "## Progress\n\n- [ ] todo\n"
     started: str = ""
     extras: object = None
+    curated: bool = True
 
     @property
     def created_at(self):
         return times.parse_iso(self.started)
-
-
-@dataclasses.dataclass
-class FakeSession:
-    project: str = ""
-    prompt: str = ""
 
 
 class HintTests(unittest.TestCase):
@@ -267,42 +262,6 @@ class RunTests(unittest.TestCase):
         }
         self.assertEqual(check.run([plan], touches=touches), [])
 
-    def test_underived_project_fires_when_session_supplies_a_project(self):
-        plan = FakePlan(id="no-project", project=None)
-        sessions = {"no-project": FakeSession(project="real-project")}
-        findings = check.run([plan], sessions)
-        self.assertTrue(
-            any(f.code == "underived-project" and f.id == "no-project" for f in findings)
-        )
-
-    def test_underived_project_fires_for_a_differently_slugged_writing_session(self):
-        plan = FakePlan(id="no-project", project=None)
-        sessions = {"borrowed-slug": FakeSession(project="real-project")}
-        plan_touches = {
-            "no-project": [
-                touches_module.Touch(
-                    plan_id="no-project",
-                    session="borrowed-slug",
-                    tool="Write",
-                    at="2026-09-01T00:00:00.000Z",
-                    cwd="/home/user/example",
-                )
-            ]
-        }
-        findings = check.run([plan], sessions, plan_touches)
-        self.assertTrue(
-            any(f.code == "underived-project" and f.id == "no-project" for f in findings)
-        )
-
-    def test_underived_project_is_silent_without_a_session(self):
-        plan = FakePlan(id="no-project", project=None)
-        self.assertEqual(check.run([plan]), [])
-
-    def test_underived_project_is_silent_when_project_already_set(self):
-        plan = FakePlan(id="has-project", project="example")
-        sessions = {"has-project": FakeSession(project="real-project")}
-        self.assertEqual(check.run([plan], sessions), [])
-
     def test_status_behind_history_fires_when_a_later_session_worked_the_plan(self):
         plan = FakePlan(id="not-started-but-done", status="not-started")
         touches = {
@@ -373,18 +332,7 @@ class RunTests(unittest.TestCase):
         }
         self.assertEqual(check.run([plan], touches=touches), [])
 
-    def test_status_behind_progress_fires_when_progress_outranks_recorded_status(self):
-        plan = FakePlan(id="stale", status="not-started", body="## Progress\n\n- [x] done\n")
-        findings = check.run([plan])
-        self.assertTrue(
-            any(f.code == "status-behind-progress" and f.id == "stale" for f in findings)
-        )
-
-    def test_status_behind_progress_fires_for_stored_unknown(self):
-        plan = FakePlan(id="stale", status="unknown", body="## Progress\n\n- [x] done\n")
-        self.assertEqual([f.code for f in check.run([plan])], ["status-behind-progress"])
-
-    def test_status_behind_progress_names_the_source(self):
+    def test_pin_behind_progress_names_the_source(self):
         _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    status: completed\n---\n")
         cases = {
             "progress": ("## Progress\n\n- [x] done\n", None, "'## Progress'"),
@@ -393,10 +341,30 @@ class RunTests(unittest.TestCase):
         }
         for name, (body, plan_extras, label) in cases.items():
             with self.subTest(name=name):
-                plan = FakePlan(id="p", status="not-started", body=body, extras=plan_extras)
+                plan = FakePlan(
+                    id="p", status="not-started", pinned=True, body=body, extras=plan_extras
+                )
                 self.assertIn(f"but {label} derives 'complete'", check.run([plan])[0].message)
-                pinned = dataclasses.replace(plan, pinned=True)
-                self.assertIn(f"but {label} derives 'complete'", check.run([pinned])[0].message)
+
+    def test_status_findings_skip_uncurated_plans(self):
+        touches = {
+            "p": [
+                touches_module.Touch(
+                    plan_id="p",
+                    session="later",
+                    tool="Edit",
+                    at="2026-09-05T00:00:00.000Z",
+                    cwd="/home/user/example",
+                )
+            ]
+        }
+        cases = [
+            FakePlan(id="p", status="unknown", body="# Root\n\nJust prose.\n", curated=False),
+            FakePlan(id="p", status="not-started", curated=False),
+        ]
+        for plan in cases:
+            with self.subTest(status=plan.status):
+                self.assertEqual(check.run([plan], touches=touches), [])
 
     def test_underivable_status_names_unrecognized_todo_statuses(self):
         _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    status: cancelled\n---\n")
@@ -417,10 +385,6 @@ class RunTests(unittest.TestCase):
         self.assertIn(
             "pentimento history <id>, then pentimento set", check.HINTS["status-behind-history"]
         )
-
-    def test_status_behind_progress_is_silent_when_in_sync(self):
-        plan = FakePlan(id="synced", status="complete", body="## Progress\n\n- [x] done\n")
-        self.assertEqual(check.run([plan]), [])
 
     def test_pin_behind_progress_fires_when_progress_outranks_pinned_status(self):
         plan = FakePlan(
@@ -446,28 +410,6 @@ class RunTests(unittest.TestCase):
     def test_no_skips_means_no_unreadable_file_findings(self):
         self.assertEqual(check.run([FakePlan(id="root")], skips=[]), [])
 
-    def test_unadopted_reference_fires_on_a_parentless_plan_with_an_eligible_reference(self):
-        parent = FakePlan(id="eager-bird", started="2026-09-01T00:00:00Z")
-        child = FakePlan(
-            id="slow-otter",
-            body="See eager-bird for background.\n\n## Progress\n\n- [ ] todo\n",
-            started="2026-09-02T00:00:00Z",
-        )
-        findings = check.run([parent, child])
-        self.assertTrue(
-            any(f.code == "unadopted-reference" and f.id == "slow-otter" for f in findings)
-        )
-
-    def test_unadopted_reference_is_silent_when_parent_is_set(self):
-        parent = FakePlan(id="eager-bird", started="2026-09-01T00:00:00Z")
-        child = FakePlan(
-            id="slow-otter",
-            parent="eager-bird",
-            body="See eager-bird for background.\n\n## Progress\n\n- [ ] todo\n",
-            started="2026-09-02T00:00:00Z",
-        )
-        findings = check.run([parent, child])
-        self.assertFalse(any(f.code == "unadopted-reference" for f in findings))
 
 
 if __name__ == "__main__":

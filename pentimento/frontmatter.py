@@ -40,7 +40,8 @@ class Extras:
     field to its value text as written, so a value that fails
     `is_valid_value` (`"a #b"`) is re-emitted verbatim while it is unchanged.
     `namespaced_lines` holds unrecognized keys found inside the pentimento
-    block, re-emitted verbatim after the known fields.
+    block, re-emitted verbatim after the known fields. `has_block` is true
+    when the frontmatter carries a `pentimento:` block.
     """
 
     lines: list[str]
@@ -48,6 +49,7 @@ class Extras:
     unknown_lines: dict[str, str] = dataclasses.field(default_factory=dict)
     raw_values: dict[str, str] = dataclasses.field(default_factory=dict)
     namespaced_lines: list[str] = dataclasses.field(default_factory=list)
+    has_block: bool = False
 
 
 def is_valid_value(value: str) -> bool:
@@ -93,7 +95,7 @@ def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
     if closing_index is None:
         return {}, text, None
 
-    fields, raw_lines, unknown_lines, raw_values, namespaced_lines = _parse_block(
+    fields, raw_lines, unknown_lines, raw_values, namespaced_lines, has_block = _parse_block(
         lines[1:closing_index]
     )
     body = nl.join(lines[closing_index + 1 :])
@@ -103,6 +105,7 @@ def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
         unknown_lines=unknown_lines,
         raw_values=raw_values,
         namespaced_lines=namespaced_lines,
+        has_block=has_block,
     )
     return fields, body, extras
 
@@ -139,7 +142,7 @@ def clean_value(raw: str) -> str:
 
 def _parse_block(
     lines: list[str],
-) -> tuple[dict[str, str], list[str], dict[str, str], dict[str, str], list[str]]:
+) -> tuple[dict[str, str], list[str], dict[str, str], dict[str, str], list[str], bool]:
     """Parse pentimento fields while capturing everything else verbatim.
 
     A comment or blank line inside the pentimento block is dropped (there is
@@ -199,9 +202,10 @@ def _parse_block(
                 unknown_lines[key] = line
         else:
             extras.append(line)
-    if not marker_inserted:
+    has_block = marker_inserted
+    if not has_block:
         extras.insert(0, _MARKER)
-    return fields, extras, unknown_lines, raw_values, namespaced_lines
+    return fields, extras, unknown_lines, raw_values, namespaced_lines, has_block
 
 
 def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -> str:

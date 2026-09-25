@@ -32,7 +32,13 @@ class Plan:
     text: str = ""
     ended: str = ""
     extras: frontmatter.Extras | None = None
+    derived: dict[str, str] | None = None
     findings: list[str] = dataclasses.field(default_factory=list)
+
+    def _field(self, name: str) -> str | None:
+        """The derived value when views are derived, else the stored one."""
+        source = self.fields if self.derived is None else self.derived
+        return source.get(name)
 
     @property
     def modified(self) -> datetime.datetime:
@@ -56,7 +62,7 @@ class Plan:
     @property
     def created_date(self) -> datetime.date | None:
         """The `created` field, or the date `backfill` would have written."""
-        return times.parse_date(self.fields.get("created", "")) or times.local_day(self.created_at)
+        return times.parse_date(self._field("created") or "") or times.local_day(self.created_at)
 
     @property
     def created(self) -> str | None:
@@ -73,11 +79,11 @@ class Plan:
 
     @property
     def status(self) -> str:
-        return self.fields.get("status", vocabulary_module.DEFAULT_STATUS)
+        return self._field("status") or vocabulary_module.DEFAULT_STATUS
 
     @property
     def intent(self) -> str:
-        return self.fields.get("intent", vocabulary_module.DEFAULT_INTENT)
+        return self._field("intent") or vocabulary_module.DEFAULT_INTENT
 
     @property
     def tags(self) -> list[str]:
@@ -85,11 +91,16 @@ class Plan:
 
     @property
     def parent(self) -> str | None:
-        return self.fields.get("parent")
+        return self._field("parent")
 
     @property
     def project(self) -> str | None:
-        return self.fields.get("project")
+        return self._field("project")
+
+    @property
+    def curated(self) -> bool:
+        """The frontmatter carries a `pentimento:` block."""
+        return self.extras is not None and self.extras.has_block
 
     @property
     def pinned(self) -> bool:

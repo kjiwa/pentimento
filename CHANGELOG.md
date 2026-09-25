@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+`list`, `show`, `tree`, `index`, `history`, and `check` show the derived
+`project`, `status`, `intent`, `created`, and `parent` without a prior
+`backfill`. `backfill` and the hooks only persist them, which keeps them after
+Claude Code prunes a transcript and makes them visible to other tools; `set
+--project`, `--parent`, and `--status` still override derivation. `--project`
+and `--parent` completion draws from derived values.
+
+`check` no longer reports `underived-project`, `status-behind-progress`, or
+`unadopted-reference`; frontmatter that lags derivation no longer affects
+output. `underivable-status` and `status-behind-history` fire only for plans
+with a `pentimento:` frontmatter block. `check.run` no longer takes sessions.
+
 ## 0.1.20
 
 A Cursor plan's todo statuses are read only from each todo's own `status:`

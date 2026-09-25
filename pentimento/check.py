@@ -26,15 +26,12 @@ HINTS = {
     "off-vocabulary-intent": "pentimento set <id> --intent <value>",
     "missing-title": "add a '# Title' line to the plan body",
     "malformed-tag": "pentimento set <id> --remove-tag <bad> --add-tag <fixed>",
-    "underived-project": "pentimento backfill",
     "underivable-status": f"add a checklist to '## Progress', or {_SET_STATUS}",
     "status-behind-history": (
         "tick the plan's '## Progress', or pentimento history <id>, "
         "then pentimento set <id> --status <value> (pins)"
     ),
-    "status-behind-progress": f"pentimento backfill, or {_SET_STATUS}",
     "pin-behind-progress": f"{_SET_STATUS}, or pentimento set <id> --unpin",
-    "unadopted-reference": "pentimento backfill, or leave it if the omission was deliberate",
     "unadopted-tag": "pentimento set <id> --add-tag <tag>",
 }
 
@@ -151,16 +148,6 @@ def _malformed_tags(plans):
     return findings
 
 
-def _underived_project(plans, sessions, touches):
-    findings = []
-    for p in plans:
-        session = sessions.get(touches_module.author(touches.get(p.id, []), p.id))
-        if not p.project and session and session.project:
-            message = f"session supplies project {session.project!r} but frontmatter has none"
-            findings.append(Finding("underived-project", p.id, message))
-    return findings
-
-
 def _explicit(p):
     return p.pinned or p.status == vocabulary_module.SUPERSEDED
 
@@ -196,7 +183,7 @@ def _underivable_message(p):
 def _underivable_status(plans):
     findings = []
     for p in plans:
-        if _explicit(p) or p.status != vocabulary_module.UNKNOWN:
+        if not p.curated or _explicit(p) or p.status != vocabulary_module.UNKNOWN:
             continue
         if status_module.derive_status(p.body, p.extras) != vocabulary_module.UNKNOWN:
             continue
@@ -207,7 +194,7 @@ def _underivable_status(plans):
 def _status_behind_history(plans, touches):
     findings = []
     for p in plans:
-        if _explicit(p) or p.status not in _HISTORY_ELIGIBLE_STATUSES:
+        if not p.curated or _explicit(p) or p.status not in _HISTORY_ELIGIBLE_STATUSES:
             continue
         worked = touches_module.worked(touches.get(p.id, []), p.id)
         if not worked:
@@ -228,18 +215,6 @@ def _behind_progress(p):
     return None
 
 
-def _status_behind_progress(plans):
-    findings = []
-    for p in plans:
-        if _explicit(p):
-            continue
-        behind = _behind_progress(p)
-        if behind:
-            message = f"status {p.status!r} but {behind[1]} derives {behind[0]!r}"
-            findings.append(Finding("status-behind-progress", p.id, message))
-    return findings
-
-
 def _pin_behind_progress(plans):
     findings = []
     for p in plans:
@@ -249,19 +224,6 @@ def _pin_behind_progress(plans):
         if behind:
             message = f"pinned status {p.status!r} but {behind[1]} derives {behind[0]!r}"
             findings.append(Finding("pin-behind-progress", p.id, message))
-    return findings
-
-
-def _unadopted_reference(plans, sessions):
-    findings = []
-    for p in plans:
-        if p.parent:
-            continue
-        ids = lineage.references(p, plans, sessions)
-        if not ids:
-            continue
-        message = f"no parent, but {ids[0]!r} is an eligible reference"
-        findings.append(Finding("unadopted-reference", p.id, message))
     return findings
 
 
@@ -290,19 +252,18 @@ def _unadopted_tags(plans, by_id):
     return findings
 
 
-def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
+def run(plans, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
-    `sessions`, when given, enables the `underived-project` finding; it
-    stays silent by default so plans without a session, where an empty
-    `project` is a legitimate state, are not flagged. `touches`,
-    when given, enables `status-behind-history` the same way. `skips`, when
+    `touches`, when given, enables `status-behind-history`. Plans without a
+    `pentimento:` block are exempt from `underivable-status` and
+    `status-behind-history`: they show derived values and are not told to
+    curate themselves. `skips`, when
     given, is the `(source, path, error)` list `corpus.load_all` collected
     for files it could not read; each becomes an `unreadable-file` finding.
     `unadopted-tag` needs no input: an untagged plan whose tagged parent and
     tagged siblings share tags is the evidence.
     """
-    sessions = sessions or {}
     touches = touches or {}
     by_id = {p.id: p for p in plans}
     return [
@@ -317,10 +278,7 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         *_missing_title(plans),
         *_malformed_tags(plans),
         *_underivable_status(plans),
-        *_underived_project(plans, sessions, touches),
         *_status_behind_history(plans, touches),
-        *_status_behind_progress(plans),
         *_pin_behind_progress(plans),
-        *_unadopted_reference(plans, sessions),
         *_unadopted_tags(plans, by_id),
     ]

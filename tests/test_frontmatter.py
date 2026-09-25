@@ -25,6 +25,16 @@ class UnknownNamespacedKeyTests(unittest.TestCase):
 
 
 class ParseTests(unittest.TestCase):
+    def test_has_block_reflects_a_pentimento_block(self):
+        cases = {
+            "block": ("---\npentimento:\n  status: partial\n---\nb\n", True),
+            "empty block": ("---\npentimento:\n---\nb\n", True),
+            "foreign only": ("---\nname: x\n---\nb\n", False),
+        }
+        for name, (text, expected) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(frontmatter.parse(text)[2].has_block, expected)
+
     def test_no_frontmatter_returns_whole_text_as_body(self):
         text = "# Title\n\nsome body\n"
         fields, body, extras = frontmatter.parse(text)

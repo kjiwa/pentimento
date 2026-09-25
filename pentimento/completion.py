@@ -231,7 +231,7 @@ def candidates(words) -> list[tuple[str, str]]:
     def plans():
         nonlocal plans_cache
         if plans_cache is None:
-            plans_cache = corpus.load_all(sessions={})
+            plans_cache = corpus.load_derived()[0]
         return plans_cache
 
     if word.startswith("--") and "=" in word:

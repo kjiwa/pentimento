@@ -12,11 +12,11 @@ jobs:
         python-version: ['3.9', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: astral-sh/setup-uv@v10.1.0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zsh fish shellcheck
       - if: runner.os == 'macOS'
@@ -28,8 +28,8 @@ jobs:
   readme-samples:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.x'
       - run: pip install -e .
@@ -40,21 +40,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.x'
       - run: pip install -e .
       - run: |
-          npm install --prefix "$RUNNER_TEMP/claude" @anthropic-ai/claude-code@2.1.282
-          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
+          npm ci --prefix tests/e2e
+          echo "$PWD/tests/e2e/node_modules/.bin" >> "$GITHUB_PATH"
       - run: sh tests/e2e/claude.sh
 
   release-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.x'
       - run: pip install build twine

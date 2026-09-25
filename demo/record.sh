@@ -13,7 +13,7 @@ set -eu
 _gif_state() {
   _gif_state_path=$1
   if [ -f "$_gif_state_path" ]; then
-    stat -f '%m %z' "$_gif_state_path" 2>/dev/null || stat -c '%Y %s' "$_gif_state_path"
+    stat -c '%Y %s' "$_gif_state_path" 2>/dev/null || stat -f '%m %z' "$_gif_state_path"
   else
     echo "absent"
   fi

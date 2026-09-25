@@ -165,14 +165,32 @@ def _explicit(p):
     return p.pinned or p.status == vocabulary_module.SUPERSEDED
 
 
+_TODO_STATUS_LIST = "{}, or {}".format(
+    ", ".join(status_module.TODO_STATUSES[:-1]), status_module.TODO_STATUSES[-1]
+)
+
+
+def _todo_clause(p):
+    """Why the plan's todos derive nothing, or "" when it has none."""
+    if p.extras is None or not status_module.has_todos(p.extras):
+        return ""
+    values = status_module.todo_statuses(p.extras)
+    unrecognized = sorted(
+        {v for v in values if v not in status_module.TODO_STATUSES}, key=values.index
+    )
+    if not unrecognized:
+        return "; todos carry no status"
+    noun, verb = ("status", "is") if len(unrecognized) == 1 else ("statuses", "are")
+    names = ", ".join(repr(v) for v in unrecognized)
+    return f"; todo {noun} {names} {verb} not {_TODO_STATUS_LIST}"
+
+
 def _underivable_message(p):
     if status_module.progress_section(p.body) is None:
         message = "no '## Progress' heading and no checkboxes in the body"
     else:
         message = "'## Progress' has no checkboxes or recognized phrase"
-    if p.extras is not None and status_module.has_todos(p.extras):
-        message += "; todos have no status derivation"
-    return message
+    return message + _todo_clause(p)
 
 
 def _underivable_status(plans):

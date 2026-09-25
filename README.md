@@ -276,10 +276,10 @@ narrow with: pentimento list --finding <code>
 ### history
 
 `history` shows which sessions touched a plan's file. The session whose id
-matches the plan's own id, or failing that the earliest to write it, is
-`authored`; any later session that edited, wrote, or delegated work on it is
-`worked`; one that only read it is `read`. Only Claude Code transcripts feed
-`history`.
+matches the plan's own id, or failing that the session whose first touch
+wrote the plan, is `authored`; any later session that edited, wrote, or
+delegated work on it is `worked`; one that only read it is `read`. Only Claude
+Code transcripts feed `history`.
 For an empty result, see
 [`history` is empty](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#history-is-empty).
 
@@ -288,6 +288,7 @@ For an empty result, see
 WHEN              WHAT      SESSION                                TOUCHES
 2026-08-30 12:30  authored  auth-cleanup                                 1
 2026-09-11 12:30  worked    implement-api-auth-cleanup-eager-wolf        1
+2026-09-13 12:30  read      review-api-auth-cleanup-calm-fox             1
 ```
 <!-- /sample -->
 

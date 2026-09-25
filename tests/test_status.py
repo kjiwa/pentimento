@@ -92,6 +92,18 @@ class CursorTodosTests(unittest.TestCase):
         _, body, extras = frontmatter.parse(text)
         self.assertEqual(status.derive_status(body, extras), "partial")
 
+    def test_status_inside_a_block_scalar_is_not_a_todo_status(self):
+        for lead in ("  ", ""):
+            with self.subTest(lead=lead):
+                text = (
+                    f"---\ntodos:\n{lead}- id: a\n{lead}  content: |\n"
+                    f"{lead}    status: pending\n{lead}    - status: pending\n"
+                    f"{lead}  status: completed\n---\n# Body\n"
+                )
+                _, body, extras = frontmatter.parse(text)
+                self.assertEqual(status.todo_statuses(extras), ["completed"])
+                self.assertEqual(status.derive_status(body, extras), "complete")
+
     def test_blank_line_inside_the_todos_block_does_not_end_it(self):
         text = (
             "---\ntodos:\n  - id: a\n    status: completed\n\n"

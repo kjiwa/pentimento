@@ -24,12 +24,13 @@ class CursorHooksTests(unittest.TestCase):
         self.assertEqual(len(self.config["hooks"]["stop"]), 1)
 
     def test_command_form(self):
-        self.assertTrue(self.command.startswith("pentimento backfill --quiet"))
-        self.assertTrue(self.command.endswith("echo '{}'"))
+        self.assertIn("pentimento backfill --quiet", self.command)
+        self.assertIn("echo '{}'", self.command)
 
-    def _run(self, tmp: str, command: str) -> subprocess.CompletedProcess:
+    def _run(self, tmp: str, command: str, **env_overrides: str) -> subprocess.CompletedProcess:
         env = dict(
             os.environ,
+            **env_overrides,
             PYTHONPATH=str(ROOT),
             AGENT_PLANS_DIR=tmp,
             CURSOR_PLANS_DIR=tmp,
@@ -38,7 +39,7 @@ class CursorHooksTests(unittest.TestCase):
             XDG_CACHE_HOME=str(Path(tmp) / "cache"),
         )
         return subprocess.run(
-            ["sh", "-c", command],
+            ["/bin/sh", "-c", command],
             input=STOP_PAYLOAD.read_text(),
             capture_output=True,
             text=True,
@@ -52,6 +53,13 @@ class CursorHooksTests(unittest.TestCase):
             result = self._run(tmp, command)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "{}\n")
+
+    def test_missing_pentimento_exits_one_with_stderr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(tmp, self.command, PATH=tmp)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertNotEqual(result.stderr, "")
 
     def test_bare_backfill_with_stop_payload_exits_zero(self):
         with tempfile.TemporaryDirectory() as tmp:

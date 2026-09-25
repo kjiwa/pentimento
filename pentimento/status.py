@@ -24,7 +24,8 @@ from pentimento import frontmatter, vocabulary
 
 CHECKBOX_RE = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
 
-TODO_STATUS_RE = re.compile(r"^\s*(?:-\s+)?status:(.*)$")
+TODO_ITEM_RE = re.compile(r"^\s*-(\s+)")
+TODO_STATUS_RE = re.compile(r"^status:(.*)$")
 TODO_STATUSES = ("pending", "in_progress", "completed")
 
 PROGRESS = "'## Progress'"
@@ -82,7 +83,7 @@ def rank(status: str) -> int:
     return order.index(status) if status in order else -1
 
 
-def _todo_lines(extras: frontmatter.Extras) -> list[str]:
+def _todo_block(extras: frontmatter.Extras) -> list[str]:
     """Lines of the top-level `todos:` block, up to the next top-level key."""
     block: list[str] = []
     in_todos = False
@@ -97,17 +98,31 @@ def _todo_lines(extras: frontmatter.Extras) -> list[str]:
 
 
 def has_todos(extras: frontmatter.Extras) -> bool:
-    return bool(_todo_lines(extras))
+    return bool(_todo_block(extras))
+
+
+def todo_statuses(extras: frontmatter.Extras) -> list[str]:
+    """Each todo item's `status:` value, read on the item's own `- ` line or key column."""
+    values: list[str] = []
+    item_indent: int | None = None
+    key_indent = -1
+    for line in _todo_block(extras):
+        indent = len(line) - len(line.lstrip())
+        item = TODO_ITEM_RE.match(line)
+        if item and item_indent in (None, indent):
+            item_indent = indent
+            key_indent = item.end(1)
+            line = line[key_indent:]
+            indent = key_indent
+        if indent == key_indent and (m := TODO_STATUS_RE.match(line.strip())):
+            values.append(frontmatter.clean_value(m.group(1)))
+    return values
 
 
 def _from_todos(extras: frontmatter.Extras | None) -> str | None:
     if extras is None:
         return None
-    values = [
-        frontmatter.clean_value(m.group(1))
-        for line in _todo_lines(extras)
-        if (m := TODO_STATUS_RE.match(line))
-    ]
+    values = todo_statuses(extras)
     if not values or any(v not in TODO_STATUSES for v in values):
         return None
     if all(v == "pending" for v in values):

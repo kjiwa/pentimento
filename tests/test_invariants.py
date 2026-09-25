@@ -64,7 +64,8 @@ class RoundTripTests(FixtureCorpusTestCase):
         self.assertTrue(paths)
         for path in paths:
             with self.subTest(plan=path.name):
-                text = path.read_text(newline="")
+                with path.open(encoding="utf-8", newline="") as handle:
+                    text = handle.read()
                 fields, body, extras = frontmatter.parse(text)
                 self.assertEqual(frontmatter.serialize(fields, body, extras), text)
 

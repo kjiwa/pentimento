@@ -87,6 +87,15 @@ class PageTests(unittest.TestCase):
             pager.page(["one"])
         proc.wait.assert_called_once()
 
+    def test_unencodable_text_is_replaced_not_raised(self):
+        proc = self._mock_proc()
+        with (
+            _env(PAGER="less"),
+            mock.patch.object(pager.subprocess, "Popen", return_value=proc) as popen,
+        ):
+            pager.page(["one"])
+        self.assertEqual(popen.call_args.kwargs["errors"], "replace")
+
     def test_ctrl_c_keeps_waiting_for_the_pager(self):
         proc = self._mock_proc()
         proc.wait.side_effect = [KeyboardInterrupt, 0]

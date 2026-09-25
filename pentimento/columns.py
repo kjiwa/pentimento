@@ -18,6 +18,10 @@ class Selection:
     remove: frozenset[str]
 
 
+class EmptySelectionError(ValueError):
+    """A relative selection removed every column."""
+
+
 def _unknown_error(bad: set[str], valid: tuple[str, ...]) -> ValueError:
     return ValueError(
         f"unknown column: {', '.join(sorted(bad))} -- valid columns: {', '.join(valid)}"
@@ -73,11 +77,13 @@ def resolve(selection: Selection, default_names: tuple[str, ...]) -> list[str]:
     `default_names` is the content-derived default set, in canonical order.
     An absolute selection is the final word and keeps the given order. A
     relative selection removes `remove` from the default set, then appends
-    the `add` names, sorted.
+    the `add` names, sorted. Raises `EmptySelectionError` when nothing is left.
     """
     if selection.absolute is not None:
         return list(selection.absolute)
 
     names = [name for name in default_names if name not in selection.remove]
     names.extend(sorted(name for name in selection.add if name not in names))
+    if not names:
+        raise EmptySelectionError("--columns removes every column; keep at least one")
     return names

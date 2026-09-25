@@ -234,6 +234,40 @@ class ByIdTests(unittest.TestCase):
         self.assertEqual(corpus.by_id([p1, p2], "login.md"), p2)
         self.assertEqual(corpus.by_id([p1, p2], "login"), p2)
 
+    def _plan(self, plan_id, path, source):
+        return plan_module.Plan(
+            id=plan_id, path=Path(path), fields={}, body="", mtime=1000.0, started="", source=source
+        )
+
+    def test_same_id_in_two_sources_resolves_by_path_or_filename(self):
+        from pentimento import corpus
+
+        claude = self._plan("auth", "/claude/plans/auth.md", "claude")
+        cursor = self._plan("auth", "/cursor/plans/auth.plan.md", "cursor")
+        plans = [claude, cursor]
+        self.assertIs(corpus.by_id(plans, "/cursor/plans/auth.plan.md"), cursor)
+        self.assertIs(corpus.by_id(plans, "auth.plan.md"), cursor)
+        self.assertIs(corpus.by_id(plans, "auth.md"), claude)
+        self.assertIsNone(corpus.by_id(plans, "auth"))
+
+    def test_ambiguous_lists_each_id_once(self):
+        from pentimento import corpus
+
+        one = self._plan("proj-eager-bird", "/a/proj-eager-bird.md", "claude")
+        two = self._plan("proj-eager-bird", "/b/proj-eager-bird.plan.md", "cursor")
+        three = self._plan("other-eager-bird", "/a/other-eager-bird.md", "claude")
+        found = corpus.ambiguous([one, two, three], "eager-bird")
+        self.assertEqual(found, ["proj-eager-bird", "other-eager-bird"])
+
+    def test_suggest_matches_short_ids(self):
+        from pentimento import corpus
+
+        plans = [
+            self._plan("proj-eager-bird", "/a/proj-eager-bird.md", "claude"),
+            self._plan("proj-slow-otter", "/a/proj-slow-otter.md", "claude"),
+        ]
+        self.assertIn("eager-bird", corpus.suggest(plans, "eger-bird"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -733,6 +733,8 @@ def cmd_tree(args) -> int:
     key, reverse = _sort_key(args), _sort_descending(args)
     if args.format != formats.TABLE:
         records = tree_module.as_records(plans, key=key, reverse=reverse, root_id=root_id)
+        if args.format == "tsv":
+            records = tree_module.flatten(records)
         formats.emit(records, args.format, sys.stdout, record_module.FIELDS)
         return 0
     return _render_table_or_empty(
@@ -840,13 +842,21 @@ def _show_header(target, width: int, *, on_color: bool) -> list[str]:
     return lines
 
 
+def _paint_leading(lines: list[str], length: int, *codes: str, on_color: bool) -> list[str]:
+    """Paint the first `length` characters of `lines`, which may span several."""
+    painted = []
+    for line in lines:
+        count = min(length, len(line))
+        length -= count
+        painted.append(style.paint(line[:count], *codes, on=on_color) + line[count:])
+    return painted
+
+
 def _show_findings(found, width: int, on_color: bool) -> list[str]:
     lines = []
     for finding in found:
-        first, *rest = style.wrap(f"{finding.code}: {finding.message}", width)
-        code, tail = first.split(":", 1)
-        lines.append(style.paint(code, style.RED, on=on_color) + ":" + tail)
-        lines.extend(rest)
+        wrapped = style.wrap(f"{finding.code}: {finding.message}", width)
+        lines.extend(_paint_leading(wrapped, len(finding.code), style.RED, on_color=on_color))
         hint = style.wrap(check_module.show_hint(finding.code), width - len(table.STACK_INDENT))
         lines.extend(style.paint(table.STACK_INDENT + h, style.DIM, on=on_color) for h in hint)
     if lines:
@@ -1252,7 +1262,7 @@ def _dispatch(argv) -> int:
         args = parser.parse_args(argv)
         try:
             code = COMMANDS[args.command](args)
-        except UsageError as exc:
+        except (UsageError, columns_module.EmptySelectionError) as exc:
             args.command_parser.error(str(exc))
     sys.stdout.flush()
     return code
@@ -1264,9 +1274,17 @@ def _describe_os_error(exc: OSError) -> str:
     return str(exc)
 
 
+def _replace_unencodable_output() -> None:
+    """Print `?` for characters the stdout encoding lacks instead of raising."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(errors="replace")
+
+
 def main(argv=None) -> int:
     if argv is None:
         argv = sys.argv[1:]
+    _replace_unencodable_output()
     try:
         return _dispatch(argv)
     except BrokenPipeError:
@@ -1274,10 +1292,7 @@ def main(argv=None) -> int:
         return 141
     except OSError as exc:
         _report(_describe_os_error(exc))
-        return 2
-    except ValueError as exc:
-        _report(exc)
-        return 2
+        return 1
 
 
 if __name__ == "__main__":

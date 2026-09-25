@@ -23,6 +23,9 @@ sh demo/capture.sh && git diff --exit-code README.md
 
 Run it when a change could alter what a sample shows.
 
+User-visible output must satisfy `tests/test_invariants.py`. A defect found in
+review is fixed with a test for its class, not only its instance.
+
 ## Releasing
 
 ```sh

@@ -18,11 +18,14 @@ tie.
 
 from __future__ import annotations
 
+import datetime
 import re
 
 from pentimento import shortid
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+
+_EARLIEST = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 
 
 def _preamble(body: str) -> str:
@@ -53,7 +56,7 @@ def _order(hits, by_id):
         key = (not exact, position)
         if candidate_id not in best or key < best[candidate_id]:
             best[candidate_id] = key
-    ids = sorted(best, key=lambda cid: by_id[cid].started, reverse=True)
+    ids = sorted(best, key=lambda cid: by_id[cid].created_at or _EARLIEST, reverse=True)
     ids.sort(key=lambda cid: best[cid])
     return ids
 
@@ -68,7 +71,9 @@ def _eligible(plan, candidate_ids, by_id, project):
             continue
         if candidate.source != plan.source:
             continue
-        if not (candidate.started and plan.started and candidate.started < plan.started):
+        if not (
+            candidate.created_at and plan.created_at and candidate.created_at < plan.created_at
+        ):
             continue
         eligible.append(candidate)
     return eligible

@@ -5,7 +5,7 @@ import re
 import unittest
 from pathlib import Path
 
-from pentimento import check
+from pentimento import check, times
 from pentimento import touches as touches_module
 
 
@@ -22,6 +22,10 @@ class FakePlan:
     has_title: bool = True
     body: str = "## Progress\n\n- [ ] todo\n"
     started: str = ""
+
+    @property
+    def created_at(self):
+        return times.parse_iso(self.started)
 
 
 @dataclasses.dataclass

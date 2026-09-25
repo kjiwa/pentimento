@@ -6,6 +6,24 @@ from pentimento import frontmatter
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+class UnknownNamespacedKeyTests(unittest.TestCase):
+    TEXT = "---\npentimento:\n  status: complete\n  note: see: this\n---\n# T\n"
+
+    def test_unknown_key_in_the_block_stays_verbatim_in_the_block(self):
+        fields, body, extras = frontmatter.parse(self.TEXT)
+        self.assertNotIn("note", fields)
+        self.assertEqual(frontmatter.serialize(fields, body, extras), self.TEXT)
+
+    def test_writing_a_known_field_keeps_the_unknown_key(self):
+        fields, body, extras = frontmatter.parse(self.TEXT)
+        fields["intent"] = "active"
+        out = frontmatter.serialize(fields, body, extras)
+        self.assertEqual(
+            out,
+            "---\npentimento:\n  status: complete\n  intent: active\n  note: see: this\n---\n# T\n",
+        )
+
+
 class ParseTests(unittest.TestCase):
     def test_no_frontmatter_returns_whole_text_as_body(self):
         text = "# Title\n\nsome body\n"

@@ -33,6 +33,24 @@ class FakePlan:
         return datetime.datetime.fromtimestamp(self.mtime, tz=datetime.timezone.utc)
 
 
+class FlattenTests(unittest.TestCase):
+    def test_flatten_lists_every_plan_depth_first_without_children(self):
+        plans = [
+            FakePlan(id="root-a", title="A"),
+            FakePlan(id="kid-a1", title="A1", parent="root-a"),
+            FakePlan(id="deep-a1x", title="A1x", parent="kid-a1"),
+            FakePlan(id="kid-a2", title="A2", parent="root-a"),
+            FakePlan(id="root-b", title="B"),
+        ]
+        records = tree.as_records(plans, key=lambda p: p.id)
+        rows = tree.flatten(records)
+        self.assertEqual(
+            [row["id"] for row in rows], ["root-a", "kid-a1", "deep-a1x", "kid-a2", "root-b"]
+        )
+        self.assertTrue(all("children" not in row for row in rows))
+        self.assertEqual(rows[1]["parent"], "root-a")
+
+
 def _with_width(width, fn):
     with mock.patch("pentimento.style.terminal_width", return_value=width):
         return fn()

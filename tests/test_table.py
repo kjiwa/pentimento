@@ -35,6 +35,15 @@ def _render(columns, rows, width):
     return table.render(columns, rows, on_color=False, width=width)
 
 
+class PaddingTests(unittest.TestCase):
+    def test_wide_characters_pad_by_display_width(self):
+        columns = (table.Column("NAME"), table.Column("N", align="right"))
+        rows = [(("\u65e5\u672c", ()), ("1", ())), (("abcd", ()), ("2", ()))]
+        lines = table.render(columns, rows, on_color=False, width=None).split("\n")
+        self.assertEqual([style.display_width(line) for line in lines[1:]], [4 + 2 + 1] * 2)
+        self.assertEqual(lines[1], "\u65e5\u672c  1")
+
+
 class NaturalWidthTests(unittest.TestCase):
     def test_no_trailing_whitespace_and_no_padding_to_width(self):
         rendered = _render(COLUMNS, ROWS, 200)

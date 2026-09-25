@@ -55,10 +55,14 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
 
 
 def as_records(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[dict]:
-    return [
-        {**dataclasses.asdict(g), "when": times.utc_stamp(times.parse_iso(g.when)) or g.when}
-        for g in group(plan_id, plan_touches)
-    ]
+    records = []
+    for g in group(plan_id, plan_touches):
+        fields = {
+            **dataclasses.asdict(g),
+            "when": times.utc_stamp(times.parse_iso(g.when)) or g.when,
+        }
+        records.append({name: fields[name] for name in FIELDS})
+    return records
 
 
 def render(plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool) -> str:

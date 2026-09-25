@@ -44,7 +44,9 @@ def page(lines: list[str]) -> None:
         _print(lines)
         return
     try:
-        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, env=_environment(argv), text=True)
+        proc = subprocess.Popen(
+            argv, stdin=subprocess.PIPE, env=_environment(argv), text=True, errors="replace"
+        )
     except OSError:
         _print(lines)
         return

@@ -102,15 +102,16 @@ columns appear, regardless of content. `SPEC` is one of:
 - `all`, every column in canonical order
 
 Mixing absolute and relative names in one `--columns` is an error, as is an
-unknown, duplicate, or empty name; both messages list the valid names.
+unknown, duplicate, or empty name, or removing every column; the messages for
+names list the valid ones.
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. `pentimento hook` always exits 0. |
-| `1` | `check` found something; a plan id named on the command line matches no plan or is ambiguous; or `backfill` refused to run because two plans share an id. |
-| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, a `set --parent` that would create a cycle, or an I/O error, reported as `pentimento: <path>: <reason>`. |
+| `1` | `check` found something; a plan id named on the command line matches no plan or is ambiguous; `backfill` refused to run because two plans share an id; or an I/O error, reported as `pentimento: <path>: <reason>`. |
+| `2` | Usage error: an unknown flag, an invalid value or regex, flags that conflict, a required flag missing, or a `set --parent` that would create a cycle. |
 | `141` | A reader closed the pipe early, as `\| head` does; the shell's 128 + `SIGPIPE`. |
 
 Every error message goes to stderr, prefixed `pentimento: `.

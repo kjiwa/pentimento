@@ -101,10 +101,12 @@ One `stop` hook runs `pentimento backfill` when the agent loop ends. Copy
 [integrations/cursor/hooks.json](../integrations/cursor/hooks.json) to
 `~/.cursor/hooks.json`, or merge its `stop` entry into an existing file;
 Cursor reloads hooks on save. The command discards `backfill` output and
-prints `{}` because Cursor expects JSON on stdout.
+prints `{}` because Cursor expects JSON on stdout. On failure it exits 1 with
+the error on stderr, and Cursor shows it in the Hooks output channel.
 
-Cursor runs the hook with its own `PATH`, so `pentimento` must be on it. If
-`status` stops advancing, run `pentimento check` to diagnose it.
+Cursor runs the hook with its own `PATH`, so `pentimento` must be on it; a
+missing binary appears in that channel. If `status` stops advancing, run
+`pentimento check` to diagnose it.
 
 There is no per-edit hook: Cursor's plan writes and Build's todo updates fire
 no file-edit hook, so status refreshes when the agent loop ends, not on each

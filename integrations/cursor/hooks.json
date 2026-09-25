@@ -3,7 +3,7 @@
   "hooks": {
     "stop": [
       {
-        "command": "pentimento backfill --quiet >/dev/null 2>&1; echo '{}'"
+        "command": "if pentimento backfill --quiet >/dev/null; then echo '{}'; else exit 1; fi"
       }
     ]
   }

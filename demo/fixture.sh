@@ -13,7 +13,7 @@
 # authoring session per plan (timestamped to that plan's own mtime, so the
 # `list`/`tree` samples don't shift) and one later session that works
 # `api-auth-cleanup` despite its `not-started` status, so the `check` sample
-# gains `status-behind-history`.
+# gains `status-behind-history`, and one still later session that only reads it.
 set -eu
 
 _stamp_days_ago() {
@@ -164,6 +164,9 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
   _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \
     implement-api-auth-cleanup-eager-wolf /home/user/src/example 3 \
     Edit /home/user/.claude/plans/api-auth-cleanup.md
+  _write_session "$TARGET_DIR/sessions/platform" review-api-auth-cleanup-calm-fox.jsonl \
+    review-api-auth-cleanup-calm-fox /home/user/src/example 1 \
+    Read /home/user/.claude/plans/api-auth-cleanup.md
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \
     billing no-such-plan 10 \

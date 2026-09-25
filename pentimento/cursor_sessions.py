@@ -12,6 +12,7 @@ the workspace root is the ancestor of a tool-call path that encodes to it.
 from __future__ import annotations
 
 import collections
+import json
 import os
 import re
 from pathlib import Path
@@ -20,6 +21,8 @@ from pentimento import cache as cache_module
 from pentimento import sessions
 
 _QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.DOTALL)
+_DOUBLE_QUOTED = re.compile(r'"(?:[^"\\]|\\.)*"')
+_SINGLE_QUOTED = re.compile(r"'(?:[^']|'')*'")
 
 
 def transcripts_directory() -> Path:
@@ -40,7 +43,7 @@ def load(plans, directory: Path | None = None) -> dict[str, sessions.Session]:
         if parsed is None:
             parsed = _parse_transcript(log_path)
         fresh[cache_key] = parsed
-        for name in parsed["names"]:
+        for name in set(parsed["names"]):
             by_name[name].append(parsed)
     cache_module.write("cursor_sessions", fresh)
 
@@ -59,11 +62,17 @@ def load(plans, directory: Path | None = None) -> dict[str, sessions.Session]:
 
 
 def _plan_name(plan) -> str:
+    """The frontmatter `name` as YAML would read it; block scalars match nothing."""
     line = plan.extras.unknown_lines.get("name", "") if plan.extras else ""
     value = line.partition(":")[2].strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        return value[1:-1]
-    return value
+    if match := _DOUBLE_QUOTED.match(value):
+        try:
+            return json.loads(match.group())
+        except ValueError:
+            return ""
+    if match := _SINGLE_QUOTED.match(value):
+        return match.group()[1:-1].replace("''", "'")
+    return re.split(r"\s+#", value, maxsplit=1)[0]
 
 
 def _parse_transcript(log_path: Path) -> dict:

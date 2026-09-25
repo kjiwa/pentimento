@@ -131,6 +131,33 @@ class MatchTests(_Isolated):
         plan = _plan(self.plans_dir, "seq_aaaaaaaa", '"Plan: the sequel"')
         self.assertIn(plan.id, cursor_sessions.load([plan], self.transcripts))
 
+    def test_a_repeated_create_plan_in_one_transcript_still_matches(self):
+        _write_transcript(
+            self.transcripts,
+            "home-user-src-example",
+            "chat-1",
+            [
+                _user("go"),
+                _read("/home/user/src/example/a.py"),
+                _create_plan("Same"),
+                _create_plan("Same"),
+            ],
+        )
+        plan = _plan(self.plans_dir, "same_aaaaaaaa", "Same")
+        self.assertIn(plan.id, cursor_sessions.load([plan], self.transcripts))
+
+    def test_yaml_quoting_in_the_plan_name_is_decoded(self):
+        cases = {
+            'Say "hi"': '"Say \\"hi\\""',
+            "It's ok": "'It''s ok'",
+            "Plan": "Plan # a note",
+        }
+        for index, (name, written) in enumerate(cases.items()):
+            with self.subTest(written=written):
+                self._transcript(f"chat-{index}", name)
+                plan = _plan(self.plans_dir, f"q_{index:08d}", written)
+                self.assertIn(plan.id, cursor_sessions.load([plan], self.transcripts))
+
     def test_a_slug_no_path_encodes_to_leaves_project_empty(self):
         self._transcript("chat-1", "Plan", slug="home-user-src-elsewhere")
         plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")

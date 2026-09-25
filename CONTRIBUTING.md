@@ -29,10 +29,14 @@ Run it when a change could alter what a sample shows.
 sh scripts/release.sh [--dry-run] <version>
 ```
 
-`<version>` is bare (`0.1.8`, not `v0.1.8`). The script bumps
-`pyproject.toml`, runs the same checks CI runs, tags, pushes, and creates the
-GitHub release from the matching `CHANGELOG.md` section — the version needs
-a `## <version>` heading there before you run it. `--dry-run` runs every
+`<version>` is bare (`0.1.8`, not `v0.1.8`). Run it on a clean, synced `main`.
+The script runs the same checks CI runs, opens a `release-<version>` PR with
+the `pyproject.toml` bump, waits for its checks, and squash-merges it. GitHub
+signs the squash commit, so the release shows as Verified. It then tags the
+merged commit and creates the GitHub release from the matching `CHANGELOG.md`
+section — the version needs a `## <version>` heading there before you run it.
+If the bump is already on `main`, it skips the PR and only tags and releases,
+so a run that stopped after the merge can be repeated. `--dry-run` runs every
 check and prints each mutating command instead of running it.
 
 The release event triggers `publish.yml`, which re-runs

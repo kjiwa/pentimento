@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+Lineage now resolves Cursor's underscore ids (`skip_list_range_query_d3d1b015`) in a plan's
+preamble or session prompt, so a Cursor follow-up finds its parent.
+
 A Cursor plan's status now derives from the `todos:` in its frontmatter when the
 body has no `## Progress` section or checkboxes, instead of staying `unknown`.
 

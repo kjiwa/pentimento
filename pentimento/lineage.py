@@ -3,8 +3,8 @@
 Two signals, tried in order:
 1. Session prompt -- plan ids referenced in the originating session's first
    user prompt, either as `<id>.md` / `<id>.plan.md` or by a trailing
-   codename (a segment-aligned suffix, e.g. `wobbly-willow` for
-   `...-wobbly-willow`).
+   codename (a hyphen-aligned suffix, e.g. `wobbly-willow` for
+   `...-wobbly-willow`). Underscore ids (Cursor) match only exactly.
 2. Plan preamble -- the same reference scan over the body above the first
    `##` heading, so a parent's `## Progress` notes about executed children
    are not read as references.
@@ -23,7 +23,7 @@ import re
 
 from pentimento import shortid
 
-_TOKEN_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+_TOKEN_RE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)+")
 
 _EARLIEST = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 

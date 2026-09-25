@@ -79,7 +79,8 @@ def _headline(columns: tuple[Column, ...]) -> int | None:
 
 
 def _pad(text: str, width: int, align: str) -> str:
-    return text.rjust(width) if align == "right" else text.ljust(width)
+    fill = " " * max(0, width - style.display_width(text))
+    return fill + text if align == "right" else text + fill
 
 
 def _cell_lines(column: Column, text: str, width: int) -> list[str]:

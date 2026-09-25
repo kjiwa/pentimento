@@ -16,6 +16,13 @@ def _with_width(width, fn):
         return fn()
 
 
+class RecordKeyOrderTests(unittest.TestCase):
+    def test_record_keys_follow_the_field_order(self):
+        plan_touches = [_touch("the-plan", "Write", "2026-09-01T00:00:00.000Z")]
+        records = history.as_records("the-plan", plan_touches)
+        self.assertEqual(tuple(records[0]), history.FIELDS)
+
+
 class GroupTests(unittest.TestCase):
     def test_authoring_session_is_marked_authored(self):
         plan_touches = [_touch("the-plan", "Write", "2026-09-01T00:00:00.000Z")]

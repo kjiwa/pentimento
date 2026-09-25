@@ -17,6 +17,17 @@ class _FakeStream(io.StringIO):
         return self._is_tty
 
 
+class ZeroWidthTests(unittest.TestCase):
+    def test_format_characters_and_hangul_jamo_take_no_columns(self):
+        self.assertEqual(style.display_width("a\u200bb"), 2)
+        self.assertEqual(style.display_width("\u1112\u1161\u11ab"), 2)
+        self.assertEqual(style.display_width("e\u0301"), 1)
+        self.assertEqual(style.display_width("\u20dd"), 0)
+
+    def test_split_width_keeps_zero_width_characters_with_their_prefix(self):
+        self.assertEqual(style.split_width("ab\u200bcd", 2), ("ab\u200b", "cd"))
+
+
 class _EnvGuard:
     def __init__(self, **overrides):
         self._overrides = overrides

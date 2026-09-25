@@ -1,7 +1,7 @@
 import dataclasses
 import unittest
 
-from pentimento import lineage
+from pentimento import lineage, times
 
 
 @dataclasses.dataclass
@@ -12,6 +12,10 @@ class FakePlan:
     project: str = "example"
     source: str = "claude"
 
+    @property
+    def created_at(self):
+        return times.parse_iso(self.started)
+
 
 @dataclasses.dataclass
 class FakeSession:
@@ -19,6 +23,12 @@ class FakeSession:
 
 
 class DeriveParentTests(unittest.TestCase):
+    def test_started_is_compared_as_an_instant_not_as_text(self):
+        parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z")
+        child = FakePlan(id="slow-otter", body="# Child\n", started="2026-09-01T00:00:00.500Z")
+        sessions = {"slow-otter": FakeSession(prompt="Resume ~/.claude/plans/eager-bird.md")}
+        self.assertEqual(lineage.derive_parent(child, [parent, child], sessions), parent.id)
+
     def test_session_prompt_finds_parent(self):
         parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z")
         child = FakePlan(id="slow-otter", body="# Child\n", started="2026-09-02T00:00:00Z")

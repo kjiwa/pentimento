@@ -38,12 +38,15 @@ class Extras:
     (`name: Plan: the sequel`) survives. `raw_values` maps each parsed known
     field to its value text as written, so a value that fails
     `is_valid_value` (`"a #b"`) is re-emitted verbatim while it is unchanged.
+    `namespaced_lines` holds unrecognized keys found inside the pentimento
+    block, re-emitted verbatim after the known fields.
     """
 
     lines: list[str]
     newline: str = "\n"
     unknown_lines: dict[str, str] = dataclasses.field(default_factory=dict)
     raw_values: dict[str, str] = dataclasses.field(default_factory=dict)
+    namespaced_lines: list[str] = dataclasses.field(default_factory=list)
 
 
 def is_valid_value(value: str) -> bool:
@@ -89,9 +92,17 @@ def parse(text: str) -> tuple[dict[str, str], str, Extras | None]:
     if closing_index is None:
         return {}, text, None
 
-    fields, raw_lines, unknown_lines, raw_values = _parse_block(lines[1:closing_index])
+    fields, raw_lines, unknown_lines, raw_values, namespaced_lines = _parse_block(
+        lines[1:closing_index]
+    )
     body = nl.join(lines[closing_index + 1 :])
-    extras = Extras(lines=raw_lines, newline=nl, unknown_lines=unknown_lines, raw_values=raw_values)
+    extras = Extras(
+        lines=raw_lines,
+        newline=nl,
+        unknown_lines=unknown_lines,
+        raw_values=raw_values,
+        namespaced_lines=namespaced_lines,
+    )
     return fields, body, extras
 
 
@@ -126,7 +137,7 @@ def _clean_value(raw: str) -> str:
 
 def _parse_block(
     lines: list[str],
-) -> tuple[dict[str, str], list[str], dict[str, str], dict[str, str]]:
+) -> tuple[dict[str, str], list[str], dict[str, str], dict[str, str], list[str]]:
     """Parse pentimento fields while capturing everything else verbatim.
 
     A comment or blank line inside the pentimento block is dropped (there is
@@ -139,6 +150,7 @@ def _parse_block(
     extras: list[str] = []
     unknown_lines: dict[str, str] = {}
     raw_values: dict[str, str] = {}
+    namespaced_lines: list[str] = []
     in_namespace = False
     marker_inserted = False
     for line in lines:
@@ -167,7 +179,9 @@ def _parse_block(
             extras.append(line)
             continue
         if indented and in_namespace:
-            if value:
+            if key not in FIELD_ORDER:
+                namespaced_lines.append(line)
+            elif value:
                 fields[key] = value
                 raw_values[key] = raw_value.strip()
             continue
@@ -181,7 +195,7 @@ def _parse_block(
             extras.append(line)
     if not marker_inserted:
         extras.insert(0, _MARKER)
-    return fields, extras, unknown_lines, raw_values
+    return fields, extras, unknown_lines, raw_values, namespaced_lines
 
 
 def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -> str:
@@ -202,10 +216,12 @@ def serialize(fields: dict[str, str], body: str, extras: Extras | None = None) -
     unknown = [key for key in fields if key not in known]
 
     pentimento_block: list[str] = []
-    if namespaced:
+    foreign = extras.namespaced_lines if extras is not None else []
+    if namespaced or foreign:
         pentimento_block.append(f"{NAMESPACE}:")
         for key in namespaced:
             pentimento_block.append(f"{INDENT}{key}: {_emit_value(key, fields[key], extras)}")
+        pentimento_block.extend(foreign)
     for key in unknown:
         pentimento_block.append(
             unknown_lines.get(key) or f"{key}: {_emit_value(key, fields[key], None)}"

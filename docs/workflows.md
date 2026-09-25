@@ -259,9 +259,10 @@ id, title, status, pinned, intent, tags, parent, project, source, created, start
 `Z`; `created` is a date; `findings` holds `check` codes; `pinned` is `true` or
 `false` in `tsv`. `show --format json|tsv` adds a `body` field. This schema is
 fixed regardless of `--columns`/`PENTIMENTO_COLUMNS`, which shape `list`'s
-`--format table` output only. `tsv` drops non-scalar fields — a `tree --format
-tsv` row has no `children` column, only the flat record — so use `json` when
-you need the nested tree structure. `tree <id> --format json` is the scriptable
+`--format table` output only. `tsv` drops non-scalar fields: `tree --format tsv`
+lists every plan, parents before children, with no `children` column and the
+`parent` column carrying the structure, so use `json` when you need the nested
+tree. `tree <id> --format json` is the scriptable
 "everything on this thread" query. A common pattern:
 
 ```sh

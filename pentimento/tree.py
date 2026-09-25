@@ -199,3 +199,12 @@ def as_records(plans, key=_id_key, reverse: bool = False, root_id=None) -> list[
         return rec
 
     return [build(root) for root in roots]
+
+
+def flatten(records: list[dict]) -> list[dict]:
+    """`as_records` output as one row per plan, parents before children, without `children`."""
+    rows = []
+    for rec in records:
+        rows.append({key: value for key, value in rec.items() if key != "children"})
+        rows.extend(flatten(rec["children"]))
+    return rows

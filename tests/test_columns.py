@@ -7,6 +7,14 @@ from pentimento import columns
 VALID = ("status", "intent", "project", "source", "plan", "title", "tags", "created", "updated")
 
 
+class ResolveTests(unittest.TestCase):
+    def test_removing_every_column_is_an_error(self):
+        selection = columns.parse("-status,-title", VALID)
+        with self.assertRaises(columns.EmptySelectionError) as ctx:
+            columns.resolve(selection, ("status", "title"))
+        self.assertEqual(str(ctx.exception), "--columns removes every column; keep at least one")
+
+
 class ParseAbsoluteTests(unittest.TestCase):
     def test_absolute_list_keeps_given_order(self):
         selection = columns.parse("created,title,status", VALID)

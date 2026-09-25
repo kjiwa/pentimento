@@ -98,28 +98,28 @@ def terminal_height() -> int:
     return shutil.get_terminal_size().lines
 
 
+def _char_width(ch: str) -> int:
+    """Columns `ch` takes: 0 for combining, format, and Hangul jamo vowels and finals; 2 if wide."""
+    if unicodedata.category(ch) in ("Mn", "Me", "Cf") or "\u1160" <= ch <= "\u11ff":
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
 def display_width(text: str) -> int:
-    """Terminal column width: East Asian wide/fullwidth count 2, combining marks 0."""
-    total = 0
-    for ch in text:
-        if unicodedata.combining(ch):
-            continue
-        total += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
-    return total
+    """Terminal column width: East Asian wide/fullwidth count 2, zero-width characters 0."""
+    return sum(_char_width(ch) for ch in text)
 
 
 def split_width(text: str, width: int) -> tuple[str, str]:
     """Split `text` into the longest prefix fitting `width` display columns and the remainder.
 
-    A combining mark rides along with the character it follows, same as
+    A zero-width character rides along with the character it follows, same as
     every other display-width accumulation in this module.
     """
     used = 0
     for index, ch in enumerate(text):
-        if unicodedata.combining(ch):
-            continue
-        char_width = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
-        if used + char_width > width:
+        char_width = _char_width(ch)
+        if char_width and used + char_width > width:
             return text[:index], text[index:]
         used += char_width
     return text, ""

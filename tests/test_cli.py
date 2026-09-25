@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from pentimento import cli, corpus
+from pentimento import cli, corpus, listing, sessions
 from tests import _header_block, _silenced, _subparsers_action
 
 
@@ -1074,6 +1074,42 @@ class HostileCorpusTests(unittest.TestCase):
         self.assertIn(result, (0, 1))
 
 
+class TreeTsvTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_tsv_has_one_row_per_plan_in_render_order(self):
+        _write(self.directory, "root", "---\nproject: p\n---\n\n# Root\n")
+        _write(self.directory, "child", "---\nproject: p\nparent: root\n---\n\n# Child\n")
+        _write(self.directory, "grand", "---\nproject: p\nparent: child\n---\n\n# Grand\n")
+        code, out, _ = _main(["tree", "--format", "tsv"])
+        rows = [line.split("\t") for line in out.splitlines()]
+        self.assertEqual(code, 0)
+        header = rows[0]
+        ids = [row[header.index("id")] for row in rows[1:]]
+        self.assertEqual(ids, ["root", "child", "grand"])
+        self.assertEqual(rows[3][header.index("parent")], "child")
+
+
+class ColumnsEmptyTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_removing_every_column_is_a_usage_error(self):
+        _write(self.directory, "plan-a", "# A\n")
+        spec = ",".join(f"-{name}" for name in listing.NAMES)
+        code, _, err = _main(["list", f"--columns={spec}"])
+        self.assertEqual(code, 2)
+        self.assertIn("usage: pentimento list", err)
+        self.assertIn("--columns removes every column; keep at least one", err)
+
+
 class MainTopLevelHandlerTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -1081,30 +1117,28 @@ class MainTopLevelHandlerTests(unittest.TestCase):
         self.directory = Path(self._tmp.name)
         _isolate_env(self, self.directory)
 
-    def test_oserror_from_a_command_is_caught_and_reported(self):
+    def test_oserror_from_a_command_is_a_runtime_failure(self):
         err = io.StringIO()
         with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=OSError("boom"))}):
             with contextlib.redirect_stderr(err):
                 result = cli.main(["list"])
-        self.assertEqual(result, 2)
+        self.assertEqual(result, 1)
         self.assertIn("pentimento: boom", err.getvalue())
 
-    def test_unicodedecodeerror_from_a_command_is_caught_and_reported(self):
-        exc = UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
-        err = io.StringIO()
-        with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=exc)}):
-            with contextlib.redirect_stderr(err):
-                result = cli.main(["list"])
-        self.assertEqual(result, 2)
-        self.assertIn("pentimento:", err.getvalue())
-
-    def test_value_error_from_a_command_exits_two(self):
-        err = io.StringIO()
+    def test_value_error_from_a_command_is_a_bug_and_propagates(self):
         with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=ValueError("bad"))}):
-            with contextlib.redirect_stderr(err):
-                result = cli.main(["list"])
-        self.assertEqual(result, 2)
-        self.assertIn("pentimento: bad", err.getvalue())
+            with self.assertRaises(ValueError):
+                cli.main(["list"])
+
+    def test_unencodable_output_prints_a_replacement(self):
+        _write(self.directory, "plan-a", "# Caf\u00e9\n")
+        buffer = io.BytesIO()
+        stdout = io.TextIOWrapper(buffer, encoding="ascii")
+        with mock.patch.object(cli.sys, "stdout", stdout):
+            code = cli.main(["list", "--format", "tsv"])
+            stdout.flush()
+        self.assertEqual(code, 0)
+        self.assertIn(b"Caf?", buffer.getvalue())
 
     def test_broken_pipe_exits_141_and_repoints_stdout(self):
         with mock.patch.dict(cli.COMMANDS, {"list": mock.Mock(side_effect=BrokenPipeError())}):
@@ -1461,6 +1495,13 @@ class FindingTests(unittest.TestCase):
         self.assertIn("  add a checklist to '## Progress', or pentimento set <id> --status", out)
         self.assertNotIn("pentimento show <id>", out)
 
+    def test_show_survives_a_width_narrower_than_the_finding_code(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "10"}):
+            code, out, _ = _main(["show", "dangler", "--color", "always"])
+        self.assertEqual(code, 0)
+        self.assertIn("\x1b[31mdangling-p\x1b[0m", out)
+        self.assertIn("\x1b[31marent\x1b[0m", out)
+
     def test_show_prints_no_findings_for_a_clean_plan(self):
         _, out, _ = _main(["show", "clean", "--color", "never"])
         self.assertNotIn("does not resolve", out)
@@ -1530,10 +1571,14 @@ class CmdListSortTests(unittest.TestCase):
     def test_created_sort_falls_back_to_created_at_on_a_tie(self):
         _write(self.directory, "first-plan", "---\ncreated: 2026-09-01\n---\n\n# First\n")
         _write(self.directory, "second-plan", "---\ncreated: 2026-09-01\n---\n\n# Second\n")
+        started = {
+            "first-plan": sessions.Session("first-plan", "p", "2026-09-01T10:00:00Z", ""),
+            "second-plan": sessions.Session("second-plan", "p", "2026-09-01T08:00:00Z", ""),
+        }
         args = cli.build_parser().parse_args(["list", "--sort", "created"])
-        plans = corpus.load_all(self.directory)
+        plans = corpus.load_all(self.directory, sessions=started)
         ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
-        self.assertEqual([p.id for p in ordered], ["first-plan", "second-plan"])
+        self.assertEqual([p.id for p in ordered], ["second-plan", "first-plan"])
 
     def test_created_sort_does_not_raise_on_missing_or_junk_created(self):
         _write(self.directory, "no-created-field", "# No field\n")
@@ -2190,7 +2235,7 @@ class ErrorReportTests(unittest.TestCase):
         error = FileNotFoundError(2, "No such file or directory", "/x/plan.md")
         with mock.patch.object(cli, "_dispatch", side_effect=error):
             code, _, err = _main(["list"])
-        self.assertEqual(code, 2)
+        self.assertEqual(code, 1)
         self.assertEqual(err, "pentimento: /x/plan.md: No such file or directory\n")
 
     def test_os_error_without_a_path_uses_its_text(self):

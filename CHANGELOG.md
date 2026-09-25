@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.18
+
+Several correctness fixes. `tree --format tsv` listed only root plans; it now
+emits every plan, parents before children, in the order `tree` renders them,
+and the `parent` column carries the structure. Table columns pad by display
+width, so wide characters no longer push later columns out of line, and
+zero-width characters such as U+200B no longer count as a column. `show` no
+longer crashes when a finding's wrapped first line has no `:`. A plan id that
+exists in two sources resolves by full path or exact filename, or reports the
+ambiguity once instead of picking one; a mistyped id now also suggests short
+ids. Parent derivation compares `started` as instants rather than text, and
+`history --format json` lists its keys in the same order as its `tsv` header.
+An unrecognized key inside the `pentimento:` block stays in the block verbatim,
+so a value like `note: see: this` no longer makes every write to that plan
+fail.
+
+`--columns` that removes every column is a usage error. `pentimento` no longer
+converts every `ValueError` into an exit 2 message, so an internal error shows
+a traceback; each user-input error is reported as a usage error at its source.
+An I/O error exits 1, not 2, and output the terminal cannot encode prints `?`
+instead of failing. `tests/test_invariants.py` now checks that every plan
+round-trips byte for byte and that `list`, `tree`, `check`, `history`, and
+`show` emit the same keys and rows in `json` and `tsv`.
+
 ## 0.1.17
 
 bash completion now completes the `--flag=value` form. bash 4 and later split

@@ -1420,7 +1420,9 @@ class FindingTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.directory = Path(self._tmp.name)
         _isolate_env(self, self.directory)
-        _write(self.directory, "underivable", "---\npentimento:\n  project: p1\n---\n\n# Underivable\n")
+        _write(
+            self.directory, "underivable", "---\npentimento:\n  project: p1\n---\n\n# Underivable\n"
+        )
         _write(
             self.directory,
             "clean",

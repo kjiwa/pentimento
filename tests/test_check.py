@@ -411,6 +411,5 @@ class RunTests(unittest.TestCase):
         self.assertEqual(check.run([FakePlan(id="root")], skips=[]), [])
 
 
-
 if __name__ == "__main__":
     unittest.main()

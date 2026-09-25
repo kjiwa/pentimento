@@ -65,7 +65,9 @@ def load_derived(skips: list | None = None) -> tuple[list[plan_module.Plan], dic
     """Every plan with `derived` set to what `backfill` would persist, plus sessions and touches."""
     plans, sessions = load_with_sessions(skips)
     touches = touches_module.load()
-    derived = backfill.derive_all(plans, sessions, touches, rederive=False, recreate=False, max_status=None)
+    derived = backfill.derive_all(
+        plans, sessions, touches, rederive=False, recreate=False, max_status=None
+    )
     for plan in plans:
         plan.derived = derived[plan.path]
     return plans, sessions, touches

@@ -12,7 +12,6 @@
 set -eu
 
 readonly PLAN_ID=e2e-sample
-readonly PROJECT_NAME=project
 readonly CLAUDE_TIMEOUT=120
 readonly START_TRIES=30
 
@@ -94,15 +93,17 @@ main() {
   _start_server
   _run_claude
   [ -f "$HOME/.claude/plans/$PLAN_ID.md" ] || _fail "the scripted Write never created the plan"
-  _assert_output_has "\"project\": \"$PROJECT_NAME\"" list --format json
-  echo "e2e ok: no hooks, project derived for $PLAN_ID"
+  _assert_output_has "status: partial" show "$PLAN_ID"
+  grep -q "status: not-started" "$HOME/.claude/plans/$PLAN_ID.md" ||
+    _fail "a read command rewrote the plan"
+  echo "e2e ok: no hooks, status derived live for $PLAN_ID"
 
   rm "$HOME/.claude/plans/$PLAN_ID.md"
   cp "$ROOT/integrations/claude/settings-snippet.json" "$HOME/.claude/settings.json"
   _run_claude
   [ -f "$HOME/.claude/plans/$PLAN_ID.md" ] || _fail "the scripted Write never created the plan"
 
-  _assert_output_has "status: partial" show "$PLAN_ID"
+  grep -q "status: partial" "$HOME/.claude/plans/$PLAN_ID.md" || _fail "the hooks did not persist status"
   _assert_output_has authored history "$PLAN_ID"
   echo "e2e ok: hooks derived status for $PLAN_ID"
 }

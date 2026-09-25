@@ -71,8 +71,18 @@ def _run(argv) -> tuple[str, int]:
 
 def _snapshot(directory: Path) -> dict[str, tuple[bytes, int]]:
     return {
-        str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in sorted(directory.rglob("*")) if p.is_file()
+        str(p): (p.read_bytes(), p.stat().st_mtime_ns)
+        for p in sorted(directory.rglob("*"))
+        if p.is_file()
     }
+
+
+def _tree_rows(nodes, parent="") -> dict:
+    rows = {}
+    for node in nodes:
+        rows[node["id"]] = (parent, node["status"], node["project"])
+        rows.update(_tree_rows(node["children"], node["id"]))
+    return rows
 
 
 class StockInstallTests(unittest.TestCase):
@@ -120,7 +130,9 @@ class StockInstallTests(unittest.TestCase):
                 self.assertEqual({r["id"] for r in rows}, set(expected))
                 for row in rows:
                     for field in DERIVED_FIELDS:
-                        self.assertEqual(row[field] or "", expected[row["id"]].get(field, ""), (row["id"], field))
+                        self.assertEqual(
+                            row[field] or "", expected[row["id"]].get(field, ""), (row["id"], field)
+                        )
 
     def test_show_matches_derivation(self):
         for name in SOURCES:
@@ -130,21 +142,16 @@ class StockInstallTests(unittest.TestCase):
                 for plan_id, fields in expected.items():
                     record = json.loads(_run(["show", plan_id, "--format", "json"])[0])[0]
                     for field in DERIVED_FIELDS:
-                        self.assertEqual(record[field] or "", fields.get(field, ""), (plan_id, field))
+                        self.assertEqual(
+                            record[field] or "", fields.get(field, ""), (plan_id, field)
+                        )
 
     def test_tree_matches_derivation(self):
         for name in SOURCES:
             with self.subTest(source=name):
                 self._enter(name)
                 expected = self._expected()
-                seen = {}
-
-                def walk(nodes, parent):
-                    for node in nodes:
-                        seen[node["id"]] = (parent, node["status"], node["project"])
-                        walk(node["children"], node["id"])
-
-                walk(json.loads(_run(["tree", "--format", "json"])[0]), "")
+                seen = _tree_rows(json.loads(_run(["tree", "--format", "json"])[0]))
                 self.assertEqual(set(seen), set(expected))
                 for plan_id, (parent, status, project) in seen.items():
                     self.assertEqual(status, expected[plan_id].get("status", ""))
@@ -159,7 +166,9 @@ class StockInstallTests(unittest.TestCase):
                 _run(["index"])
                 sections = {}
                 heading = ""
-                for line in (corpus.plans_directory() / "INDEX.md").read_text(encoding="utf-8").splitlines():
+                for line in (
+                    (corpus.plans_directory() / "INDEX.md").read_text(encoding="utf-8").splitlines()
+                ):
                     if line.startswith("## "):
                         heading = line[3:]
                     elif line.startswith("- "):

@@ -886,7 +886,7 @@ _FIELD_CODES = {"status": style.STATUS_CODES, "intent": style.INTENT_CODES}
 
 
 def _header_values(target) -> dict[str, str]:
-    """Frontmatter with the effective `status`, `intent`, `created`, `parent`, `project`, and `tags`."""
+    """Frontmatter with the effective `status`, `intent`, `created`, `parent`, `project`, `tags`."""
     values = {k: v for k, v in target.fields.items() if k not in ("tags", "parent", "project")}
     values.update(
         id=target.id,

@@ -75,7 +75,29 @@ class LoadTests(unittest.TestCase):
         )
         self.assertEqual(touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [])
 
-    def test_read_from_a_later_differently_slugged_session_is_worked(self):
+    def test_edit_from_a_later_differently_slugged_session_is_worked(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                _tool_use_record(
+                    slug="implement-the-plan-later-fox",
+                    cwd="/home/user/example",
+                    timestamp="2026-09-05T00:00:00.000Z",
+                    tool="Edit",
+                    input_={"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"},
+                ),
+            ],
+        )
+        result = touches.load(self.directory)
+        touch = result["some-plan-eager-bird"][0]
+        self.assertEqual(touch.session, "implement-the-plan-later-fox")
+        self.assertEqual(
+            touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch]
+        )
+
+    def test_read_from_a_later_session_is_not_worked(self):
         project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()
         _write_jsonl(
@@ -90,12 +112,8 @@ class LoadTests(unittest.TestCase):
                 ),
             ],
         )
-        result = touches.load(self.directory)
-        touch = result["some-plan-eager-bird"][0]
-        self.assertEqual(touch.session, "implement-the-plan-later-fox")
-        self.assertEqual(
-            touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch]
-        )
+        result = touches.load(self.directory)["some-plan-eager-bird"]
+        self.assertEqual(touches.worked(result, "some-plan-eager-bird"), [])
 
     def test_cursor_plan_suffix_resolves_to_the_bare_id(self):
         project_dir = self.directory / "-home-user-example"

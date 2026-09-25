@@ -28,7 +28,10 @@ HINTS = {
     "malformed-tag": "pentimento set <id> --remove-tag <bad> --add-tag <fixed>",
     "underived-project": "pentimento backfill",
     "underivable-status": f"add a checklist to '## Progress', or {_SET_STATUS}",
-    "status-behind-history": "pentimento history <id>, then pentimento set <id> --status <value>",
+    "status-behind-history": (
+        "tick the plan's '## Progress', or pentimento history <id> "
+        "then pentimento set <id> --status <value> (pins)"
+    ),
     "status-behind-progress": f"pentimento backfill, or {_SET_STATUS}",
     "pin-behind-progress": f"{_SET_STATUS}, or pentimento set <id> --unpin",
     "unadopted-reference": "pentimento backfill, or leave it if the omission was deliberate",

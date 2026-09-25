@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+A session that only reads a plan no longer counts as having worked it.
+`status-behind-history` fires only for a later session that edited, wrote, or
+delegated work on the plan, and `history` labels a read-only session `read`. The
+finding's hint now leads with ticking `## Progress`, since `set --status` pins.
+
 ## 0.1.18
 
 Several correctness fixes. `tree --format tsv` listed only root plans; it now

@@ -4,10 +4,11 @@ Reads the same `~/.claude/projects/**/*.jsonl` transcripts as `sessions.py`,
 but looks for `tool_use` records that name a plan's *path* rather than for
 the `slug` field a session was started with -- a plan's own authoring
 session and every later session that reads, edits, or delegates work on it
-both leave records here. Restricting to tool_use inputs that name the plan
-path (rather than free-text substring matching) keeps this signal clean:
-pentimento's own dev sessions and `/plans` listings mention every id, but
-rarely as a `Read`/`Edit`/`Write`/`Task` input.
+both leave records here; only edits, writes, and delegation count as work.
+Restricting to tool_use inputs that name the plan path (rather than
+free-text substring matching) keeps this signal clean: pentimento's own dev
+sessions and `/plans` listings mention every id, but rarely as a
+`Read`/`Edit`/`Write`/`Task` input.
 
 A prescan for the literal `/plans/` before `json.loads` keeps a full sweep
 of the transcript corpus fast.
@@ -24,6 +25,7 @@ from pentimento import cache as cache_module
 from pentimento import sessions
 
 _TOOLS = {"Read", "Edit", "Write", "NotebookEdit", "MultiEdit", "Task"}
+_WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Task"}
 _PLAN_PATH = re.compile(r"/plans/([^/\"\s]+?)\.(?:plan\.)?md")
 
 
@@ -103,4 +105,4 @@ def authored(touches: list[Touch], plan_id: str) -> list[Touch]:
 
 
 def worked(touches: list[Touch], plan_id: str) -> list[Touch]:
-    return [t for t in touches if t.session != plan_id]
+    return [t for t in touches if t.session != plan_id and t.tool in _WORK_TOOLS]

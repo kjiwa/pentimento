@@ -262,7 +262,8 @@ unadopted-tag           auth-docs             no tags, but its thread carries [a
 
 9 plans checked, 5 findings
 dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
-status-behind-history: pentimento history <id>, then pentimento set <id> --status <value>
+status-behind-history: tick the plan's '## Progress', or pentimento history <id> then pentimento set <id>
+  --status <value> (pins)
 status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status
   <value>
 unadopted-tag: pentimento set <id> --add-tag <tag>
@@ -275,8 +276,9 @@ narrow with: pentimento list --finding <code>
 ### history
 
 `history` shows which sessions touched a plan's file: the session whose id
-matches the plan's own id authored it; any later session that read, edited,
-or delegated work on it worked it. For an empty result, see
+matches the plan's own id authored it; any later session that edited, wrote,
+or delegated work on it worked it, and one that only read it is marked `read`.
+For an empty result, see
 [`history` is empty](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#history-is-empty).
 
 <!-- sample:history -->

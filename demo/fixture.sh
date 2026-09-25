@@ -187,7 +187,7 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
   _fixture_worked_ts=$(_stamp_days_ago 3 | sed -n '3p')
   _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \
     implement-api-auth-cleanup-eager-wolf /home/user/src/example "$_fixture_worked_ts" \
-    Read /home/user/.claude/plans/api-auth-cleanup.md
+    Edit /home/user/.claude/plans/api-auth-cleanup.md
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \
     billing no-such-plan 10 \

@@ -3,7 +3,7 @@
 `pentimento completion <shell>` prints a short, static script that delegates
 every candidate decision back to the hidden `pentimento __complete <words>`,
 whose last word is the word being completed. All logic lives here in Python;
-the emitters below are thin.
+the scripts under `completions/` are thin.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import argparse
 import contextlib
 import io
 import re
+from importlib import resources
 
 from pentimento import cli as cli_module
 from pentimento import corpus, listing, shortid
@@ -19,79 +20,9 @@ from pentimento import tags as tags_module
 
 SHELLS = ("bash", "zsh", "fish")
 
-_BASH_SCRIPT = """\
-_pentimento() {
-  local i last line prefix word words
-  words=()
-  for ((i = 1; i <= COMP_CWORD; i++)); do
-    word="${COMP_WORDS[i]}"
-    last=$((${#words[@]} - 1))
-    if ((i > 1)) && [[ "$word" == = || "${words[last]}" == -*= ]]; then
-      words[last]+="$word"
-    else
-      words+=("$word")
-    fi
-  done
-  last=$((${#words[@]} - 1))
-  prefix=""
-  if [[ "${words[last]}" == -*=* ]]; then
-    prefix="${words[last]%%=*}="
-  fi
-  COMPREPLY=()
-  while IFS= read -r line; do
-    line="${line%%$'\\t'*}"
-    COMPREPLY+=("${line#"$prefix"}")
-  done < <(pentimento __complete "${words[@]}")
-}
-complete -F _pentimento pentimento
-"""
-
-_ZSH_SCRIPT = """\
-#compdef pentimento
-
-_pentimento() {
-  local -a args
-  args=("${words[@]:1:$((CURRENT - 1))}")
-  local -a lines
-  lines=("${(@f)$(pentimento __complete "${args[@]}")}")
-  local -a descs
-  local line value desc
-  for line in "${lines[@]}"; do
-    [[ -z "$line" ]] && continue
-    value="${line%%$'\\t'*}"
-    if [[ "$line" == *$'\\t'* ]]; then
-      desc="${line#*$'\\t'}"
-    else
-      desc="$value"
-    fi
-    descs+=("$value:$desc")
-  done
-  _describe 'pentimento' descs
-}
-
-# Autoloading this file (from fpath) only defines the function above; when
-# the autoloader's own call *is* that first call, run it for real.
-if [[ "$funcstack[1]" == "_pentimento" ]]; then
-  _pentimento "$@"
-fi
-compdef _pentimento pentimento
-"""
-
-_FISH_SCRIPT = """\
-function __pentimento_complete
-    set -l cmd (commandline -opc)
-    set -e cmd[1]
-    pentimento __complete $cmd (commandline -ct)
-end
-
-complete -c pentimento -f -a '(__pentimento_complete)'
-"""
-
-_SCRIPTS = {"bash": _BASH_SCRIPT, "zsh": _ZSH_SCRIPT, "fish": _FISH_SCRIPT}
-
 
 def script(shell: str) -> str:
-    return _SCRIPTS[shell]
+    return (resources.files("pentimento") / "completions" / f"pentimento.{shell}").read_text()
 
 
 def _subparsers_action(parser: argparse.ArgumentParser) -> argparse._SubParsersAction:

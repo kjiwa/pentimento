@@ -19,14 +19,14 @@ stdout.
 
 Either there's no session transcript for that plan (nothing in
 `AGENT_SESSIONS_DIR`, default `~/.claude/projects`, records that plan's id as a
-session `slug` or shows a session writing the plan file), it's a Cursor plan whose
-`name` matches no transcript in `CURSOR_SESSIONS_DIR` (default `~/.cursor/projects`)
-or matches more than one, or `backfill` hasn't run since the session
-transcript appeared; run `pentimento backfill` (or `check`, which flags this as
-`underived-project`). With the `pentimento hook` `PostToolUse` hook installed
-([docs/integrations.md](integrations.md)), a Claude Code plan gets `project` on
-its first write, so a persistently empty `project` there is an anomaly worth
-investigating, not the steady state.
+session `slug` or shows a session writing the plan file), it's a Cursor plan
+that fails the [name-match rule](integrations.md#cursor) against
+`CURSOR_SESSIONS_DIR` (default `~/.cursor/projects`), or `backfill` hasn't run
+since the session transcript appeared; run `pentimento backfill` (or `check`,
+which flags this as `underived-project`). With the `pentimento hook`
+`PostToolUse` hook installed ([docs/integrations.md](integrations.md)), a Claude
+Code plan gets `project` on its first write, so a persistently empty `project`
+there is an anomaly worth investigating, not the steady state.
 
 ## `parent` is empty
 
@@ -46,27 +46,26 @@ this as `unadopted-reference`.
 
 ## `status: unknown`
 
-`unknown` means neither status signal produced an answer. There are two ways to
-land here:
+`unknown` means no status signal produced an answer. There are three, tried
+in order; the first to answer wins:
 
-- There's no `## Progress` heading at all, and no checkboxes anywhere in
-  the body (checkboxes outside a `## Progress` section are only consulted
-  when the heading is entirely absent), and no Cursor `todos:` frontmatter.
-  A Cursor plan derives from its todos: all `pending` is `not-started`, all
-  `completed` is `complete`, any other mix of `pending`, `in_progress`, and
-  `completed` is `partial`. An empty list or any other todo status stays
-  `unknown`.
-- There is a `## Progress` heading, but its section has no checkboxes and
-  no recognized prose phrase (`nothing started`, `planning only`,
-  `not started`, `no progress`). Body-wide checkboxes are *not* consulted
-  in this case — a `## Progress` heading commits the section to being the
-  only signal read.
+1. The `## Progress` section: checkboxes, else a prose phrase (`nothing
+   started`, `planning only`, `not started`, `no progress`).
+2. A Cursor plan's `todos:` frontmatter: all `pending` is `not-started`, all
+   `completed` is `complete`, any other mix of `pending`, `in_progress`, and
+   `completed` is `partial`. An empty list or any other todo status answers
+   nothing.
+3. Checkboxes anywhere in the body, consulted only when there is no
+   `## Progress` heading at all.
+
+With a `## Progress` heading present, checkboxes elsewhere in the body are
+not read.
 
 `check` reports it as `underivable-status`. Two ways out:
 
 - Add checkboxes, or one of the prose phrases, to the `## Progress`
-  section, then run `backfill`. Plain `backfill` advances `status` when
-  `## Progress` is ahead of it; `--rederive` recomputes it outright.
+  section, then run `backfill`. Plain `backfill` advances `status` when the
+  status signals are ahead of it; `--rederive` recomputes it outright.
 - State the status yourself: `pentimento set <id> --status <value>`. That
   pins it, so `backfill` leaves it alone and `check` stops reporting the
   status findings for the plan; only [`pin-behind-progress`](#check-findings)
@@ -74,16 +73,17 @@ land here:
 
 ## `check` findings
 
-Every finding's `code`, with its fix. `check` prints the fix as a hint under
-its summary, and `--format json|tsv` carries it in `hint`; `show <id>` prints
-it with that plan's findings, minus the `pentimento show <id>` step it is
-already running.
+Every finding's `code`, with its fix. Status findings name the signal they
+read: `'## Progress'`, `todos`, or `body checkboxes`. `check` prints the fix
+as a hint under its summary, and `--format json|tsv` carries it in `hint`;
+`show <id>` prints it with that plan's findings, minus the `pentimento show
+<id>` step it is already running.
 
 A plan whose status is explicit is never second-guessed: one with `pinned` set
 (any `set --status` pins) or a `superseded` status. The status findings
 `underivable-status`, `status-behind-history`, and `status-behind-progress`
 skip it. Only `pin-behind-progress` applies, and only when the pin sits below
-what `## Progress` derives.
+what the status signals derive.
 
 | Code | Meaning | Fix |
 | --- | --- | --- |
@@ -98,10 +98,10 @@ what `## Progress` derives.
 | `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a '# Title' line to the plan body. |
 | `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
 | `underived-project` | The plan has no `project`, but its session transcript supplies one, meaning `backfill` hasn't caught up. | `pentimento backfill`. With the `PostToolUse` hook installed ([docs/integrations.md](integrations.md)) this finding is an anomaly. |
-| `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add a checklist to '## Progress', or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
-| `status-behind-history` | `status` is `not-started` or `unknown`, but a later session, other than the one that wrote the plan, edited, wrote, or delegated work on the plan; sessions that only read it don't count (`pentimento history <id>` lists both). | Tick the plan's '## Progress', or `pentimento history <id>` then `pentimento set <id> --status <value>` (pins). This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
-| `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
-| `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
+| `underivable-status` | `status` is `unknown` and no status signal derives anything better; see [`status: unknown`](#status-unknown). | Add a checklist to '## Progress', or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `status-behind-history` | `status` is `not-started` or `unknown`, but a later session, other than the one that wrote the plan, edited, wrote, or delegated work on the plan; sessions that only read it don't count (`pentimento history <id>` lists both). | Tick the plan's '## Progress', or `pentimento history <id>`, then `pentimento set <id> --status <value>` (pins). This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
+| `status-behind-progress` | A status signal derives a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
+| `pin-behind-progress` | `pinned` is set, but a status signal derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill`, or leave it if the omission was deliberate. `backfill` adopts the reference. |
 | `unadopted-tag` | The plan has no tags, but its parent is tagged and at least one tagged sibling exists; the thread's evidence is the tags the parent and every tagged sibling share, and the message names them. Any tag on the plan clears the finding. | `pentimento set <id> --add-tag <tag>`; `set` takes several ids, so one command clears a thread. |
 
@@ -115,11 +115,12 @@ which columns appear when.
 
 `pentimento: no session history for <id>; searched: <directory>` (on stderr,
 exit 0) means no transcript under that directory (`AGENT_SESSIONS_DIR`, default
-`~/.claude/projects`) contains a tool call whose target path (or, for a delegation, prompt)
-names that plan — never a claim the plan wasn't worked. Common causes: the work happened in a
-session whose transcript has since been deleted (Claude Code prunes old
-transcripts), or on a different machine. Absent history is not evidence of
-absent work.
+`~/.claude/projects`) contains a tool call whose target path, or a `Task`
+call's prompt, names that plan. It is never a claim the plan wasn't worked.
+Common causes: the work happened in a session whose transcript has since been
+deleted (Claude Code prunes old transcripts), or on a different machine. A
+Cursor chat never appears in `history`, since Cursor transcripts feed only
+`project` and prompt lineage. Absent history is not evidence of absent work.
 
 ## No color
 

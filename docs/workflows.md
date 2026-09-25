@@ -208,13 +208,14 @@ done](#auditing-what-was-actually-done).
 ## Auditing what was actually done
 
 Frontmatter `status` only reflects what the operator set or `backfill` derived
-from `## Progress` checkboxes — it says nothing about whether a later session
-actually picked the plan up. `check` surfaces the gap as
+from the plan's own [status signals](troubleshooting.md#status-unknown); it
+says nothing about whether a later session actually picked the plan up. `check`
+surfaces the gap as
 `status-behind-history` ([troubleshooting](troubleshooting.md#check-findings)).
-`pentimento history <id>` shows a plan's full trail — one row per session,
-`authored` for the session that wrote the plan (the one whose slug is the plan's id, else the earliest to `Write` it), `worked` for every session
-since that edited it or delegated work on it, and `read` for one that only
-opened it.
+
+`pentimento history <id>` shows a plan's full trail, one row per session,
+labeled `authored`, `worked`, or `read` as [the README
+defines](../README.md#history).
 
 ```sh
 pentimento list --finding status-behind-history
@@ -233,10 +234,10 @@ the field is computed:
 
 | Field | Survives a checkout | Why |
 | --- | --- | --- |
-| `status` | Yes | Derived from `## Progress` checkboxes in the body — no transcript involved. |
+| `status` | Yes | Derived from the body and frontmatter status signals, with no transcript involved. |
 | `parent` (body-referenced) | Yes | Derived from the plan body, with no transcript involved; see [`parent` is empty](troubleshooting.md#parent-is-empty). |
 | `parent` (session-prompt-derived) | No | Derived from the originating session's first prompt, and that transcript is machine-local. |
-| `project` | No | Derived from a session's `cwd` entries: no session, no derivation. |
+| `project` | No | Derived from a session's `cwd` entries, or for Cursor from its [transcript](integrations.md#cursor): no session, no derivation. |
 | `modified` | No | Not a frontmatter field; see [the Frontmatter table](../README.md#frontmatter). A fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
 | `tags`, `intent`, operator-set `status` | Yes | Operator-authored frontmatter, written by `set`, never derived — plain YAML that travels with the file. |
 

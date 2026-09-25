@@ -97,23 +97,34 @@ your harness names sessions and where it keeps state.
 
 ## Cursor
 
-One `stop` hook runs `pentimento backfill` when a chat ends. Copy
+One `stop` hook runs `pentimento backfill` when the agent loop ends. Copy
 [integrations/cursor/hooks.json](../integrations/cursor/hooks.json) to
-`~/.cursor/hooks.json`, or merge its `stop` entry into an existing file; Cursor
-reloads hooks on save. The command discards `backfill` output and prints `{}`
-because Cursor expects JSON on stdout.
+`~/.cursor/hooks.json`, or merge its `stop` entry into an existing file;
+Cursor reloads hooks on save. The command discards `backfill` output and
+prints `{}` because Cursor expects JSON on stdout.
 
-There is no per-edit hook: Cursor's plan writes and Build's todo updates fire no
-file-edit hook, so status refreshes when a chat ends, not on each edit. Configure
-`CURSOR_PLANS_DIR` (see [reference.md](reference.md)) if plans live outside the
-default directory.
+Cursor runs the hook with its own `PATH`, so `pentimento` must be on it. If
+`status` stops advancing, run `pentimento check` to diagnose it.
+
+There is no per-edit hook: Cursor's plan writes and Build's todo updates fire
+no file-edit hook, so status refreshes when the agent loop ends, not on each
+edit. Set `CURSOR_PLANS_DIR` if plans live outside the default directories;
+see [reference.md](reference.md#environment-variables).
 
 A Cursor plan's `project` and prompt lineage come from Cursor's agent
-transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`), matched by the
-plan's frontmatter `name` against the transcript's `CreatePlan` call. When
-two plans share a `name`, or two transcripts create the same `name`, the match is
-ambiguous and both `project` and prompt lineage stay unset; `parent` then comes
-only from the body-preamble reference scan.
+transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`). They feed
+only those two fields, never `history` or `status-behind-history`.
+
+Matching is by name. Exactly one transcript must name the plan, through a
+`CreatePlan` call whose `name` equals the plan's frontmatter `name`, and no
+other plan may share that `name`. Otherwise `project` and prompt lineage stay
+unset, and `parent` comes only from the body-preamble reference scan.
+
+`project` is the name of the workspace directory: the ancestor of a
+tool-call path argument (`path`, `target_directory`, `file_path`) whose
+encoding is the transcript's project directory name. The workspace root
+itself and paths outside `$HOME` count. A transcript with no such path, or
+with several ancestors sharing that encoding, leaves `project` unset.
 
 ## `check` in CI
 

@@ -8,6 +8,9 @@ uvx ruff check
 uvx ruff format --check
 ```
 
+The shell tests skip when `shellcheck`, `zsh`, or `fish` is not installed;
+install them to run those checks.
+
 CI runs the suite on Python 3.9, the supported minimum, and 3.13. To check 3.9 locally:
 
 ```sh
@@ -22,9 +25,8 @@ sh demo/capture.sh && git diff --exit-code README.md
 
 Run it when a change could alter what a sample shows.
 
-A separate CI job drives the real Claude Code CLI against a scripted local endpoint
-(no account or subscription) to check the shipped hooks. It needs `claude` and
-`pentimento` on `PATH` and a free loopback port:
+A separate CI job drives the real Claude Code CLI against a scripted local
+endpoint to check the shipped hooks; the script header lists its requirements:
 
 ```sh
 sh tests/e2e/claude.sh

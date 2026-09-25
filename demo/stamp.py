@@ -5,7 +5,7 @@ timestamp, so a plan's mtime and its authoring session's timestamp agree
 exactly. Time-of-day is pinned (only the date moves): capture.sh commits its
 output literally and CI's readme-samples job regenerates and diffs it, so a real
 wall-clock time-of-day would drift the sample on every rerun. The base instant
-honours `PENTIMENTO_NOW` so capture.sh can pin it for reproducible samples.
+honors `PENTIMENTO_NOW` so capture.sh can pin it for reproducible samples.
 """
 
 from __future__ import annotations

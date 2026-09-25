@@ -20,7 +20,9 @@ fail.
 converts every `ValueError` into an exit 2 message, so an internal error shows
 a traceback; each user-input error is reported as a usage error at its source.
 An I/O error exits 1, not 2, and output the terminal cannot encode prints `?`
-instead of failing. `tests/test_invariants.py` now checks that every plan
+instead of failing. `backfill` skips a derived project whose name cannot be
+written to frontmatter (it contains `#` or `: `) instead of failing the run.
+`tests/test_invariants.py` now checks that every plan
 round-trips byte for byte and that `list`, `tree`, `check`, `history`, and
 `show` emit the same keys and rows in `json` and `tsv`.
 

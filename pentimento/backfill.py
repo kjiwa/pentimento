@@ -50,7 +50,7 @@ def derive_fields(
 
     if rederive or "project" not in fields:
         project = _derive_project(target, sessions)
-        if project:
+        if project and frontmatter.is_valid_value(project):
             fields["project"] = project
 
     if rederive or "parent" not in fields:

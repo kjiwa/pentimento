@@ -26,10 +26,12 @@ sh demo/capture.sh && git diff --exit-code README.md
 Run it when a change could alter what a sample shows.
 
 A separate CI job drives the real Claude Code CLI against a scripted local
-endpoint to check the shipped hooks; the script header lists its requirements:
+endpoint to check the shipped hooks; the script header lists its requirements.
+The pinned CLI installs from `tests/e2e/package.json`, which Dependabot updates:
 
 ```sh
-sh tests/e2e/claude.sh
+npm ci --prefix tests/e2e
+PATH="$PWD/tests/e2e/node_modules/.bin:$PATH" sh tests/e2e/claude.sh
 ```
 
 Run it when a change touches `pentimento hook`, `backfill`, or

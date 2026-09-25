@@ -2,3 +2,4 @@ recursive-include tests *
 graft demo
 graft docs
 graft integrations
+prune tests/e2e/node_modules

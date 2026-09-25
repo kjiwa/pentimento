@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.20
+
+A Cursor plan's todo statuses are read only from each todo's own `status:`
+key, so a `status:` line inside a multi-line todo value no longer changes the
+derived status. `underivable-status` names an unrecognized todo status such as
+`cancelled`, or says the todos carry none, instead of only saying the plan
+derives nothing.
+
+The Cursor `stop` hook exits 1 and keeps stderr when `backfill` fails, so a
+missing `pentimento` or a refused backfill shows in Cursor's Hooks output
+channel rather than passing silently.
+
+The README `history` sample shows a `read` session, and its author rule
+matches the code: the session whose id is the plan's id, else the session whose
+first touch wrote the plan.
+
+Tests and CI. Every workflow action is pinned to a commit SHA. The Claude Code
+CLI the e2e job runs installs from `tests/e2e/package.json` and its lockfile,
+which Dependabot keeps current. `demo/record.sh` reads file state correctly on
+Linux, and `scripts/release.sh` no longer leaves `pyproject.toml` with the
+temporary file's mode.
+
 ## 0.1.19
 
 Cursor support is fuller. A Cursor plan gets `project` and prompt lineage from

@@ -4,3 +4,4 @@ __pycache__/
 build/
 dist/
 demo/pentimento-tree.png
+node_modules/

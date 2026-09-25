@@ -110,7 +110,8 @@ _bump_version() {
   _bump_version_tmp=$(mktemp "${TMPDIR:-/tmp}/release-pyproject.XXXXXX")
   trap 'rm -f "$_bump_version_tmp"' EXIT
   sed "s/^version = \".*\"\$/version = \"$VERSION\"/" "$PYPROJECT" >"$_bump_version_tmp"
-  mv "$_bump_version_tmp" "$PYPROJECT"
+  cat "$_bump_version_tmp" >"$PYPROJECT"
+  rm -f "$_bump_version_tmp"
   trap - EXIT
 }
 

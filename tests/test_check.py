@@ -5,7 +5,7 @@ import re
 import unittest
 from pathlib import Path
 
-from pentimento import check, times
+from pentimento import check, frontmatter, times
 from pentimento import touches as touches_module
 
 
@@ -22,6 +22,7 @@ class FakePlan:
     has_title: bool = True
     body: str = "## Progress\n\n- [ ] todo\n"
     started: str = ""
+    extras: object = None
 
     @property
     def created_at(self):
@@ -223,6 +224,13 @@ class RunTests(unittest.TestCase):
 
     def test_underivable_status_is_silent_when_progress_derives(self):
         plan = FakePlan(id="derivable", status="unknown", body="## Progress\n\n- [ ] todo\n")
+        codes = [f.code for f in check.run([plan])]
+        self.assertNotIn("underivable-status", codes)
+
+    def test_underivable_status_is_silent_for_a_cursor_plan_with_todos(self):
+        text = (Path(__file__).parent / "fixtures" / "cursor" / "quiet_flag_83cddd33.plan.md").read_text()
+        _, body, extras = frontmatter.parse(text)
+        plan = FakePlan(id="cursor", status="unknown", body=body, extras=extras, source="cursor")
         codes = [f.code for f in check.run([plan])]
         self.assertNotIn("underivable-status", codes)
 

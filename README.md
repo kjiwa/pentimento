@@ -309,7 +309,7 @@ The vocabulary lives in one place:
 
 | Field | Set by | How |
 | --- | --- | --- |
-| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`, which [caps it at `partial`](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#flags)) recomputes it from `## Progress` checkboxes. `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
+| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`, which [caps it at `partial`](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#flags)) recomputes it from `## Progress` checkboxes (a Cursor plan with none, from its `todos:`). `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
 | `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched; see [`check` findings](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#check-findings) for what `check` still reports. |
 | `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived or written; `check` suggests them (`unadopted-tag`). `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |

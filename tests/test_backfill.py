@@ -10,6 +10,9 @@ def _write(directory: Path, name: str, text: str) -> None:
     (directory / f"{name}.md").write_text(text)
 
 
+CURSOR_FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
+
+
 class BackfillTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -26,6 +29,14 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual(reloaded.fields["status"], "complete")
         self.assertEqual(reloaded.fields["intent"], "unset")
         self.assertNotIn("parent", reloaded.fields)
+
+    def test_backfill_derives_a_cursor_plan_from_its_todos(self):
+        name = "quiet_flag_83cddd33.plan.md"
+        (self.directory / name).write_text((CURSOR_FIXTURES / name).read_text())
+        plans = corpus.load_all(self.directory, sessions={})
+        backfill.run(plans)
+        reloaded = corpus.load_all(self.directory, sessions={})[0]
+        self.assertEqual(reloaded.fields["status"], "complete")
 
     def test_backfill_is_idempotent(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")

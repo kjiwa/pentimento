@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+A Cursor plan's status now derives from the `todos:` in its frontmatter when the
+body has no `## Progress` section or checkboxes, instead of staying `unknown`.
+
 A session that only reads a plan no longer counts as having worked it.
 `status-behind-history` fires only for a later session that edited, wrote, or
 delegated work on the plan, and `history` labels a read-only session `read`. The

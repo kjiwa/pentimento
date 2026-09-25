@@ -71,28 +71,35 @@ _splice() {
 
 main() {
   SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+  readonly SCRIPT_DIR
   REPO_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
+  readonly REPO_ROOT
   README="$REPO_ROOT/README.md"
+  readonly README
 
   # A trailing slash on $TMPDIR (macOS) doubles the slash in FIXTURE_DIR, which
   # then never matches the normalized path the CLI prints.
   _main_tmp=${TMPDIR:-/tmp}
   FIXTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-fixture.XXXXXX")
+  readonly FIXTURE_DIR
   CAPTURE_DIR=$(mktemp -d "${_main_tmp%/}/pentimento-capture.XXXXXX")
+  readonly CAPTURE_DIR
   trap 'rm -rf "$FIXTURE_DIR" "$CAPTURE_DIR"' EXIT
 
   # `show` collapses $HOME to ~ before printing a path (cli.py:_display_path),
   # so a fixture under $HOME appears in captured output in this form too.
-  FIXTURE_DISPLAY=$FIXTURE_DIR
+  _main_display=$FIXTURE_DIR
   # shellcheck disable=SC2088 # literal ~ prefix, not meant to expand
   case $FIXTURE_DIR in
-    "$HOME"/*) FIXTURE_DISPLAY="~/${FIXTURE_DIR#"$HOME"/}" ;;
+    "$HOME"/*) _main_display="~/${FIXTURE_DIR#"$HOME"/}" ;;
   esac
+  FIXTURE_DISPLAY=$_main_display
+  readonly FIXTURE_DISPLAY
 
-  PENTIMENTO_NOW=2026-09-14T12:30:00Z
+  readonly PENTIMENTO_NOW=2026-09-14T12:30:00Z
   export PENTIMENTO_NOW
 
-  TZ=UTC
+  readonly TZ=UTC
   export TZ
 
   sh "$SCRIPT_DIR/fixture.sh" "$FIXTURE_DIR"
@@ -105,8 +112,8 @@ main() {
   _capture check 110 check
   _capture history 110 history api-auth-cleanup
 
-  for _name in list list-narrow tree tree-thread show check history; do
-    _splice "$_name"
+  for _main_name in list list-narrow tree tree-thread show check history; do
+    _splice "$_main_name"
   done
 }
 

@@ -10,12 +10,11 @@
 set -eu
 
 main() {
-  SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-  REPO_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
-  MAGICK=${MAGICK:-magick}
-  OUT_DIR=${1:-${TMPDIR:-/tmp}}
-  FRAME="$REPO_ROOT/demo/pentimento-tree.png"
-  OUT="${OUT_DIR%/}/pentimento-preview.png"
+  _main_script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+  _main_out_dir=${1:-${TMPDIR:-/tmp}}
+  readonly MAGICK="${MAGICK:-magick}"
+  readonly FRAME="$_main_script_dir/pentimento-tree.png"
+  readonly OUT="${_main_out_dir%/}/pentimento-preview.png"
 
   "$MAGICK" "$FRAME" -fuzz 8% -trim +repage \
     -bordercolor black -border 34 \

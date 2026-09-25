@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+A session touches a plan only through a tool's target path (or a `Task` prompt); a `Write` or
+`Edit` whose content merely mentions a plan no longer counts as work on it or as its author.
+
 A Cursor `stop` hook, shipped as `integrations/cursor/hooks.json`, runs `backfill` when a
 chat ends; `docs/integrations.md` covers installing it.
 

@@ -462,7 +462,8 @@ def build_parser() -> argparse.ArgumentParser:
             "One row per plan; by default the row nearest the prompt is the most\n"
             "recent. TAGS and CREATED appear only when a listed plan has them.\n"
             "When the terminal is too narrow for the table, each plan prints as a\n"
-            "short record with every field kept; see docs/reference.md#columns."
+            "short record, its title truncated to the width; see\n"
+            "docs/reference.md#columns."
         ),
         epilog=(
             "Examples:\n"
@@ -511,7 +512,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Examples:\n  pentimento tree --project .\n  pentimento tree --starred\n"
-            "  pentimento tree wobbly-willow\n  pentimento tree wobbly-willow --ancestors"
+            "  pentimento tree auth-redesign\n  pentimento tree auth-redesign --ancestors"
         ),
     )
     p_tree.add_argument(
@@ -560,7 +561,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  pentimento set api-auth-rollout --intent active\n"
             "  pentimento set api-auth-rollout --status complete --add-tag auth\n"
             "  pentimento set api-auth-rollout --clear-parent\n"
-            "  pentimento set wobbly-willow api-auth-cleanup --intent someday"
+            "  pentimento set auth-cleanup auth-docs --intent someday"
         ),
     )
     p_set.add_argument("ids", nargs="+", metavar="id", help=f"{_ID_HELP}; one or more")

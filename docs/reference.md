@@ -30,7 +30,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `--sort` | Defaults to `modified`; every key sorts ascending, so the row nearest the prompt is last, as with `ls -ltr` and `git log --reverse`. `--order desc` is exactly that order reversed. `modified` and `created` are dates; `id` follows the short id the table shows; `title` ignores case; `status` (`not-started`, `partial`, `complete`, `superseded`, `unknown`) and `intent` (`active`, `queued`, `someday`, `abandoned`, `unset`) follow that rank, then `modified`. Ties on any key resolve on the full id. `tree` orders siblings and project groups the same way. `--columns` and `--sort` share record field names; the `PLAN` and `UPDATED` headers are display labels for `id` and `modified`. |
 | `--columns SPEC` (`list` only) | Which table columns to show and in what order; see [Columns](#columns) below. Applies to `--format table` only — combining it with `--format json\|tsv` is an error, since those formats' schema is fixed. Defaults to `PENTIMENTO_COLUMNS`. |
 | `--project .` | Resolves to the current directory's name, for `list`, `tree`, and `set`. |
-| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` shows the `FINDING` column only under this flag or when `--columns` names it. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
+| `--finding [CODE]` | Keeps plans with a `check` finding, or with the finding `CODE` (one of the codes in [troubleshooting.md](troubleshooting.md#check-findings) except `unreadable-file`, which names a file rather than a plan); bare means any finding. `list` shows the `FINDING` column as [Columns](#columns) says. Findings come from a check over the whole corpus, so lineage findings stay correct under other filters. `--format json\|tsv` carries every plan's codes in `findings` whether or not the flag is given. |
 | `tree <id>` | Roots the tree at that plan: it plus every plan beneath it, resolved against the whole corpus, so `--project` is unnecessary. Filters apply inside the selection. |
 | `tree --ancestors` | Also walks up from `<id>` to its topmost ancestor, spine only — the ancestors' other children stay out. Requires `<id>`; without one, exits 2 with `--ancestors requires a plan id`. |
 | `--title PATTERN` | Case-insensitive regex over the title only. An invalid pattern exits 2 with the regex error on stderr. |
@@ -78,17 +78,18 @@ column always appears. No column is ever dropped for width.
   makes the whole output stacked.
 - **Stacked records** otherwise, with no header line. Each record's first line
   is the column with the largest floor (`TITLE` for `list`, `MESSAGE` for
-  `check`, `SESSION` for `history`), truncated with `...` to the width;
-  the remaining non-empty fields follow in column order, indented two spaces
-  and wrapped between fields, so nothing is lost. Tags keep their brackets so
+  `check`, `SESSION` for `history`), truncated with `...` to the width
+  (`show` has the whole title); the remaining non-empty fields follow in
+  column order, indented two spaces and wrapped between fields, so no other
+  field is lost. Tags keep their brackets so
   a value stays identifiable without a header, and `history`'s touch count
   reads `touches N`.
 
 The narrowest table is the sum of the column floors plus two spaces between
 columns, so it depends on the listed plans' id, intent, and date widths.
-`--columns` with fewer columns fits a table in less. When `COLUMNS` is unset and output is not a terminal, as in
-`pentimento list | grep`, width is unbounded: always a table, nothing
-truncated. `tree` truncates a node's title with `...` and wraps its metadata
+`--columns` with fewer columns fits a table in less. When `COLUMNS` is unset
+and output is not a terminal, as in `pentimento list | grep`, width is
+unbounded: always a table, nothing truncated. `tree` truncates a node's title with `...` and wraps its metadata
 line, including any `(parent elided: ...)` note, between fields.
 
 `--columns SPEC` (and its default, `PENTIMENTO_COLUMNS`) overrides which

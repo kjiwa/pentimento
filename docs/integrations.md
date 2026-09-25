@@ -19,9 +19,9 @@ Two hooks, split by what each field needs to be trustworthy:
 
 Copy [integrations/claude/settings-snippet.json](../integrations/claude/settings-snippet.json)
 into `~/.claude/settings.json` (or `.claude/settings.json` in a project, to
-scope the hooks to that repo). `pentimento hook` always exits 0 and
-`backfill --quiet` prints nothing, so neither blocks a write or reports back
-to Claude; keep each to the one command, and use `backfill --dry-run` from a
+scope the hooks to that repo). `pentimento hook` always exits 0, so it never blocks a write, and Claude
+Code does not feed the changed ids it prints to the model; `backfill --quiet`
+prints nothing; keep each to the one command, and use `backfill --dry-run` from a
 terminal to see what a sweep would change before it runs unattended.
 
 Two gaps the hooks don't close: `--rederive` is the correction for a `parent`

@@ -398,12 +398,20 @@ class RunTests(unittest.TestCase):
                 pinned = dataclasses.replace(plan, pinned=True)
                 self.assertIn(f"but {label} derives 'complete'", check.run([pinned])[0].message)
 
-    def test_underivable_status_mentions_todos_when_the_plan_has_them(self):
+    def test_underivable_status_names_unrecognized_todo_statuses(self):
         _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    status: cancelled\n---\n")
         plan = FakePlan(id="t", status="unknown", body="# Body\n", extras=extras)
-        self.assertIn("todos", check.run([plan])[0].message)
+        self.assertIn(
+            "todo status 'cancelled' is not pending, in_progress, or completed",
+            check.run([plan])[0].message,
+        )
         bare = FakePlan(id="t", status="unknown", body="# Body\n")
-        self.assertNotIn("todos", check.run([bare])[0].message)
+        self.assertNotIn("todo", check.run([bare])[0].message)
+
+    def test_underivable_status_says_when_todos_carry_no_status(self):
+        _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    content: x\n---\n")
+        plan = FakePlan(id="t", status="unknown", body="# Body\n", extras=extras)
+        self.assertIn("; todos carry no status", check.run([plan])[0].message)
 
     def test_status_behind_history_hint_is_punctuated(self):
         self.assertIn(

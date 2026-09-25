@@ -56,8 +56,8 @@ Every id is resolved before anything is written, and `--dry-run` previews the
 whole batch:
 
 ```sh
-pentimento set wobbly-willow api-auth-cleanup --intent someday --dry-run
-pentimento set wobbly-willow api-auth-cleanup --intent someday --add-tag growthbook
+pentimento set auth-cleanup auth-docs --intent someday --dry-run
+pentimento set auth-cleanup auth-docs --intent someday --add-tag growthbook
 ```
 
 ## Reusing a past decision
@@ -134,16 +134,16 @@ pentimento set <id> <id> --add-tag <tag>
 A topic often outgrows one plan and spawns subplans, but tagging them is manual
 and easy to leave inconsistent — a plan filter like `--tag` then drops
 whichever subplan didn't get tagged. `tree <id>` sidesteps that by selecting
-the thread structurally: `<id>` plus every plan beneath it, resolved against
-the whole corpus, so `--project` is unnecessary.
+the thread structurally: `<id>` plus every plan beneath it; see
+[`tree <id>`](reference.md#flags).
 
 ```sh
-pentimento tree wobbly-willow
-pentimento tree wobbly-willow --ancestors
-pentimento tree wobbly-willow --status partial
+pentimento tree auth-redesign
+pentimento tree auth-redesign --ancestors
+pentimento tree auth-redesign --status partial
 ```
 
-Plain `tree wobbly-willow` shows the thread from that plan down. `--ancestors`
+Plain `tree auth-redesign` shows the thread from that plan down. `--ancestors`
 also walks up to the topmost ancestor, spine only — the ancestors' other
 children stay out. `--status partial` filters within the selection, so `tree
 <id> --status partial` answers "what's left on this thread". A plan whose
@@ -236,7 +236,7 @@ the field is computed:
 | `parent` (body-referenced) | Yes | Derived from the plan body, with no transcript involved; see [`parent` is empty](troubleshooting.md#parent-is-empty). |
 | `parent` (session-prompt-derived) | No | Derived from the originating session's first prompt, and that transcript is machine-local. |
 | `project` | No | Derived from a session's `cwd` entries: no session, no derivation. |
-| `modified` | No | Not a frontmatter field at all: `max(session end time, file mtime)` — a fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
+| `modified` | No | Not a frontmatter field; see [the Frontmatter table](../README.md#frontmatter). A fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
 | `tags`, `intent`, operator-set `status` | Yes | Operator-authored frontmatter, written by `set`, never derived — plain YAML that travels with the file. |
 
 `pentimento index` writes `INDEX.md` into the plans directory: a browsable,
@@ -260,8 +260,8 @@ id, title, status, pinned, intent, tags, parent, project, source, created, start
 `Z`; `created` is a date; `findings` holds `check` codes; `pinned` is `true` or
 `false` in `tsv`. `show --format json|tsv` adds a `body` field. This schema is
 fixed regardless of `--columns`/`PENTIMENTO_COLUMNS`, which shape `list`'s
-`--format table` output only. `tsv` drops non-scalar fields: `tree --format tsv`
-lists every plan, parents before children, with no `children` column and the
+`--format table` output only. `tsv` joins `tags` and `findings` with commas and omits `children`:
+`tree --format tsv` lists every plan, parents before children, with the
 `parent` column carrying the structure, so use `json` when you need the nested
 tree. `tree <id> --format json` is the scriptable
 "everything on this thread" query. A common pattern:

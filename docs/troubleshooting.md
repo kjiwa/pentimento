@@ -32,13 +32,13 @@ investigating, not the steady state.
 `backfill` tries two signals in order, stopping at the first that finds a
 candidate: a reference in the originating session's first prompt, then the same
 reference scan over the plan's body above its first `##` heading. A reference
-is either an `<id>.md` / `<id>.plan.md` literal or a trailing codename — a
-trailing segment run like a [short id](reference.md#plan-ids), e.g.
-`wobbly-willow` for an id ending `...-wobbly-willow`. A codename that matches
-more than one candidate id resolves to nothing. Either way, the reference must
+is either an `<id>.md` / `<id>.plan.md` literal or a
+[short id](reference.md#plan-ids), a trailing run of segments such as
+`auth-redesign` for `api-auth-redesign`. A short id that matches more than one
+candidate resolves to nothing. Either way, the reference must
 also pass every one of these guards: not the plan itself, in the same project,
 from the same source, and strictly earlier by `started`. Among references that
-pass, an exact `<id>.md` reference outranks a codename reference, and the
+pass, an exact `<id>.md` reference outranks a short-id reference, and the
 earliest-mentioned reference wins a tie within that ranking. If no reference
 passes all four guards, `parent` stays unset rather than guessed; `check` flags
 this as `unadopted-reference`.
@@ -60,17 +60,19 @@ land here:
 `check` reports it as `underivable-status`. Two ways out:
 
 - Add checkboxes, or one of the prose phrases, to the `## Progress`
-  section, then run `backfill`. Status is recomputed on every run, not just
-  `--rederive`.
+  section, then run `backfill`. Plain `backfill` advances `status` when
+  `## Progress` is ahead of it; `--rederive` recomputes it outright.
 - State the status yourself: `pentimento set <id> --status <value>`. That
-  pins it, so `backfill` leaves it alone and `check` stops reporting status
-  findings for the plan.
+  pins it, so `backfill` leaves it alone and `check` stops reporting the
+  status findings for the plan; only [`pin-behind-progress`](#check-findings)
+  still applies.
 
 ## `check` findings
 
 Every finding's `code`, with its fix. `check` prints the fix as a hint under
 its summary, and `--format json|tsv` carries it in `hint`; `show <id>` prints
-it with that plan's findings.
+it with that plan's findings, minus the `pentimento show <id>` step it is
+already running.
 
 A plan whose status is explicit is never second-guessed: one with `pinned` set
 (any `set --status` pins) or a `superseded` status. The status findings

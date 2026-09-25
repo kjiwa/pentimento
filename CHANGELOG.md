@@ -1,33 +1,46 @@
 # Changelog
 
-## Unreleased
+## 0.1.19
 
-A Cursor plan now gets `project` and session-prompt lineage from Cursor's agent
-transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`), matched by the plan's
-`name`; an ambiguous match leaves both unset. The docs no longer say Cursor keeps no
-session transcripts.
-
-A session touches a plan only through a tool's target path (or a `Task` prompt); a `Write` or
-`Edit` whose content merely mentions a plan no longer counts as work on it or as its author.
-
-A Cursor `stop` hook, shipped as `integrations/cursor/hooks.json`, runs `backfill` when a
-chat ends; `docs/integrations.md` covers installing it.
-
-Lineage now resolves Cursor's underscore ids (`skip_list_range_query_d3d1b015`) in a plan's
+Cursor support is fuller. A Cursor plan gets `project` and prompt lineage from
+Cursor's agent transcripts (`CURSOR_SESSIONS_DIR`, default
+`~/.cursor/projects`), matched by the plan's `name`; an ambiguous match leaves
+both unset. Its status derives from the `todos:` in its frontmatter when
+`## Progress` gives no answer, instead of staying `unknown`. A `stop` hook,
+shipped as `integrations/cursor/hooks.json`, runs `backfill` when the agent
+loop ends; `docs/integrations.md` covers installing it. Lineage resolves
+Cursor's underscore ids (`skip_list_range_query_d3d1b015`) in a plan's
 preamble or session prompt, so a Cursor follow-up finds its parent.
 
-A Cursor plan's status now derives from the `todos:` in its frontmatter when the
-body has no `## Progress` section or checkboxes, instead of staying `unknown`.
-
-A session that only reads a plan no longer counts as having worked it.
+Touch attribution is stricter. A session touches a plan only through a tool's
+target path (or a `Task` prompt); a `Write` or `Edit` whose content merely
+mentions a plan no longer counts as work on it or as its author. A session
+that only reads a plan no longer counts as having worked it:
 `status-behind-history` fires only for a later session that edited, wrote, or
-delegated work on the plan, and `history` labels a read-only session `read`. The
-finding's hint now leads with ticking `## Progress`, since `set --status` pins.
+delegated work on the plan, and `history` labels a read-only session `read`.
+A plan written by a session whose slug is not the plan's id, such as a second
+plan from one session, is attributed to that session: `backfill` derives its
+`project`, `underived-project` flags it, and `history` labels the writing
+session `authored` rather than `worked`. A session that reads a plan before
+its first write is not its author.
 
-A plan written by a session whose slug is not the plan's id, such as a second plan from
-one session, is now attributed to that session. `backfill` derives its `project`,
-`underived-project` flags it, and `history` labels the writing session `authored` rather
-than `worked`.
+Fixes from an audit of these changes. A Cursor transcript no longer overrides
+the session of a Claude plan that shares its `name`. A flush-left `todos:`
+list (`- id: b` at column 0) parses as todos and survives a `backfill`
+rewrite, which used to drop or reorder its items. A Cursor plan's `project`
+derives when a tool call targets the workspace root itself or a path with
+spaces or non-ASCII characters, from paths outside `$HOME` too, and stays
+unset when two workspace directories tie. An unreadable or non-object cache
+file, and a dangling transcript symlink, no longer crash. `check` messages
+name the status signal they read (`'## Progress'`, `todos`, or `body
+checkboxes`), and `underivable-status` mentions todos. A plan's todos now
+outrank checkboxes elsewhere in its body when it has no `## Progress`
+answer. The `status-behind-history` hint leads with ticking `## Progress`,
+since `set --status` pins.
+
+Tests and CI. A CI job runs the real Claude Code CLI against a scripted local
+endpoint to check the shipped hooks (`tests/e2e/claude.sh`), and Cursor
+support is tested against sample plans and transcripts.
 
 ## 0.1.18
 

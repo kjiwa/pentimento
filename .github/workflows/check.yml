@@ -18,7 +18,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v10.1.0
       - if: runner.os == 'Linux'
-        run: sudo apt-get install -y zsh fish shellcheck
+        run: sudo apt-get update && sudo apt-get install -y zsh fish shellcheck
       - if: runner.os == 'macOS'
         run: brew install fish shellcheck
       - run: python3 -m unittest discover
@@ -38,6 +38,7 @@ jobs:
 
   claude-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -45,7 +46,7 @@ jobs:
           python-version: '3.x'
       - run: pip install -e .
       - run: |
-          npm install --prefix "$RUNNER_TEMP/claude" @anthropic-ai/claude-code
+          npm install --prefix "$RUNNER_TEMP/claude" @anthropic-ai/claude-code@2.1.282
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
       - run: sh tests/e2e/claude.sh
 

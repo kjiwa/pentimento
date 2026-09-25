@@ -25,8 +25,8 @@ from pathlib import Path
 from pentimento import cache as cache_module
 from pentimento import sessions
 
-_TOOLS = {"Read", "Edit", "Write", "NotebookEdit", "MultiEdit", "Task"}
 _WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Task"}
+_TOOLS = _WORK_TOOLS | {"Read"}
 _PATH_KEYS = ("file_path", "notebook_path", "path")
 _PLAN_PATH = re.compile(r"/plans/([^/\"\s]+?)\.(?:plan\.)?md")
 
@@ -49,7 +49,10 @@ def load(directory: Path | None = None) -> dict[str, list[Touch]]:
     fresh: dict[str, list[dict]] = {}
     by_plan: dict[str, list[Touch]] = {}
     for log_path in sorted(directory.rglob("*.jsonl")):
-        cache_key = cache_module.key(log_path)
+        try:
+            cache_key = cache_module.key(log_path)
+        except OSError:
+            continue
         serialized = cached.get(cache_key)
         if serialized is None:
             serialized = [dataclasses.asdict(t) for t in _touches_in(log_path)]
@@ -109,15 +112,12 @@ def _scanned_text(tool: str, tool_input) -> str:
 
 def author(touches: list[Touch], plan_id: str) -> str:
     """The session that wrote the plan: the same-slug session if it touched the plan,
-    else the session of the earliest `Write`, else the plan id."""
+    else the session whose `Write` is the plan's first touch, else the plan id."""
     if any(t.session == plan_id for t in touches):
         return plan_id
-    return next((t.session for t in touches if t.tool == "Write"), plan_id)
-
-
-def authored(touches: list[Touch], plan_id: str) -> list[Touch]:
-    writer = author(touches, plan_id)
-    return [t for t in touches if t.session == writer]
+    if touches and touches[0].tool == "Write":
+        return touches[0].session
+    return plan_id
 
 
 def worked(touches: list[Touch], plan_id: str) -> list[Touch]:

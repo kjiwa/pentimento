@@ -21,79 +21,80 @@ _stamp_days_ago() {
 }
 
 _write_session() {
-  _fixture_dir=$1
-  _fixture_file=$2
-  _fixture_slug=$3
-  _fixture_cwd=$4
-  _fixture_ts=$5
-  _fixture_tool=$6
-  _fixture_plan_path=$7
+  _write_session_dir=$1
+  _write_session_file=$2
+  _write_session_slug=$3
+  _write_session_cwd=$4
+  _write_session_days_ago=$5
+  _write_session_tool=$6
+  _write_session_plan_path=$7
 
-  mkdir -p "$_fixture_dir"
+  _write_session_ts=$(_stamp_days_ago "$_write_session_days_ago" | sed -n '3p')
+
+  mkdir -p "$_write_session_dir"
   printf '{"type": "assistant", "slug": "%s", "cwd": "%s", "timestamp": "%s", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "%s", "input": {"file_path": "%s"}}]}}\n' \
-    "$_fixture_slug" "$_fixture_cwd" "$_fixture_ts" "$_fixture_tool" "$_fixture_plan_path" \
-    >"$_fixture_dir/$_fixture_file"
+    "$_write_session_slug" "$_write_session_cwd" "$_write_session_ts" "$_write_session_tool" "$_write_session_plan_path" \
+    >"$_write_session_dir/$_write_session_file"
 }
 
 _write_plan() {
-  _fixture_id=$1
-  _fixture_title=$2
-  _fixture_status=$3
-  _fixture_intent=$4
-  _fixture_project=$5
-  _fixture_parent=$6
-  _fixture_days_ago=$7
-  _fixture_progress=$8
-  _fixture_tags=${9:-}
+  _write_plan_id=$1
+  _write_plan_title=$2
+  _write_plan_status=$3
+  _write_plan_intent=$4
+  _write_plan_project=$5
+  _write_plan_parent=$6
+  _write_plan_days_ago=$7
+  _write_plan_progress=$8
+  _write_plan_tags=${9:-}
 
-  _fixture_path="$TARGET_DIR/$_fixture_id.md"
-  _fixture_stamps=$(_stamp_days_ago "$_fixture_days_ago")
-  _fixture_touch_ts=$(printf '%s\n' "$_fixture_stamps" | sed -n '1p')
-  _fixture_created=$(printf '%s\n' "$_fixture_stamps" | sed -n '2p')
-  FIXTURE_SESSION_TS=$(printf '%s\n' "$_fixture_stamps" | sed -n '3p')
+  _write_plan_path="$TARGET_DIR/$_write_plan_id.md"
+  _write_plan_stamps=$(_stamp_days_ago "$_write_plan_days_ago")
+  _write_plan_touch_ts=$(printf '%s\n' "$_write_plan_stamps" | sed -n '1p')
+  _write_plan_created=$(printf '%s\n' "$_write_plan_stamps" | sed -n '2p')
 
   {
     printf '%s\n' '---'
     printf 'pentimento:\n'
-    printf '  status: %s\n' "$_fixture_status"
-    printf '  intent: %s\n' "$_fixture_intent"
-    if [ -n "$_fixture_tags" ]; then
-      printf '  tags: %s\n' "$_fixture_tags"
+    printf '  status: %s\n' "$_write_plan_status"
+    printf '  intent: %s\n' "$_write_plan_intent"
+    if [ -n "$_write_plan_tags" ]; then
+      printf '  tags: %s\n' "$_write_plan_tags"
     fi
-    if [ -n "$_fixture_parent" ]; then
-      printf '  parent: %s\n' "$_fixture_parent"
+    if [ -n "$_write_plan_parent" ]; then
+      printf '  parent: %s\n' "$_write_plan_parent"
     fi
-    if [ -n "$_fixture_project" ]; then
-      printf '  project: %s\n' "$_fixture_project"
+    if [ -n "$_write_plan_project" ]; then
+      printf '  project: %s\n' "$_write_plan_project"
     fi
-    printf '  created: %s\n' "$_fixture_created"
+    printf '  created: %s\n' "$_write_plan_created"
     printf '%s\n' '---'
     printf '\n'
-    printf '# %s\n' "$_fixture_title"
+    printf '# %s\n' "$_write_plan_title"
     printf '\n'
-    printf '%s\n' "$_fixture_progress"
-  } >"$_fixture_path"
+    printf '%s\n' "$_write_plan_progress"
+  } >"$_write_plan_path"
 
-  touch -t "$_fixture_touch_ts" "$_fixture_path"
+  touch -t "$_write_plan_touch_ts" "$_write_plan_path"
 }
 
 _write_raw_plan() {
-  _fixture_id=$1
-  _fixture_title=$2
-  _fixture_days_ago=$3
-  _fixture_progress=$4
+  _write_raw_plan_id=$1
+  _write_raw_plan_title=$2
+  _write_raw_plan_days_ago=$3
+  _write_raw_plan_progress=$4
 
-  _fixture_path="$TARGET_DIR/$_fixture_id.md"
-  _fixture_stamps=$(_stamp_days_ago "$_fixture_days_ago")
-  _fixture_touch_ts=$(printf '%s\n' "$_fixture_stamps" | sed -n '1p')
+  _write_raw_plan_path="$TARGET_DIR/$_write_raw_plan_id.md"
+  _write_raw_plan_stamps=$(_stamp_days_ago "$_write_raw_plan_days_ago")
+  _write_raw_plan_touch_ts=$(printf '%s\n' "$_write_raw_plan_stamps" | sed -n '1p')
 
   {
-    printf '# %s\n' "$_fixture_title"
+    printf '# %s\n' "$_write_raw_plan_title"
     printf '\n'
-    printf '%s\n' "$_fixture_progress"
-  } >"$_fixture_path"
+    printf '%s\n' "$_write_raw_plan_progress"
+  } >"$_write_raw_plan_path"
 
-  touch -t "$_fixture_touch_ts" "$_fixture_path"
+  touch -t "$_write_raw_plan_touch_ts" "$_write_raw_plan_path"
 }
 
 main() {
@@ -102,7 +103,9 @@ main() {
     return 1
   fi
   SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+  readonly SCRIPT_DIR
   TARGET_DIR=$1
+  readonly TARGET_DIR
   mkdir -p "$TARGET_DIR"
 
   _write_plan api-auth-redesign "Redesign the auth API" complete abandoned \
@@ -113,7 +116,7 @@ main() {
 - [x] Migrate existing sessions' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-redesign-session.jsonl \
-    api-auth-redesign /home/user/src/example "$FIXTURE_SESSION_TS" \
+    api-auth-redesign /home/user/src/example 40 \
     Write /home/user/.claude/plans/api-auth-redesign.md
 
   # shellcheck disable=SC2016 # backticks in the plan body are literal Markdown
@@ -135,7 +138,7 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
 | beta | in progress |' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-rollout-session.jsonl \
-    api-auth-rollout /home/user/src/example "$FIXTURE_SESSION_TS" \
+    api-auth-rollout /home/user/src/example 20 \
     Write /home/user/.claude/plans/api-auth-rollout.md
 
   _write_plan api-auth-cleanup "Remove the old auth API" not-started queued \
@@ -146,7 +149,7 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
 - [ ] Drop the compatibility shim' \
     '[auth, security]'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-cleanup-session.jsonl \
-    api-auth-cleanup /home/user/src/example "$FIXTURE_SESSION_TS" \
+    api-auth-cleanup /home/user/src/example 15 \
     Write /home/user/.claude/plans/api-auth-cleanup.md
 
   _write_plan api-auth-docs "Document the new auth API" not-started unset \
@@ -155,12 +158,11 @@ before flipping the remaining cohort. See the [rollout runbook](docs/auth-rollou
 
 - [ ] Write the migration guide'
   _write_session "$TARGET_DIR/sessions/platform" api-auth-docs-session.jsonl \
-    api-auth-docs /home/user/src/example "$FIXTURE_SESSION_TS" \
+    api-auth-docs /home/user/src/example 12 \
     Write /home/user/.claude/plans/api-auth-docs.md
 
-  _fixture_worked_ts=$(_stamp_days_ago 3 | sed -n '3p')
   _write_session "$TARGET_DIR/sessions/platform" implement-api-auth-cleanup-eager-wolf.jsonl \
-    implement-api-auth-cleanup-eager-wolf /home/user/src/example "$_fixture_worked_ts" \
+    implement-api-auth-cleanup-eager-wolf /home/user/src/example 3 \
     Edit /home/user/.claude/plans/api-auth-cleanup.md
 
   _write_plan billing-invoice-retry "Retry failed invoice charges" unknown unset \

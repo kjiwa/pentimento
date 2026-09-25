@@ -3,14 +3,18 @@
 The first request that carries tools and no tool_result gets a `Write` tool_use
 that creates a plan file; every later request gets a plain `end_turn`. Requests
 are appended to a log for debugging. Usage: fake_anthropic.py PLAN_PATH PORT_FILE
-LOG_FILE. The bound port is written to PORT_FILE once the server listens.
+LOG_FILE. The bound port is written to PORT_FILE once the server listens. The
+server exits when its parent process dies or after IDLE_SECONDS without a request.
 """
 
 from __future__ import annotations
 
 import http.server
 import json
+import os
 import sys
+import threading
+import time
 
 PLAN_BODY = """---
 pentimento:
@@ -26,6 +30,8 @@ pentimento:
 """
 
 MODEL = "claude-sonnet-5"
+IDLE_SECONDS = 120
+POLL_SECONDS = 1
 
 
 def _has_tool_result(messages: list) -> bool:
@@ -109,7 +115,15 @@ def _plain_message(text: str) -> dict:
     }
 
 
-def make_handler(plan_path: str, log_path: str):
+def _exit_when_orphaned_or_idle(last_request: list[float]) -> None:
+    parent = os.getppid()
+    while True:
+        time.sleep(POLL_SECONDS)
+        if os.getppid() != parent or time.monotonic() - last_request[0] > IDLE_SECONDS:
+            os._exit(0)
+
+
+def make_handler(plan_path: str, log_path: str, last_request: list[float]):
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *_args):
             pass
@@ -122,6 +136,7 @@ def make_handler(plan_path: str, log_path: str):
             self.wfile.write(payload)
 
         def do_POST(self):
+            last_request[0] = time.monotonic()
             length = int(self.headers.get("Content-Length", "0"))
             request = json.loads(self.rfile.read(length) or b"{}")
             with open(log_path, "a", encoding="utf-8") as log:
@@ -144,7 +159,11 @@ def make_handler(plan_path: str, log_path: str):
 
 def main() -> None:
     plan_path, port_file, log_path = sys.argv[1:4]
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), make_handler(plan_path, log_path))
+    last_request = [time.monotonic()]
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), make_handler(plan_path, log_path, last_request)
+    )
+    threading.Thread(target=_exit_when_orphaned_or_idle, args=(last_request,), daemon=True).start()
     with open(port_file, "w", encoding="utf-8") as handle:
         handle.write(str(server.server_address[1]))
     server.serve_forever()

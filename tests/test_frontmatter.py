@@ -277,6 +277,22 @@ class RemovingTheLastFieldTests(unittest.TestCase):
         self.assertEqual(frontmatter.serialize(fields, body, extras), "body\n")
 
 
+class CleanValueTests(unittest.TestCase):
+    def test_decodes_yaml_quoting_and_comments(self):
+        cases = {
+            "plain # note": "plain",
+            "'It''s ok'": "It's ok",
+            '"Say \\"hi\\""': 'Say "hi"',
+            '"tab\\there"': "tab\there",
+            '"quoted" # note': "quoted",
+            '"unterminated': "unterminated",
+            "": "",
+        }
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(frontmatter.clean_value(raw), expected)
+
+
 class IsValidValueTests(unittest.TestCase):
     def test_plain_value_is_valid(self):
         self.assertTrue(frontmatter.is_valid_value("pentimento"))
@@ -319,6 +335,16 @@ class RoundTripPropertyTests(unittest.TestCase):
 
     def test_top_level_blank_line(self):
         self.assert_round_trips("---\n\npentimento:\n  status: complete\n---\nbody\n")
+
+    def test_flush_left_sequence_items_stay_in_their_block(self):
+        self.assert_round_trips(
+            "---\ntodos:\n- id: a\n  status: pending\n- id: b\n  status: completed\n"
+            "other:\n  key: value\npentimento:\n  status: partial\n---\nbody\n"
+        )
+
+    def test_flush_left_items_are_not_top_level_fields(self):
+        fields, _, _ = frontmatter.parse("---\ntodos:\n- id: a\n- id: b\n---\nbody\n")
+        self.assertEqual(fields, {})
 
     def test_crlf_line_endings(self):
         self.assert_round_trips(

@@ -16,16 +16,6 @@
 # steps are skipped and the script only tags and releases.
 set -eu
 
-REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-PYPROJECT="$REPO_ROOT/pyproject.toml"
-CHANGELOG="$REPO_ROOT/CHANGELOG.md"
-
-DRY_RUN=0
-VERSION=""
-TAG=""
-BRANCH=""
-PR_URL=""
-
 _run() {
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "+ $*"
@@ -35,10 +25,12 @@ _run() {
 }
 
 _parse_args() {
+  _parse_args_dry_run=0
+  _parse_args_version=""
   while [ $# -gt 0 ]; do
     case $1 in
       --dry-run)
-        DRY_RUN=1
+        _parse_args_dry_run=1
         shift
         ;;
       -*)
@@ -46,29 +38,34 @@ _parse_args() {
         exit 2
         ;;
       *)
-        if [ -n "$VERSION" ]; then
+        if [ -n "$_parse_args_version" ]; then
           echo "release: unexpected argument '$1'" >&2
           exit 2
         fi
-        VERSION=$1
+        _parse_args_version=$1
         shift
         ;;
     esac
   done
 
-  if [ -z "$VERSION" ]; then
+  if [ -z "$_parse_args_version" ]; then
     echo "usage: sh scripts/release.sh [--dry-run] <version>" >&2
     exit 2
   fi
-  if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "release: version '$VERSION' does not match X.Y.Z" >&2
+  if ! echo "$_parse_args_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "release: version '$_parse_args_version' does not match X.Y.Z" >&2
     exit 1
   fi
+  DRY_RUN=$_parse_args_dry_run
+  VERSION=$_parse_args_version
   TAG="v$VERSION"
   BRANCH="release-$VERSION"
+  readonly DRY_RUN VERSION TAG BRANCH
 }
 
 _check_preconditions() {
+  sh "$REPO_ROOT/scripts/check-release.sh" --changelog "$TAG"
+
   _check_preconditions_branch=$(git -C "$REPO_ROOT" branch --show-current)
   if [ "$_check_preconditions_branch" != "main" ]; then
     echo "release: must be on main, not '$_check_preconditions_branch'" >&2
@@ -125,10 +122,14 @@ _run_release_check() {
   if [ "$DRY_RUN" -eq 1 ]; then
     _run_release_check_tmp=$(mktemp "${TMPDIR:-/tmp}/release-pyproject.XXXXXX")
     cp "$PYPROJECT" "$_run_release_check_tmp"
+    trap 'cat "$_run_release_check_tmp" >"$PYPROJECT"; rm -f "$_run_release_check_tmp"' EXIT
+    trap 'exit 130' INT TERM
     sed "s/^version = \".*\"\$/version = \"$VERSION\"/" "$_run_release_check_tmp" >"$PYPROJECT"
     _run_release_check_status=0
     sh "$REPO_ROOT/scripts/check-release.sh" "$TAG" "$TAG" || _run_release_check_status=$?
-    mv "$_run_release_check_tmp" "$PYPROJECT"
+    cat "$_run_release_check_tmp" >"$PYPROJECT"
+    rm -f "$_run_release_check_tmp"
+    trap - EXIT INT TERM
     return "$_run_release_check_status"
   fi
   sh "$REPO_ROOT/scripts/check-release.sh" "$TAG" "$TAG"
@@ -165,53 +166,56 @@ _commit_and_push_branch() {
 
 _open_pr() {
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "+ gh pr create --base main --head $BRANCH --title 'Release $VERSION'"
-    PR_URL="<pr-url>"
+    echo "+ gh pr create --base main --head $BRANCH --title 'Release $VERSION'" >&2
+    echo "<pr-url>"
     return
   fi
-  PR_URL=$(gh pr create --base main --head "$BRANCH" --title "Release $VERSION" \
-    --body "Version bump for $VERSION; scripts/release.sh tags and publishes after merge.")
+  gh pr create --base main --head "$BRANCH" --title "Release $VERSION" \
+    --body "Version bump for $VERSION; scripts/release.sh tags and publishes after merge."
 }
 
 _await_checks() {
+  _await_checks_pr_url=$1
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "+ gh pr checks $PR_URL --watch --fail-fast"
+    echo "+ gh pr checks $_await_checks_pr_url --watch --fail-fast"
     return
   fi
   # A new PR reports no checks for a few seconds, and --watch on none exits
   # at once, so wait for the first check to register.
   _await_checks_tries=0
-  while [ "$(gh pr checks "$PR_URL" --json name --jq length 2>/dev/null || echo 0)" -eq 0 ]; do
+  while [ "$(gh pr checks "$_await_checks_pr_url" --json name --jq length 2>/dev/null || echo 0)" -eq 0 ]; do
     _await_checks_tries=$((_await_checks_tries + 1))
     if [ "$_await_checks_tries" -gt 24 ]; then
-      echo "release: no checks reported on $PR_URL after 2 minutes" >&2
+      echo "release: no checks reported on $_await_checks_pr_url after 2 minutes" >&2
       exit 1
     fi
     sleep 5
   done
   # All checks, not only the required ones: the ruleset's CodeQL rule also
   # blocks the merge until analysis finishes.
-  gh pr checks "$PR_URL" --watch --fail-fast
+  gh pr checks "$_await_checks_pr_url" --watch --fail-fast
 }
 
 _merge_pr() {
+  _merge_pr_pr_url=$1
   # --match-head-commit refuses to merge if the branch moved during the wait.
   # No --admin: bypassing the ruleset is what leaves the commit unsigned.
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "+ gh pr merge $PR_URL --squash --delete-branch --match-head-commit <branch-head>"
+    echo "+ gh pr merge $_merge_pr_pr_url --squash --delete-branch --match-head-commit <branch-head>"
     return
   fi
-  gh pr merge "$PR_URL" --squash --delete-branch \
+  gh pr merge "$_merge_pr_pr_url" --squash --delete-branch \
     --match-head-commit "$(git -C "$REPO_ROOT" rev-parse "$BRANCH")"
 }
 
 _sync_main() {
+  _sync_main_pr_url=$1
   _run git -C "$REPO_ROOT" pull --ff-only origin main
   if [ "$DRY_RUN" -eq 1 ]; then
     return
   fi
   # Tags go on HEAD, so HEAD must be the merge commit, not a later push.
-  _sync_main_merged=$(gh pr view "$PR_URL" --json mergeCommit --jq .mergeCommit.oid)
+  _sync_main_merged=$(gh pr view "$_sync_main_pr_url" --json mergeCommit --jq .mergeCommit.oid)
   if [ "$(git -C "$REPO_ROOT" rev-parse HEAD)" != "$_sync_main_merged" ]; then
     echo "release: main moved past the release commit $_sync_main_merged" >&2
     exit 1
@@ -225,10 +229,10 @@ _land_bump() {
   _run_release_check
   _run_tests
   _commit_and_push_branch
-  _open_pr
-  _await_checks
-  _merge_pr
-  _sync_main
+  _land_bump_pr_url=$(_open_pr)
+  _await_checks "$_land_bump_pr_url"
+  _merge_pr "$_land_bump_pr_url"
+  _sync_main "$_land_bump_pr_url"
 }
 
 _tag_and_push() {
@@ -254,6 +258,11 @@ _create_github_release() {
 }
 
 main() {
+  REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+  readonly REPO_ROOT
+  readonly PYPROJECT="$REPO_ROOT/pyproject.toml"
+  readonly CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+
   _parse_args "$@"
   _check_preconditions
   if _is_bumped; then

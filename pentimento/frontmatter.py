@@ -9,6 +9,7 @@ as a delimiter would silently corrupt those files.
 from __future__ import annotations
 
 import dataclasses
+import json
 import re
 
 DELIMITER = "---"
@@ -63,7 +64,7 @@ def is_valid_value(value: str) -> bool:
 
 def _is_unchanged(key: str, value: str, extras: Extras | None) -> bool:
     raw = extras.raw_values.get(key) if extras is not None else None
-    return raw is not None and _clean_value(raw) == value
+    return raw is not None and clean_value(raw) == value
 
 
 def _emit_value(key: str, value: str, extras: Extras | None) -> str:
@@ -118,19 +119,20 @@ def _find_closing_delimiter(lines: list[str]) -> int | None:
 _COMMENT = re.compile(r"(?:^|\s)#")
 
 
-def _clean_value(raw: str) -> str:
+_DOUBLE_QUOTED = re.compile(r'"(?:[^"\\]|\\.)*"')
+_SINGLE_QUOTED = re.compile(r"'(?:[^']|'')*'")
+
+
+def clean_value(raw: str) -> str:
     value = raw.strip()
-    if not value:
-        return ""
-    if value.startswith('"'):
-        end = value.find('"', 1)
-        if end != -1:
-            return value[1:end]
-        return value[1:].strip()
-    if value.startswith("'"):
-        end = value.find("'", 1)
-        if end != -1:
-            return value[1:end]
+    if match := _DOUBLE_QUOTED.match(value):
+        try:
+            return json.loads(match.group())
+        except ValueError:
+            return match.group()[1:-1]
+    if match := _SINGLE_QUOTED.match(value):
+        return match.group()[1:-1].replace("''", "'")
+    if value[:1] in ("'", '"'):
         return value[1:].strip()
     return _COMMENT.split(value, maxsplit=1)[0].strip()
 
@@ -159,14 +161,18 @@ def _parse_block(
             if not in_namespace:
                 extras.append(line)
             continue
+        indented = line[:1] in (" ", "\t")
+        if not indented and line.startswith("- "):
+            in_namespace = False
+            extras.append(line)
+            continue
         if ":" not in line:
             if not in_namespace:
                 extras.append(line)
             continue
-        indented = line[:1] in (" ", "\t")
         key, _, raw_value = line.partition(":")
         key = key.strip()
-        value = _clean_value(raw_value)
+        value = clean_value(raw_value)
         if not indented and key == NAMESPACE and not value:
             in_namespace = True
             if not marker_inserted:

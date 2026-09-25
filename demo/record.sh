@@ -21,17 +21,20 @@ _gif_state() {
 
 main() {
   SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+  readonly SCRIPT_DIR
   REPO_ROOT=$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)
-  VHS=${VHS:-vhs}
-  GIF="$REPO_ROOT/demo/pentimento.gif"
+  readonly REPO_ROOT
+  readonly VHS="${VHS:-vhs}"
+  readonly GIF="$REPO_ROOT/demo/pentimento.gif"
 
   DEMO_HOME=$(mktemp -d "${TMPDIR:-/tmp}/pentimento-record.XXXXXX")
-  trap 'rm -rf "$DEMO_HOME"' EXIT
+  readonly DEMO_HOME
+  trap 'rm -rf "${DEMO_HOME:-}"' EXIT
   export DEMO_HOME
 
   sh "$SCRIPT_DIR/fixture.sh" "$DEMO_HOME/.claude/plans"
 
-  _before=$(_gif_state "$GIF")
+  _main_before=$(_gif_state "$GIF")
 
   (
     cd "$REPO_ROOT" && \
@@ -41,9 +44,9 @@ main() {
       "$VHS" "$SCRIPT_DIR/pentimento.tape"
   )
 
-  _after=$(_gif_state "$GIF")
+  _main_after=$(_gif_state "$GIF")
 
-  if [ "$_before" = "$_after" ]; then
+  if [ "$_main_before" = "$_main_after" ]; then
     echo "record.sh: $GIF was not written; vhs 0.12.0 has a regression" >&2
     echo "where a cancelled context suppresses the ffmpeg render step." >&2
     echo "Use a working vhs (e.g. 0.11.0) via VHS=/path/to/vhs." >&2

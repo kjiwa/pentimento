@@ -384,6 +384,32 @@ class RunTests(unittest.TestCase):
         plan = FakePlan(id="stale", status="unknown", body="## Progress\n\n- [x] done\n")
         self.assertEqual([f.code for f in check.run([plan])], ["status-behind-progress"])
 
+    def test_status_behind_progress_names_the_source(self):
+        _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    status: completed\n---\n")
+        cases = {
+            "progress": ("## Progress\n\n- [x] done\n", None, "'## Progress'"),
+            "todos": ("# Body\n", extras, "todos"),
+            "checkboxes": ("- [x] done\n", None, "body checkboxes"),
+        }
+        for name, (body, plan_extras, label) in cases.items():
+            with self.subTest(name=name):
+                plan = FakePlan(id="p", status="not-started", body=body, extras=plan_extras)
+                self.assertIn(f"but {label} derives 'complete'", check.run([plan])[0].message)
+                pinned = dataclasses.replace(plan, pinned=True)
+                self.assertIn(f"but {label} derives 'complete'", check.run([pinned])[0].message)
+
+    def test_underivable_status_mentions_todos_when_the_plan_has_them(self):
+        _, _, extras = frontmatter.parse("---\ntodos:\n  - id: a\n    status: cancelled\n---\n")
+        plan = FakePlan(id="t", status="unknown", body="# Body\n", extras=extras)
+        self.assertIn("todos", check.run([plan])[0].message)
+        bare = FakePlan(id="t", status="unknown", body="# Body\n")
+        self.assertNotIn("todos", check.run([bare])[0].message)
+
+    def test_status_behind_history_hint_is_punctuated(self):
+        self.assertIn(
+            "pentimento history <id>, then pentimento set", check.HINTS["status-behind-history"]
+        )
+
     def test_status_behind_progress_is_silent_when_in_sync(self):
         plan = FakePlan(id="synced", status="complete", body="## Progress\n\n- [x] done\n")
         self.assertEqual(check.run([plan]), [])

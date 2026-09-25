@@ -84,6 +84,14 @@ class CursorTodosTests(unittest.TestCase):
         _, body, extras = frontmatter.parse(text)
         self.assertEqual(status.derive_status(body, extras), "partial")
 
+    def test_flush_left_items_starting_with_status_derive_from_todos(self):
+        text = (
+            "---\npentimento:\n  status: unknown\ntodos:\n"
+            "- status: completed\n  id: a\n- status: pending\n  id: b\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
     def test_blank_line_inside_the_todos_block_does_not_end_it(self):
         text = (
             "---\ntodos:\n  - id: a\n    status: completed\n\n"
@@ -100,9 +108,31 @@ class CursorTodosTests(unittest.TestCase):
         _, extras = _todos("completed")
         self.assertEqual(status.derive_status("## Progress\n- [ ] a\n", extras), "not-started")
 
-    def test_body_checkboxes_win_over_todos(self):
+    def test_todos_win_over_body_checkboxes(self):
         _, extras = _todos("completed")
-        self.assertEqual(status.derive_status("- [ ] a\n", extras), "not-started")
+        self.assertEqual(status.derive_status("- [ ] a\n", extras), "complete")
+
+    def test_body_checkboxes_apply_without_todos(self):
+        self.assertEqual(status.derive_status("- [ ] a\n", None), "not-started")
+
+    def test_quoted_and_commented_values_decode(self):
+        text = (
+            "---\ntodos:\n"
+            '  - id: a\n    status: "completed"\n'
+            "  - id: b\n    status: 'pending'\n"
+            "  - id: c\n    status: completed # done\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
+    def test_derive_names_the_source(self):
+        _, extras = _todos("completed")
+        self.assertEqual(
+            status.derive("## Progress\n- [ ] a\n", extras), ("not-started", status.PROGRESS)
+        )
+        self.assertEqual(status.derive("- [ ] a\n", extras), ("complete", status.TODOS))
+        self.assertEqual(status.derive("- [x] a\n", None), ("complete", status.CHECKBOXES))
+        self.assertEqual(status.derive("prose\n", None), ("unknown", None))
 
 
 if __name__ == "__main__":

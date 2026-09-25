@@ -153,7 +153,7 @@ class BackfillTests(unittest.TestCase):
         }
         plans = corpus.load_all(self.directory, sessions=session_sessions)
         later = corpus.by_id(plans, "later-plan")
-        fields = backfill.derive_fields(later, plans, session_sessions)
+        fields = backfill.derive_fields(later, plans, session_sessions, {})
 
         self.assertEqual(fields["project"], "real-project")
         self.assertEqual(fields["parent"], "earlier-plan")

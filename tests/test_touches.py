@@ -38,6 +38,23 @@ def _tool_use_record(*, slug, cwd, timestamp, tool, input_):
     }
 
 
+class ScannedTextTests(unittest.TestCase):
+    def test_every_path_key_is_scanned(self):
+        for key in ("file_path", "notebook_path", "path"):
+            with self.subTest(key=key):
+                self.assertEqual(touches._scanned_text("Edit", {key: "/p/x.md"}), "/p/x.md")
+
+    def test_non_path_keys_are_ignored(self):
+        self.assertEqual(touches._scanned_text("Edit", {"command": "/plans/x.md"}), "")
+
+    def test_a_non_dict_input_is_scanned_whole(self):
+        self.assertEqual(touches._scanned_text("Edit", "/plans/x.md"), '"/plans/x.md"')
+
+    def test_a_task_input_is_scanned_whole(self):
+        text = touches._scanned_text("Task", {"prompt": "see /plans/x.md"})
+        self.assertIn("/plans/x.md", text)
+
+
 class LoadTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -70,9 +87,6 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(touch.session, "some-plan-eager-bird")
         self.assertEqual(touch.tool, "Write")
         self.assertEqual(touch.at, "2026-09-01T00:00:00.000Z")
-        self.assertEqual(
-            touches.authored(result["some-plan-eager-bird"], "some-plan-eager-bird"), [touch]
-        )
         self.assertEqual(touches.worked(result["some-plan-eager-bird"], "some-plan-eager-bird"), [])
 
     def test_edit_from_a_later_differently_slugged_session_is_worked(self):
@@ -243,6 +257,12 @@ class LoadTests(unittest.TestCase):
         result = touches.load(self.directory)
         self.assertEqual(result, {})
 
+    def test_a_dangling_transcript_is_skipped(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        (project_dir / "gone.jsonl").symlink_to(self.directory / "absent.jsonl")
+        self.assertEqual(touches.load(self.directory), {})
+
 
 class TargetPathTests(unittest.TestCase):
     PLAN = "/home/user/.claude/plans/other-plan.md"
@@ -316,17 +336,23 @@ class AuthorTests(unittest.TestCase):
         ]
         self.assertEqual(touches.author(plan_touches, "the-plan"), "the-plan")
 
+    def test_a_session_that_read_the_plan_before_writing_it_is_not_the_author(self):
+        plan_touches = [
+            self._touch("reader", "Read", "2026-09-01T00:00:00.000Z"),
+            self._touch("reader", "Write", "2026-09-01T00:01:00.000Z"),
+        ]
+        self.assertEqual(touches.author(plan_touches, "the-plan"), "the-plan")
+
     def test_author_is_the_plan_id_without_a_write_touch(self):
         plan_touches = [self._touch("other", "Read", "2026-09-01T00:00:00.000Z")]
         self.assertEqual(touches.author(plan_touches, "the-plan"), "the-plan")
         self.assertEqual(touches.author([], "the-plan"), "the-plan")
 
-    def test_authored_and_worked_treat_the_writing_session_as_author(self):
+    def test_worked_treats_the_writing_session_as_author(self):
         write = self._touch("borrowed-slug", "Write", "2026-09-01T00:00:00.000Z")
         edit = self._touch("borrowed-slug", "Edit", "2026-09-01T01:00:00.000Z")
         later = self._touch("later-slug", "Edit", "2026-09-02T00:00:00.000Z")
         plan_touches = [write, edit, later]
-        self.assertEqual(touches.authored(plan_touches, "the-plan"), [write, edit])
         self.assertEqual(touches.worked(plan_touches, "the-plan"), [later])
 
 

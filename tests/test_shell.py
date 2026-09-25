@@ -1,5 +1,6 @@
 """Every shell file in the repo parses under its own shell, and `.sh` and
-`.bash` files pass shellcheck. A tool that is not installed skips its test.
+`.bash` files pass shellcheck. A tool that is not installed skips its test, as
+does a source tree that is not a git work tree.
 """
 
 from __future__ import annotations
@@ -12,9 +13,19 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).parent.parent
 
 
+def _in_work_tree() -> bool:
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def _files(*suffixes: str) -> list[str]:
     output = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        ["git", "ls-files"],
         cwd=_REPO_ROOT,
         check=True,
         capture_output=True,
@@ -34,6 +45,7 @@ def _failures(command: list[str], paths: list[str]) -> list[str]:
     return failures
 
 
+@unittest.skipUnless(_in_work_tree(), "not inside a git work tree")
 class ShellFileTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("shellcheck"), "shellcheck is not installed")
     def test_sh_and_bash_files_pass_shellcheck(self):

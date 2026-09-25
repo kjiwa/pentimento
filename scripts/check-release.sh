@@ -4,11 +4,11 @@
 # cannot drift the way v0.1.7 did.
 #
 # Usage: sh scripts/check-release.sh <tag> <title>
+#        sh scripts/check-release.sh --changelog <tag>
+#
+# --changelog checks only the CHANGELOG heading, for use before the version
+# bump has landed in pyproject.toml.
 set -eu
-
-REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-PYPROJECT="$REPO_ROOT/pyproject.toml"
-CHANGELOG="$REPO_ROOT/CHANGELOG.md"
 
 _check_tag_shape() {
   _check_tag_shape_tag=$1
@@ -50,8 +50,18 @@ _check_changelog_heading() {
 }
 
 main() {
+  REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+  readonly REPO_ROOT
+  readonly PYPROJECT="$REPO_ROOT/pyproject.toml"
+  readonly CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+
+  if [ $# -eq 2 ] && [ "$1" = "--changelog" ]; then
+    _check_changelog_heading "$2"
+    exit $?
+  fi
   if [ $# -ne 2 ]; then
     echo "usage: sh scripts/check-release.sh <tag> <title>" >&2
+    echo "       sh scripts/check-release.sh --changelog <tag>" >&2
     exit 2
   fi
 

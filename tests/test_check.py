@@ -228,7 +228,9 @@ class RunTests(unittest.TestCase):
         self.assertNotIn("underivable-status", codes)
 
     def test_underivable_status_is_silent_for_a_cursor_plan_with_todos(self):
-        text = (Path(__file__).parent / "fixtures" / "cursor" / "quiet_flag_83cddd33.plan.md").read_text()
+        text = (
+            Path(__file__).parent / "fixtures" / "cursor" / "quiet_flag_83cddd33.plan.md"
+        ).read_text()
         _, body, extras = frontmatter.parse(text)
         plan = FakePlan(id="cursor", status="unknown", body=body, extras=extras, source="cursor")
         codes = [f.code for f in check.run([plan])]

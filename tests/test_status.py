@@ -42,7 +42,9 @@ def _cursor(name):
 
 
 def _todos(*statuses):
-    items = "".join(f"  - id: t{i}\n    content: c\n    status: {v}\n" for i, v in enumerate(statuses))
+    items = "".join(
+        f"  - id: t{i}\n    content: c\n    status: {v}\n" for i, v in enumerate(statuses)
+    )
     text = f"---\nname: N\ntodos:\n{items}pentimento:\n  status: unknown\n---\n# Body\n"
     _, body, extras = frontmatter.parse(text)
     return body, extras
@@ -61,7 +63,9 @@ class CursorTodosTests(unittest.TestCase):
                 self.assertEqual(status.derive_status(*_cursor(name)), "not-started")
 
     def test_mixed_is_partial(self):
-        self.assertEqual(status.derive_status(*_cursor("add_dry-run_flag_c900747b.plan.md")), "partial")
+        self.assertEqual(
+            status.derive_status(*_cursor("add_dry-run_flag_c900747b.plan.md")), "partial"
+        )
 
     def test_in_progress_alone_is_partial(self):
         self.assertEqual(status.derive_status(*_todos("in_progress")), "partial")

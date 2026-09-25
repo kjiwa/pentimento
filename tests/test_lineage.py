@@ -29,9 +29,7 @@ class DeriveParentTests(unittest.TestCase):
     def test_cursor_follow_up_fixture_resolves_its_snake_case_parent(self):
         parent_id = "skip_list_range_query_d3d1b015"
         child_id = "range_vs_submap_benchmark_4a0ba26d"
-        _, child_body, _ = frontmatter.parse(
-            (CURSOR_FIXTURES / f"{child_id}.plan.md").read_text()
-        )
+        _, child_body, _ = frontmatter.parse((CURSOR_FIXTURES / f"{child_id}.plan.md").read_text())
         parent = FakePlan(
             id=parent_id, body="# Parent\n", started="2026-09-01T00:00:00Z", source="cursor"
         )

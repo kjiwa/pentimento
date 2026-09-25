@@ -32,6 +32,19 @@ jobs:
       - run: sh demo/capture.sh
       - run: git diff --exit-code README.md
 
+  claude-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      - run: pip install -e .
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/claude" @anthropic-ai/claude-code
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: sh tests/e2e/claude.sh
+
   release-check:
     runs-on: ubuntu-latest
     steps:

@@ -8,7 +8,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).parent.parent
 CURSOR_HOOKS = ROOT / "integrations" / "cursor" / "hooks.json"
 STOP_PAYLOAD = ROOT / "tests" / "fixtures" / "cursor" / "stop-completed.json"
@@ -30,14 +29,22 @@ class CursorHooksTests(unittest.TestCase):
 
     def test_command_prints_only_json_and_exits_zero(self):
         with tempfile.TemporaryDirectory() as tmp:
-            env = dict(os.environ, PYTHONPATH=str(ROOT),
-                       AGENT_PLANS_DIR=tmp, CURSOR_PLANS_DIR=tmp,
-                       AGENT_SESSIONS_DIR=tmp)
-            command = self.command.replace(
-                "pentimento", f"{sys.executable} -m pentimento", 1)
+            env = dict(
+                os.environ,
+                PYTHONPATH=str(ROOT),
+                AGENT_PLANS_DIR=tmp,
+                CURSOR_PLANS_DIR=tmp,
+                AGENT_SESSIONS_DIR=tmp,
+            )
+            command = self.command.replace("pentimento", f"{sys.executable} -m pentimento", 1)
             result = subprocess.run(
-                ["sh", "-c", command], input=STOP_PAYLOAD.read_text(),
-                capture_output=True, text=True, env=env, cwd=ROOT)
+                ["sh", "-c", command],
+                input=STOP_PAYLOAD.read_text(),
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=ROOT,
+            )
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "{}\n")
 

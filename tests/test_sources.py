@@ -7,7 +7,6 @@ from pathlib import Path
 
 from pentimento import sources
 
-
 CURSOR_FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
 
 

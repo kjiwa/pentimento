@@ -8,7 +8,6 @@ from pathlib import Path
 
 from pentimento import hook
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 

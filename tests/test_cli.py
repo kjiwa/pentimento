@@ -2510,9 +2510,14 @@ class SetNoTagTests(unittest.TestCase):
 class EmptyCorpusHintTests(unittest.TestCase):
     def test_the_hint_names_both_directory_variables(self):
         with tempfile.TemporaryDirectory() as tmp:
-            os.environ["AGENT_PLANS_DIR"] = str(Path(tmp) / "none")
-            self.addCleanup(os.environ.pop, "AGENT_PLANS_DIR", None)
-            _, _, err = _main(["list"])
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AGENT_PLANS_DIR": str(Path(tmp) / "none"),
+                    "CURSOR_PLANS_DIR": str(Path(tmp) / "none-cursor"),
+                },
+            ):
+                _, _, err = _main(["list"])
         self.assertIn("AGENT_PLANS_DIR", err)
         self.assertIn("CURSOR_PLANS_DIR", err)
 

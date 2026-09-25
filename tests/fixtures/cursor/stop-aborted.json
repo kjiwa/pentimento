@@ -1,0 +1,26 @@
+{
+  "conversation_id": "917b730a-7d82-4127-bef9-2b38cf2d45fb",
+  "generation_id": "2041e0aa-f600-45a2-b18d-79504ce30b9e",
+  "model": "cursor-grok-4.6-medium",
+  "model_id": "grok-4.6",
+  "model_params": [
+    {
+      "id": "effort",
+      "value": "medium"
+    },
+    {
+      "id": "fast",
+      "value": "false"
+    }
+  ],
+  "status": "aborted",
+  "loop_count": 0,
+  "session_id": "917b730a-7d82-4127-bef9-2b38cf2d45fb",
+  "hook_event_name": "stop",
+  "cursor_version": "3.22.7",
+  "workspace_roots": [
+    "/home/user/src/github/kjiwa/amcrest-downloader"
+  ],
+  "user_email": "user@example.com",
+  "transcript_path": "/home/user/.cursor/projects/home-user-src-github-kjiwa-amcrest-downloader/agent-transcripts/917b730a-7d82-4127-bef9-2b38cf2d45fb/917b730a-7d82-4127-bef9-2b38cf2d45fb.jsonl"
+}

@@ -9,6 +9,13 @@ from pathlib import Path
 from pentimento import hook
 
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _fixture(harness: str, name: str) -> str:
+    return (FIXTURES / harness / name).read_text()
+
+
 def _restore_env(key, previous):
     if previous is None:
         os.environ.pop(key, None)
@@ -89,6 +96,18 @@ class TouchedPlanPathTests(unittest.TestCase):
 
         path = cursor_dir / "refactor-auth.plan.md"
         self.assertEqual(hook.touched_plan_path(self._payload("Write", str(path))), path)
+
+    def test_claude_post_tool_use_write_fixture_returns_path(self):
+        plans_dir = Path("/home/user/.claude/plans")
+        os.environ["AGENT_PLANS_DIR"] = str(plans_dir)
+        result = hook.touched_plan_path(_fixture("claude", "post-tool-use-write.json"))
+        self.assertEqual(result, plans_dir / "what-do-you-think-cozy-twilight.md")
+
+    def test_cursor_payloads_name_no_plan_file(self):
+        os.environ["CURSOR_PLANS_DIR"] = "/home/user/.cursor/plans"
+        for name in sorted(p.name for p in (FIXTURES / "cursor").glob("*.json")):
+            with self.subTest(name):
+                self.assertIsNone(hook.touched_plan_path(_fixture("cursor", name)))
 
     def test_empty_string_is_none(self):
         self.assertIsNone(hook.touched_plan_path(""))

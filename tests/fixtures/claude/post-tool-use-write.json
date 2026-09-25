@@ -1,0 +1,21 @@
+{
+  "session_id": "d9b43701-fbb0-4ab1-90fc-604c6143a58a",
+  "transcript_path": "/home/user/.claude/projects/-home-user-src-github-kjiwa-pentimento/d9b43701-fbb0-4ab1-90fc-604c6143a58a.jsonl",
+  "cwd": "/home/user/src/github/kjiwa/pentimento",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "/home/user/.claude/plans/what-do-you-think-cozy-twilight.md",
+    "content": "---\npentimento:\n  status: not-started\n  intent: unset\n  created: 2026-09-14\n---\n\n# Give the pentimento CLI real help text\n\n## Progress\n\n- [ ] 1. Parser: descriptions, epilogs, argument groups, metavar fixes\n"
+  },
+  "tool_response": {
+    "type": "create",
+    "filePath": "/home/user/.claude/plans/what-do-you-think-cozy-twilight.md",
+    "content": "---\npentimento:\n  status: not-started\n  intent: unset\n  created: 2026-09-14\n---\n\n# Give the pentimento CLI real help text\n\n## Progress\n\n- [ ] 1. Parser: descriptions, epilogs, argument groups, metavar fixes\n",
+    "structuredPatch": [],
+    "originalFile": null,
+    "userModified": false
+  },
+  "tool_use_id": "toolu_01G77RwFByyMkKhJziNZMvWT"
+}

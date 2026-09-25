@@ -1,10 +1,10 @@
 """Render a plan's session-touch history: who touched it, and when.
 
-Groups the `touches.Touch` list for a single plan by session. A session
-that wrote the plan (`touches.author`) authored it; any other session that later
-edited or delegated work on it worked it, and one that only read it is `read`.
-Absence of any group is
-never rendered as evidence the plan wasn't worked -- see `touches.py`.
+Groups the `touches.Touch` list for a single plan by session. The session
+`touches.author` names is `authored`; any other session that later edited or
+delegated work on it worked it, and one that only read it is `read`.
+Absence of any group is never rendered as evidence the plan wasn't worked --
+see `touches.py`.
 """
 
 from __future__ import annotations

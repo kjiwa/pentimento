@@ -21,6 +21,17 @@ def _isolate_cache_dir(test, directory):
     test.addCleanup(_restore_env, "XDG_CACHE_HOME", previous)
 
 
+class ReadTests(unittest.TestCase):
+    def test_non_object_json_reads_as_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _isolate_cache_dir(self, tmp)
+            (Path(tmp) / "pentimento").mkdir()
+            for text in ("[]", "3", "null", '"x"'):
+                with self.subTest(text=text):
+                    (Path(tmp) / "pentimento" / "ns.json").write_text(text)
+                    self.assertEqual(cache.read("ns"), {})
+
+
 class KeyTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

@@ -11,7 +11,7 @@ import os
 import tempfile
 from pathlib import Path
 
-VERSION = 3
+VERSION = 4
 
 
 def cache_dir() -> Path:
@@ -31,7 +31,7 @@ def read(namespace: str) -> dict:
     except (OSError, ValueError):
         return {}
 
-    if data.get("version") != VERSION:
+    if not isinstance(data, dict) or data.get("version") != VERSION:
         return {}
 
     entries = data.get("entries")

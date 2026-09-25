@@ -37,6 +37,12 @@ class LoadTests(unittest.TestCase):
         result = sessions.load(self.directory / "does-not-exist")
         self.assertEqual(result, {})
 
+    def test_a_dangling_transcript_is_skipped(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        (project_dir / "gone.jsonl").symlink_to(self.directory / "absent.jsonl")
+        self.assertEqual(sessions.load(self.directory), {})
+
     def test_loads_slug_project_started_and_prompt(self):
         project_dir = self.directory / "-home-user-src-example"
         project_dir.mkdir()

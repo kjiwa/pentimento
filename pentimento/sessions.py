@@ -59,7 +59,10 @@ def load(directory: Path | None = None) -> dict[str, Session]:
 
 def _load_project(project_dir: Path, cached: dict, fresh: dict, by_slug: dict[str, dict]) -> None:
     for log_path in sorted(project_dir.glob("*.jsonl")):
-        cache_key = cache_module.key(log_path)
+        try:
+            cache_key = cache_module.key(log_path)
+        except OSError:
+            continue
         partials = cached.get(cache_key)
         if partials is None:
             partials = _parse_log(log_path)

@@ -22,14 +22,13 @@ def derive_fields(
     target,
     candidates,
     sessions,
-    touches=None,
+    touches,
     *,
     rederive: bool = False,
     recreate: bool = False,
     max_status: str | None = None,
 ) -> dict[str, str]:
     """Fields to backfill for `target`."""
-    touches = touches or {}
     fields = dict(target.fields)
     fields.setdefault("intent", vocabulary.DEFAULT_INTENT)
     fields.setdefault("created", _created_date(target))

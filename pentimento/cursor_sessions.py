@@ -12,17 +12,15 @@ the workspace root is the ancestor of a tool-call path that encodes to it.
 from __future__ import annotations
 
 import collections
-import json
 import os
 import re
 from pathlib import Path
 
 from pentimento import cache as cache_module
-from pentimento import sessions
+from pentimento import frontmatter, sessions
 
+_PATH_KEYS = ("path", "target_directory", "file_path")
 _QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.DOTALL)
-_DOUBLE_QUOTED = re.compile(r'"(?:[^"\\]|\\.)*"')
-_SINGLE_QUOTED = re.compile(r"'(?:[^']|'')*'")
 
 
 def transcripts_directory() -> Path:
@@ -38,7 +36,10 @@ def load(plans, directory: Path | None = None) -> dict[str, sessions.Session]:
     fresh: dict[str, dict] = {}
     by_name: dict[str, list[dict]] = collections.defaultdict(list)
     for log_path in sorted(directory.glob("*/agent-transcripts/*/*.jsonl")):
-        cache_key = cache_module.key(log_path)
+        try:
+            cache_key = cache_module.key(log_path)
+        except OSError:
+            continue
         parsed = cached.get(cache_key)
         if parsed is None:
             parsed = _parse_transcript(log_path)
@@ -47,6 +48,7 @@ def load(plans, directory: Path | None = None) -> dict[str, sessions.Session]:
             by_name[name].append(parsed)
     cache_module.write("cursor_sessions", fresh)
 
+    plans = [p for p in plans if p.source == "cursor"]
     claimed = collections.Counter(_plan_name(p) for p in plans)
     return {
         plan.id: sessions.Session(
@@ -62,17 +64,8 @@ def load(plans, directory: Path | None = None) -> dict[str, sessions.Session]:
 
 
 def _plan_name(plan) -> str:
-    """The frontmatter `name` as YAML would read it; block scalars match nothing."""
     line = plan.extras.unknown_lines.get("name", "") if plan.extras else ""
-    value = line.partition(":")[2].strip()
-    if match := _DOUBLE_QUOTED.match(value):
-        try:
-            return json.loads(match.group())
-        except ValueError:
-            return ""
-    if match := _SINGLE_QUOTED.match(value):
-        return match.group()[1:-1].replace("''", "'")
-    return re.split(r"\s+#", value, maxsplit=1)[0]
+    return frontmatter.clean_value(line.partition(":")[2])
 
 
 def _parse_transcript(log_path: Path) -> dict:
@@ -83,7 +76,7 @@ def _parse_transcript(log_path: Path) -> dict:
         if prompt is None and record.get("role") == "user":
             prompt = _query_text(record)
         names.extend(_created_plan_names(record))
-        paths.extend(sessions.home_paths(record))
+        paths.extend(_tool_paths(record))
     return {
         "names": names,
         "prompt": prompt or "",
@@ -91,19 +84,32 @@ def _parse_transcript(log_path: Path) -> dict:
     }
 
 
-def _created_plan_names(record: dict) -> list[str]:
+def _tool_calls(record: dict):
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None
-    if not isinstance(content, list):
-        return []
+    for block in content if isinstance(content, list) else []:
+        if (
+            isinstance(block, dict)
+            and block.get("type") == "tool_use"
+            and isinstance(block.get("input"), dict)
+        ):
+            yield block.get("name"), block["input"]
+
+
+def _created_plan_names(record: dict) -> list[str]:
     return [
-        block["input"]["name"]
-        for block in content
-        if isinstance(block, dict)
-        and block.get("type") == "tool_use"
-        and block.get("name") == "CreatePlan"
-        and isinstance(block.get("input"), dict)
-        and isinstance(block["input"].get("name"), str)
+        tool_input["name"]
+        for name, tool_input in _tool_calls(record)
+        if name == "CreatePlan" and isinstance(tool_input.get("name"), str)
+    ]
+
+
+def _tool_paths(record: dict) -> list[str]:
+    return [
+        tool_input[key]
+        for _, tool_input in _tool_calls(record)
+        for key in _PATH_KEYS
+        if isinstance(tool_input.get(key), str)
     ]
 
 
@@ -118,8 +124,10 @@ def _encode(path: str) -> str:
 
 
 def _workspace_name(slug: str, paths: list[str]) -> str:
-    for path in paths:
-        for ancestor in Path(path).parents:
-            if _encode(str(ancestor)) == slug:
-                return ancestor.name
-    return ""
+    roots = {
+        candidate
+        for path in paths
+        for candidate in (Path(path), *Path(path).parents)
+        if _encode(str(candidate)) == slug
+    }
+    return roots.pop().name if len(roots) == 1 else ""

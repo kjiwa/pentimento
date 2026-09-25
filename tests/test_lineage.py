@@ -287,6 +287,22 @@ class DeriveParentTests(unittest.TestCase):
         self.assertEqual(parent_id, parent.id)
 
 
+class ScanCodenamesTests(unittest.TestCase):
+    IDS = ["implement-the-plan-eager-bird"]
+
+    def test_a_trailing_codename_before_md_is_exact(self):
+        hits = lineage._scan("see plan_eager-bird.md", self.IDS)
+        self.assertEqual(hits, [(9, self.IDS[0], True)])
+
+    def test_a_codename_followed_by_more_token_is_not_exact(self):
+        hits = lineage._scan("see plan_eager-bird_more.md", self.IDS)
+        self.assertEqual(hits, [(9, self.IDS[0], False)])
+
+    def test_a_codename_without_md_is_not_exact(self):
+        hits = lineage._scan("see plan_eager-bird", self.IDS)
+        self.assertEqual(hits, [(9, self.IDS[0], False)])
+
+
 class InCycleTests(unittest.TestCase):
     def test_a_chain_returning_to_the_plan_is_a_cycle(self):
         self.assertTrue(lineage.in_cycle("a", {"a": "b", "b": "c", "c": "a"}))

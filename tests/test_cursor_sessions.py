@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from pentimento import backfill, corpus, cursor_sessions, lineage
+from pentimento import backfill, corpus, cursor_sessions, lineage, sessions
 from pentimento import plan as plan_module
 
 FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
@@ -185,6 +185,110 @@ class MatchTests(_Isolated):
         plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
         self.assertEqual(cursor_sessions.load([plan], self.transcripts), {})
 
+    def test_a_claude_plan_with_the_same_name_gets_no_cursor_session(self):
+        self._transcript("chat-1", "Same")
+        path = self.plans_dir / "same-plan-eager-bird.md"
+        path.write_text("---\nname: Same\n---\n# Plan\n")
+        claude_plan = plan_module.load(path)
+        self.assertEqual(cursor_sessions.load([claude_plan], self.transcripts), {})
+
+    def test_a_claude_plan_does_not_block_a_cursor_plan_of_the_same_name(self):
+        self._transcript("chat-1", "Same")
+        path = self.plans_dir / "same-plan-eager-bird.md"
+        path.write_text("---\nname: Same\n---\n# Plan\n")
+        plans = [plan_module.load(path), _plan(self.plans_dir, "same_aaaaaaaa", "Same")]
+        self.assertEqual(list(cursor_sessions.load(plans, self.transcripts)), ["same_aaaaaaaa"])
+
+    def test_with_cursor_keeps_the_claude_session(self):
+        self._transcript("chat-1", "Same")
+        path = self.plans_dir / "same-plan-eager-bird.md"
+        path.write_text("---\nname: Same\n---\n# Plan\n")
+        claude_plan = plan_module.load(path)
+        claude = sessions.Session(slug=claude_plan.id, project="mine", started="", prompt="p")
+        with mock.patch.object(cursor_sessions, "transcripts_directory", lambda: self.transcripts):
+            merged = corpus.with_cursor([claude_plan], {claude_plan.id: claude})
+        self.assertEqual(merged, {claude_plan.id: claude})
+
+    def test_workspace_root_itself_is_the_project(self):
+        self._transcript(
+            "chat-1", "Plan", slug="home-user-src-example", path="/home/user/src/example"
+        )
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        self.assertEqual(cursor_sessions.load([plan], self.transcripts)[plan.id].project, "example")
+
+    def test_paths_with_spaces_and_non_ascii_are_whole(self):
+        for index, directory in enumerate(("my project", "caf\u00e9")):
+            with self.subTest(directory=directory):
+                root = f"/home/user/src/{directory}"
+                self._transcript(
+                    f"chat-{index}",
+                    f"Plan {index}",
+                    slug=cursor_sessions._encode(root),
+                    path=f"{root}/main.py",
+                )
+                plan = _plan(self.plans_dir, f"plan_{index:08d}", f"Plan {index}")
+                session = cursor_sessions.load([plan], self.transcripts)[plan.id]
+                self.assertEqual(session.project, directory)
+
+    def test_a_slug_tie_between_distinct_ancestors_leaves_project_empty(self):
+        _write_transcript(
+            self.transcripts,
+            "home-user-src-my-app",
+            "chat-1",
+            [
+                _user("go"),
+                _read("/home/user/src/my-app/a.py"),
+                _read("/home/user/src/my app/b.py"),
+                _create_plan("Plan"),
+            ],
+        )
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        self.assertEqual(cursor_sessions.load([plan], self.transcripts)[plan.id].project, "")
+
+    def test_a_dangling_transcript_is_skipped(self):
+        self._transcript("chat-1", "Plan")
+        chat = self.transcripts / "home-user-src-example" / "agent-transcripts" / "chat-2"
+        chat.mkdir(parents=True)
+        (chat / "chat-2.jsonl").symlink_to(self.directory / "absent.jsonl")
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        self.assertIn(plan.id, cursor_sessions.load([plan], self.transcripts))
+
+    def test_a_transcript_is_parsed_once_across_loads(self):
+        self._transcript("chat-1", "Plan")
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        first = cursor_sessions.load([plan], self.transcripts)
+        with mock.patch.object(cursor_sessions, "_parse_transcript") as parse:
+            second = cursor_sessions.load([plan], self.transcripts)
+        parse.assert_not_called()
+        self.assertEqual(second, first)
+
+    def test_malformed_lines_are_skipped(self):
+        directory = self.transcripts / "home-user-src-example" / "agent-transcripts" / "chat-1"
+        directory.mkdir(parents=True)
+        lines = [json.dumps(_user("go")), "{not json", json.dumps(_create_plan("Plan"))]
+        (directory / "chat-1.jsonl").write_text("\n".join(lines) + "\n")
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        self.assertEqual(cursor_sessions.load([plan], self.transcripts)[plan.id].prompt, "go")
+
+    def test_a_non_string_create_plan_name_matches_nothing(self):
+        block = {"type": "tool_use", "name": "CreatePlan", "input": {"name": 7}}
+        record = {"role": "assistant", "message": {"content": [block]}}
+        _write_transcript(
+            self.transcripts, "home-user-src-example", "chat-1", [_user("go"), record]
+        )
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "7")
+        self.assertEqual(cursor_sessions.load([plan], self.transcripts), {})
+
+    def test_a_prompt_without_user_query_tags_is_the_whole_text(self):
+        record = {"role": "user", "message": {"content": [{"type": "text", "text": "plain ask"}]}}
+        _write_transcript(
+            self.transcripts, "home-user-src-example", "chat-1", [record, _create_plan("Plan")]
+        )
+        plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
+        self.assertEqual(
+            cursor_sessions.load([plan], self.transcripts)[plan.id].prompt, "plain ask"
+        )
+
     def test_missing_directory_yields_nothing(self):
         plan = _plan(self.plans_dir, "plan_aaaaaaaa", "Plan")
         self.assertEqual(cursor_sessions.load([plan], self.directory / "absent"), {})
@@ -197,13 +301,19 @@ class MatchTests(_Isolated):
 
 
 class BackfillTests(_Isolated):
+    def _load_plans(self):
+        return [
+            plan_module.load(path, source="cursor")
+            for path in sorted(self.plans_dir.glob("*.plan.md"))
+        ]
+
     def test_backfill_fills_project_for_cursor_plans(self):
         for path in FIXTURES.glob("*.plan.md"):
             shutil.copy(path, self.plans_dir / path.name)
-        plans = corpus.load_all(self.plans_dir, sessions={})
+        plans = self._load_plans()
         sessions = cursor_sessions.load(plans, TRANSCRIPTS)
         backfill.run(plans, sessions)
-        reloaded = {p.id: p.project for p in corpus.load_all(self.plans_dir, sessions={})}
+        reloaded = {p.id: p.project for p in self._load_plans()}
         self.assertEqual(
             reloaded,
             {

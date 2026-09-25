@@ -29,7 +29,7 @@ HINTS = {
     "underived-project": "pentimento backfill",
     "underivable-status": f"add a checklist to '## Progress', or {_SET_STATUS}",
     "status-behind-history": (
-        "tick the plan's '## Progress', or pentimento history <id> "
+        "tick the plan's '## Progress', or pentimento history <id>, "
         "then pentimento set <id> --status <value> (pins)"
     ),
     "status-behind-progress": f"pentimento backfill, or {_SET_STATUS}",
@@ -165,6 +165,16 @@ def _explicit(p):
     return p.pinned or p.status == vocabulary_module.SUPERSEDED
 
 
+def _underivable_message(p):
+    if status_module.progress_section(p.body) is None:
+        message = "no '## Progress' heading and no checkboxes in the body"
+    else:
+        message = "'## Progress' has no checkboxes or recognized phrase"
+    if p.extras is not None and status_module.has_todos(p.extras):
+        message += "; todos have no status derivation"
+    return message
+
+
 def _underivable_status(plans):
     findings = []
     for p in plans:
@@ -172,11 +182,7 @@ def _underivable_status(plans):
             continue
         if status_module.derive_status(p.body, p.extras) != vocabulary_module.UNKNOWN:
             continue
-        if status_module.progress_section(p.body) is None:
-            message = "no '## Progress' heading and no checkboxes in the body"
-        else:
-            message = "'## Progress' has no checkboxes or recognized phrase"
-        findings.append(Finding("underivable-status", p.id, message))
+        findings.append(Finding("underivable-status", p.id, _underivable_message(p)))
     return findings
 
 
@@ -198,9 +204,9 @@ def _status_behind_history(plans, touches):
 
 
 def _behind_progress(p):
-    derived = status_module.derive_status(p.body, p.extras)
+    derived, source = status_module.derive(p.body, p.extras)
     if status_module.rank(derived) > status_module.rank(p.status):
-        return derived
+        return derived, source
     return None
 
 
@@ -209,9 +215,9 @@ def _status_behind_progress(plans):
     for p in plans:
         if _explicit(p):
             continue
-        derived = _behind_progress(p)
-        if derived:
-            message = f"status {p.status!r} but '## Progress' derives {derived!r}"
+        behind = _behind_progress(p)
+        if behind:
+            message = f"status {p.status!r} but {behind[1]} derives {behind[0]!r}"
             findings.append(Finding("status-behind-progress", p.id, message))
     return findings
 
@@ -221,9 +227,9 @@ def _pin_behind_progress(plans):
     for p in plans:
         if not p.pinned or p.status == vocabulary_module.SUPERSEDED:
             continue
-        derived = _behind_progress(p)
-        if derived:
-            message = f"pinned status {p.status!r} but '## Progress' derives {derived!r}"
+        behind = _behind_progress(p)
+        if behind:
+            message = f"pinned status {p.status!r} but {behind[1]} derives {behind[0]!r}"
             findings.append(Finding("pin-behind-progress", p.id, message))
     return findings
 

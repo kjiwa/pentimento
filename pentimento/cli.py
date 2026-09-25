@@ -445,7 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Status, intent, and lineage for Claude Code and Cursor plan files.",
         epilog=(
             "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
-            "CURSOR_PLANS_DIR; session history from AGENT_SESSIONS_DIR (default:\n"
+            "CURSOR_PLANS_DIR; session transcripts from AGENT_SESSIONS_DIR (default:\n"
             "~/.claude/projects) and CURSOR_SESSIONS_DIR (default: ~/.cursor/projects).\n\n"
             "Run `pentimento <command> --help` for a command's flags."
         ),
@@ -623,10 +623,11 @@ def build_parser() -> argparse.ArgumentParser:
         "gap-fill intent/created/project/parent; advance status",
         description=(
             "Gap-fill intent, created, project, and parent for plans missing\n"
-            "them, advance status when '## Progress' is ahead of it, and write\n"
-            "the frontmatter block. To fix one plan, use --only or `pentimento\n"
-            "set`; --rederive recomputes derived fields across the whole corpus\n"
-            "and cannot change a pinned status."
+            "them, advance status when '## Progress', Cursor todos, or body\n"
+            "checkboxes are ahead of it, and write the frontmatter block. To fix\n"
+            "one plan, use --only or `pentimento set`; --rederive recomputes\n"
+            "derived fields across the whole corpus and cannot change a pinned\n"
+            "status."
         ),
         epilog="Examples:\n  pentimento backfill --dry-run",
     )

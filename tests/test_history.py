@@ -30,8 +30,21 @@ class GroupTests(unittest.TestCase):
         self.assertEqual(groups[0].what, "authored")
         self.assertEqual(groups[0].session, "the-plan")
 
-    def test_other_session_is_marked_worked(self):
+    def test_other_session_with_an_edit_is_marked_worked(self):
+        plan_touches = [_touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z")]
+        groups = history.group("the-plan", plan_touches)
+        self.assertEqual(groups[0].what, "worked")
+
+    def test_other_session_with_only_reads_is_marked_read(self):
         plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        groups = history.group("the-plan", plan_touches)
+        self.assertEqual(groups[0].what, "read")
+
+    def test_mixed_read_and_edit_session_is_marked_worked_wherever_the_edit_falls(self):
+        plan_touches = [
+            _touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z"),
+            _touch("implement-it-later", "Edit", "2026-09-05T00:10:00.000Z"),
+        ]
         groups = history.group("the-plan", plan_touches)
         self.assertEqual(groups[0].what, "worked")
 
@@ -57,7 +70,7 @@ class AsRecordsTests(unittest.TestCase):
     def test_one_record_per_session_group(self):
         plan_touches = [
             _touch("the-plan", "Write", "2026-09-01T00:00:00.000Z"),
-            _touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z"),
+            _touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z"),
         ]
         records = history.as_records("the-plan", plan_touches)
         self.assertEqual(len(records), 2)
@@ -77,7 +90,7 @@ class FieldsTests(unittest.TestCase):
         self.assertEqual(history.FIELDS, ("when", "what", "session", "touches"))
 
     def test_tsv_header_agrees_with_the_table_header(self):
-        plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        plan_touches = [_touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z")]
         records = history.as_records("the-plan", plan_touches)
         out = io.StringIO()
         formats.emit(records, "tsv", out, history.FIELDS)
@@ -87,7 +100,7 @@ class FieldsTests(unittest.TestCase):
 
 class RenderTests(unittest.TestCase):
     def test_render_lists_columns_and_sessions(self):
-        plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        plan_touches = [_touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z")]
         rendered = _with_width(
             120, lambda: history.render("the-plan", plan_touches, on_color=False, short_ids={})
         )
@@ -97,7 +110,7 @@ class RenderTests(unittest.TestCase):
         self.assertIn("worked", lines[1])
 
     def test_a_narrow_width_stacks_with_every_field_kept(self):
-        plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
+        plan_touches = [_touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z")]
         rendered = _with_width(
             30, lambda: history.render("the-plan", plan_touches, on_color=False, short_ids={})
         )

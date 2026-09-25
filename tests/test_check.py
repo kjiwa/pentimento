@@ -281,7 +281,7 @@ class RunTests(unittest.TestCase):
                 touches_module.Touch(
                     plan_id="not-started-but-done",
                     session="implement-it-later",
-                    tool="Read",
+                    tool="Edit",
                     at="2026-09-05T00:00:00.000Z",
                     cwd="/home/user/example",
                 )
@@ -294,6 +294,21 @@ class RunTests(unittest.TestCase):
                 for f in findings
             )
         )
+
+    def test_status_behind_history_is_silent_when_a_later_session_only_read_the_plan(self):
+        plan = FakePlan(id="only-read", status="not-started")
+        touches = {
+            "only-read": [
+                touches_module.Touch(
+                    plan_id="only-read",
+                    session="implement-it-later",
+                    tool="Read",
+                    at="2026-09-05T00:00:00.000Z",
+                    cwd="/home/user/example",
+                )
+            ]
+        }
+        self.assertEqual(check.run([plan], touches=touches), [])
 
     def test_status_behind_history_is_silent_without_touches(self):
         plan = FakePlan(id="not-started-but-done", status="not-started")

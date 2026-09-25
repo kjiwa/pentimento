@@ -2,7 +2,8 @@
 
 Groups the `touches.Touch` list for a single plan by session. A session
 whose id equals the plan's own id authored it; any other session that later
-read, edited, or delegated work on it worked it. Absence of any group is
+edited or delegated work on it worked it, and one that only read it is `read`.
+Absence of any group is
 never rendered as evidence the plan wasn't worked -- see `touches.py`.
 """
 
@@ -39,19 +40,26 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
     `plan_touches` is expected already sorted by `at`, as `touches.load`
     returns it, so the first appearance of a session is its earliest touch.
     """
+    worked_sessions = {t.session for t in touches_module.worked(plan_touches, plan_id)}
     groups: dict[str, Group] = {}
-    order: list[str] = []
     for touch in plan_touches:
         existing = groups.get(touch.session)
         if existing is None:
-            what = "authored" if touch.session == plan_id else "worked"
             groups[touch.session] = Group(
-                session=touch.session, what=what, when=touch.at, touches=1
+                session=touch.session,
+                what=_what(touch.session, plan_id, worked_sessions),
+                when=touch.at,
+                touches=1,
             )
-            order.append(touch.session)
         else:
             existing.touches += 1
-    return [groups[session] for session in order]
+    return list(groups.values())
+
+
+def _what(session: str, plan_id: str, worked_sessions: set[str]) -> str:
+    if session == plan_id:
+        return "authored"
+    return "worked" if session in worked_sessions else "read"
 
 
 def as_records(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[dict]:

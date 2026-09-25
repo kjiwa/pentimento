@@ -244,6 +244,40 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class AuthorTests(unittest.TestCase):
+    def _touch(self, session, tool, at):
+        return touches.Touch(
+            plan_id="the-plan", session=session, tool=tool, at=at, cwd="/home/user/example"
+        )
+
+    def test_author_is_the_earliest_write_session_when_no_touch_has_the_plan_id(self):
+        plan_touches = [
+            self._touch("borrowed-slug", "Write", "2026-09-01T00:00:00.000Z"),
+            self._touch("later-slug", "Write", "2026-09-02T00:00:00.000Z"),
+        ]
+        self.assertEqual(touches.author(plan_touches, "the-plan"), "borrowed-slug")
+
+    def test_author_is_the_plan_id_when_a_touch_has_it(self):
+        plan_touches = [
+            self._touch("borrowed-slug", "Write", "2026-09-01T00:00:00.000Z"),
+            self._touch("the-plan", "Edit", "2026-09-02T00:00:00.000Z"),
+        ]
+        self.assertEqual(touches.author(plan_touches, "the-plan"), "the-plan")
+
+    def test_author_is_the_plan_id_without_a_write_touch(self):
+        plan_touches = [self._touch("other", "Read", "2026-09-01T00:00:00.000Z")]
+        self.assertEqual(touches.author(plan_touches, "the-plan"), "the-plan")
+        self.assertEqual(touches.author([], "the-plan"), "the-plan")
+
+    def test_authored_and_worked_treat_the_writing_session_as_author(self):
+        write = self._touch("borrowed-slug", "Write", "2026-09-01T00:00:00.000Z")
+        edit = self._touch("borrowed-slug", "Edit", "2026-09-01T01:00:00.000Z")
+        later = self._touch("later-slug", "Edit", "2026-09-02T00:00:00.000Z")
+        plan_touches = [write, edit, later]
+        self.assertEqual(touches.authored(plan_touches, "the-plan"), [write, edit])
+        self.assertEqual(touches.worked(plan_touches, "the-plan"), [later])
+
+
 class HostileRecordTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

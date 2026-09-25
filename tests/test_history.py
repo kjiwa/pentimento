@@ -30,6 +30,14 @@ class GroupTests(unittest.TestCase):
         self.assertEqual(groups[0].what, "authored")
         self.assertEqual(groups[0].session, "the-plan")
 
+    def test_differently_slugged_writing_session_is_marked_authored(self):
+        plan_touches = [
+            _touch("borrowed-slug", "Write", "2026-09-01T00:00:00.000Z"),
+            _touch("later-slug", "Edit", "2026-09-05T00:00:00.000Z"),
+        ]
+        groups = history.group("the-plan", plan_touches)
+        self.assertEqual([g.what for g in groups], ["authored", "worked"])
+
     def test_other_session_with_an_edit_is_marked_worked(self):
         plan_touches = [_touch("implement-it-later", "Edit", "2026-09-05T00:00:00.000Z")]
         groups = history.group("the-plan", plan_touches)

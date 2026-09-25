@@ -19,7 +19,7 @@ stdout.
 
 Either there's no session transcript for that plan (nothing in
 `AGENT_SESSIONS_DIR`, default `~/.claude/projects`, records that plan's id as a
-session `slug`), it's a Cursor plan — Cursor keeps no session transcripts, so
+session `slug` or shows a session writing the plan file), it's a Cursor plan — Cursor keeps no session transcripts, so
 `project` is never derived for one — or `backfill` hasn't run since the session
 transcript appeared; run `pentimento backfill` (or `check`, which flags this as
 `underived-project`). With the `pentimento hook` `PostToolUse` hook installed
@@ -98,7 +98,7 @@ what `## Progress` derives.
 | `malformed-tag` | A tag doesn't match `^[a-z0-9][a-z0-9._/-]*$`. | `pentimento set <id> --remove-tag <bad> --add-tag <fixed>`. |
 | `underived-project` | The plan has no `project`, but its session transcript supplies one, meaning `backfill` hasn't caught up. | `pentimento backfill`. With the `PostToolUse` hook installed ([docs/integrations.md](integrations.md)) this finding is an anomaly. |
 | `underivable-status` | `status` is `unknown` and `## Progress` derives nothing better; see [`status: unknown`](#status-unknown). | Add a checklist to '## Progress', or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
-| `status-behind-history` | `status` is `not-started` or `unknown`, but a later, differently-slugged session edited, wrote, or delegated work on the plan; sessions that only read it don't count (`pentimento history <id>` lists both). | Tick the plan's '## Progress', or `pentimento history <id>` then `pentimento set <id> --status <value>` (pins). This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
+| `status-behind-history` | `status` is `not-started` or `unknown`, but a later session, other than the one that wrote the plan, edited, wrote, or delegated work on the plan; sessions that only read it don't count (`pentimento history <id>` lists both). | Tick the plan's '## Progress', or `pentimento history <id>` then `pentimento set <id> --status <value>` (pins). This finding never fires the other way, so a plan with no history isn't flagged as unworked. |
 | `status-behind-progress` | `## Progress` checkboxes derive a further-along `status` than the one stored, including a stored `unknown`. | `pentimento backfill`, or `pentimento show <id>`, then `pentimento set <id> --status <value>`. |
 | `pin-behind-progress` | `pinned` is set, but `## Progress` derives a further-along `status` than the pinned one. | `pentimento show <id>`, then `pentimento set <id> --status <value>`, or `pentimento set <id> --unpin` to hand the status back to `backfill`. |
 | `unadopted-reference` | The plan has no `parent`, but a session-prompt or body reference would resolve to one under the same guards `backfill` applies. | `pentimento backfill`, or leave it if the omission was deliberate. `backfill` adopts the reference. |

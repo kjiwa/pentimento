@@ -275,6 +275,25 @@ class RunTests(unittest.TestCase):
             any(f.code == "underived-project" and f.id == "no-project" for f in findings)
         )
 
+    def test_underived_project_fires_for_a_differently_slugged_writing_session(self):
+        plan = FakePlan(id="no-project", project=None)
+        sessions = {"borrowed-slug": FakeSession(project="real-project")}
+        plan_touches = {
+            "no-project": [
+                touches_module.Touch(
+                    plan_id="no-project",
+                    session="borrowed-slug",
+                    tool="Write",
+                    at="2026-09-01T00:00:00.000Z",
+                    cwd="/home/user/example",
+                )
+            ]
+        }
+        findings = check.run([plan], sessions, plan_touches)
+        self.assertTrue(
+            any(f.code == "underived-project" and f.id == "no-project" for f in findings)
+        )
+
     def test_underived_project_is_silent_without_a_session(self):
         plan = FakePlan(id="no-project", project=None)
         self.assertEqual(check.run([plan]), [])

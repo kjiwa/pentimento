@@ -1212,15 +1212,19 @@ def _backfill(
     only=None,
     sessions=None,
     plans=None,
+    touches=None,
     details=None,
 ) -> list[str]:
     if sessions is None:
         sessions = sessions_module.load()
+    if touches is None:
+        touches = touches_module.load()
     if plans is None:
         plans = corpus.load_all(sessions=sessions)
     return backfill_module.run(
         plans,
         sessions,
+        touches,
         dry_run=dry_run,
         rederive=rederive,
         recreate=recreate,

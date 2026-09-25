@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pentimento import backfill, corpus, sessions
+from pentimento import backfill, corpus, sessions, touches
 from pentimento import plan as plan_module
 
 
@@ -95,6 +95,32 @@ class BackfillTests(unittest.TestCase):
             "resume-eager-bird-slow-otter",
         )
         self.assertEqual(child.fields["parent"], "eager-bird")
+
+    def test_project_derives_from_a_differently_slugged_writing_session(self):
+        _write(self.directory, "second-plan", "# Second\n\n## Progress\nPlanning only.\n")
+        session_sessions = {
+            "borrowed-slug": sessions.Session(
+                slug="borrowed-slug",
+                project="real-project",
+                started="2026-09-01T00:00:00.000Z",
+                prompt="",
+            ),
+        }
+        plan_touches = {
+            "second-plan": [
+                touches.Touch(
+                    plan_id="second-plan",
+                    session="borrowed-slug",
+                    tool="Write",
+                    at="2026-09-01T00:00:00.000Z",
+                    cwd="/home/user/real-project",
+                )
+            ]
+        }
+        plans = corpus.load_all(self.directory, sessions=session_sessions)
+        backfill.run(plans, session_sessions, plan_touches)
+        reloaded = corpus.load_all(self.directory, sessions=session_sessions)[0]
+        self.assertEqual(reloaded.fields["project"], "real-project")
 
     def test_parent_derives_against_a_project_derived_in_the_same_pass(self):
         # Regression: a plan with neither `project` nor `parent` in frontmatter must

@@ -276,8 +276,9 @@ narrow with: pentimento list --finding <code>
 ### history
 
 `history` shows which sessions touched a plan's file: the session whose id
-matches the plan's own id authored it; any later session that edited, wrote,
-or delegated work on it worked it, and one that only read it is marked `read`.
+matches the plan's own id, or failing that the earliest to write it, authored it;
+any later session that edited, wrote, or delegated work on it worked it, and one
+that only read it is marked `read`.
 For an empty result, see
 [`history` is empty](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#history-is-empty).
 

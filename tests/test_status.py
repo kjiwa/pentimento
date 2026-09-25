@@ -76,6 +76,22 @@ class CursorTodosTests(unittest.TestCase):
     def test_empty_todos_is_unknown(self):
         self.assertEqual(status.derive_status(*_todos()), "unknown")
 
+    def test_unindented_list_items_stay_in_the_todos_block(self):
+        text = (
+            "---\ntodos:\n- id: a\n  content: c\n  status: completed\n"
+            "- id: b\n  content: c\n  status: pending\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
+    def test_blank_line_inside_the_todos_block_does_not_end_it(self):
+        text = (
+            "---\ntodos:\n  - id: a\n    status: completed\n\n"
+            "  - id: b\n    status: pending\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
     def test_pentimento_block_status_is_not_read_as_a_todo(self):
         body, extras = _todos("completed")
         self.assertEqual(status.derive_status(body, extras), "complete")

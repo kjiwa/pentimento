@@ -53,6 +53,17 @@ class DeriveParentTests(unittest.TestCase):
         )
         self.assertIsNone(lineage.derive_parent(child, [parent, child], {}))
 
+    def test_codename_glued_to_an_underscore_prefix_still_resolves(self):
+        parent = FakePlan(
+            id="implement-the-plan-eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z"
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="# Child\n\nContinues plan_eager-bird\n\n## Progress\n- [ ] todo\n",
+            started="2026-09-02T00:00:00Z",
+        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent.id)
+
     def test_started_is_compared_as_an_instant_not_as_text(self):
         parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z")
         child = FakePlan(id="slow-otter", body="# Child\n", started="2026-09-01T00:00:00.500Z")

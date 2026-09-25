@@ -85,6 +85,8 @@ def _todo_lines(extras: frontmatter.Extras) -> list[str]:
     block: list[str] = []
     in_todos = False
     for line in extras.lines:
+        if not line.strip():
+            continue
         if line[:1] not in (" ", "\t"):
             in_todos = line.strip() == "todos:"
         elif in_todos:

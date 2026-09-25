@@ -24,6 +24,7 @@ import re
 from pentimento import shortid
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+(?:[-_][a-z0-9]+)+")
+_CODENAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
 
 _EARLIEST = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 
@@ -37,15 +38,35 @@ def _preamble(body: str) -> str:
 
 
 def _scan(text: str, candidate_ids):
-    """Ordered `(position, id, exact)` for tokens that resolve to exactly one id."""
+    """Ordered `(position, id, exact)` for tokens that resolve to exactly one id.
+
+    A token joined by underscores that resolves to nothing is retried as the
+    hyphenated codenames inside it, so `plan_eager-bird` still finds `eager-bird`.
+    """
     hits = []
     for match in _TOKEN_RE.finditer(text):
         rest = text[match.end() :]
         exact = rest.startswith(".plan.md") or rest.startswith(".md")
         resolved = shortid.matches(candidate_ids, match.group())
-        if len(resolved) != 1:
-            continue
-        hits.append((match.start(), resolved[0], exact))
+        if len(resolved) == 1:
+            hits.append((match.start(), resolved[0], exact))
+        elif not resolved and "_" in match.group():
+            hits.extend(_scan_codenames(match, candidate_ids, exact))
+    return hits
+
+
+def _scan_codenames(match, candidate_ids, exact):
+    hits = []
+    for inner in _CODENAME_RE.finditer(match.group()):
+        resolved = shortid.matches(candidate_ids, inner.group())
+        if len(resolved) == 1:
+            hits.append(
+                (
+                    match.start() + inner.start(),
+                    resolved[0],
+                    exact and inner.end() == len(match.group()),
+                )
+            )
     return hits
 
 

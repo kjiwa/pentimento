@@ -73,7 +73,7 @@ main() {
 
   export CURSOR_PLANS_DIR=/nonexistent
   _assert_output_has "status: partial" show "$PLAN_ID"
-  _assert_output_has worked history "$PLAN_ID"
+  _assert_output_has authored history "$PLAN_ID"
   echo "e2e ok: hooks derived status for $PLAN_ID"
 }
 

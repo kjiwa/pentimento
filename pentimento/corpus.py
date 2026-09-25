@@ -6,10 +6,11 @@ import difflib
 import sys
 from pathlib import Path
 
-from pentimento import cursor_sessions, shortid
+from pentimento import backfill, cursor_sessions, shortid
 from pentimento import plan as plan_module
 from pentimento import sessions as sessions_module
 from pentimento import sources as sources_module
+from pentimento import touches as touches_module
 
 
 def plans_directory() -> Path:
@@ -58,6 +59,18 @@ def load_with_sessions(skips: list | None = None) -> tuple[list[plan_module.Plan
     claude_sessions = sessions_module.load()
     plans = load_all(sessions=claude_sessions, skips=skips)
     return plans, with_cursor(plans, claude_sessions)
+
+
+def load_derived(skips: list | None = None) -> tuple[list[plan_module.Plan], dict, dict]:
+    """Every plan with `derived` set to what `backfill` would persist, plus sessions and touches."""
+    plans, sessions = load_with_sessions(skips)
+    touches = touches_module.load()
+    derived = backfill.derive_all(
+        plans, sessions, touches, rederive=False, recreate=False, max_status=None
+    )
+    for plan in plans:
+        plan.derived = derived[plan.path]
+    return plans, sessions, touches
 
 
 def _only(matched: list[plan_module.Plan]) -> plan_module.Plan | None:

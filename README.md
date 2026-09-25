@@ -57,8 +57,8 @@ Point `AGENT_PLANS_DIR` at your plans directory (it defaults to
 `~/.claude/plans`), then:
 
 ```sh
-pentimento backfill      # derive status/intent/created/parent/project once
-pentimento list          # see the corpus
+pentimento list          # see the corpus; derived fields show without backfill
+pentimento backfill      # persist derived fields so they outlive the transcripts
 pentimento set some-plan-id --intent active
 pentimento list --starred
 ```
@@ -120,7 +120,7 @@ auth-cleanup          not-started  queued     platform  claude  Remove the old a
 auth-docs             not-started  unset      platform  claude  Document the new auth API                        2026-09-02       1w
 invoice-retry         unknown      unset      billing   claude  Retry failed invoice charges    [billing]        2026-09-04       1w
 relevance-tuning      not-started  active     billing   claude  Tune search relevance           [search]         2026-09-09       5d
-onboarding-checklist  unknown      unset                claude  Write the onboarding checklist                   2026-09-13       1d
+onboarding-checklist  not-started  unset                claude  Write the onboarding checklist                   2026-09-13       1d
 
 9 plans
 ```
@@ -152,7 +152,7 @@ Tune search relevance
   relevance-tuning  not-started  active  billing  claude  [search]  2026-09-09
   5d
 Write the onboarding checklist
-  onboarding-checklist  unknown  unset  claude  2026-09-13  1d
+  onboarding-checklist  not-started  unset  claude  2026-09-13  1d
 
 9 plans
 ```
@@ -171,7 +171,7 @@ ancestor, spine only, for pulling a single thread out of a larger forest.
 ```
 (no project)
 `-- Write the onboarding checklist
-      onboarding-checklist  unknown  unset  2026-09-13  1d
+      onboarding-checklist  not-started  unset  2026-09-13  1d
 
 billing
 |-- Rewrite dunning email copy
@@ -253,19 +253,16 @@ explains each `CODE`.
 
 <!-- sample:check -->
 ```
-CODE                    PLAN                  MESSAGE
-dangling-parent         invoice-retry         parent 'no-such-plan' does not resolve to a plan
-underivable-status      invoice-retry         '## Progress' has no checkboxes or recognized phrase
-status-behind-history   auth-cleanup          status 'not-started' but 1 later session worked this plan
-status-behind-progress  onboarding-checklist  status 'unknown' but '## Progress' derives 'not-started'
-unadopted-tag           auth-docs             no tags, but its thread carries [auth, security]
+CODE                   PLAN           MESSAGE
+dangling-parent        invoice-retry  parent 'no-such-plan' does not resolve to a plan
+underivable-status     invoice-retry  '## Progress' has no checkboxes or recognized phrase
+status-behind-history  auth-cleanup   status 'not-started' but 1 later session worked this plan
+unadopted-tag          auth-docs      no tags, but its thread carries [auth, security]
 
-9 plans checked, 5 findings
+9 plans checked, 4 findings
 dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
 status-behind-history: tick the plan's '## Progress', or pentimento history <id>, then pentimento set <id>
   --status <value> (pins)
-status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status
-  <value>
 unadopted-tag: pentimento set <id> --add-tag <tag>
 underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id>
   --status <value>
@@ -312,13 +309,13 @@ The vocabulary lives in one place:
 
 | Field | Set by | How |
 | --- | --- | --- |
-| `status` | derived | Every `backfill` run (including the per-write `pentimento hook`, which [caps it at `partial`](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#flags)) recomputes it from status signals, first match wins: `## Progress`, then a Cursor plan's `todos:`, then checkboxes elsewhere in the body. `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
+| `status` | derived | Views derive it live from status signals, first match wins; `backfill` (including the per-write `pentimento hook`, which [caps it at `partial`](https://github.com/kjiwa/pentimento/blob/main/docs/reference.md#flags)) persists it: `## Progress`, then a Cursor plan's `todos:`, then checkboxes elsewhere in the body. `set --status` overrides it directly and pins it (see `pinned`); it is the only way to set `superseded`, which no derivation produces or overwrites. |
 | `pinned` | operator | Never derived. `set --status` sets it to `true` automatically; `set --unpin` clears it. While set, `backfill` (with or without `--rederive`) leaves `status` untouched; see [`check` findings](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#check-findings) for what `check` still reports. |
-| `intent` | operator | Gap-filled to `unset` by `backfill` the first time it sees the plan, then left alone. Only `set --intent` changes it after that. |
+| `intent` | operator | Shown as `unset` until set; `backfill` writes `unset` the first time it sees the plan, then leaves it alone. Only `set --intent` changes it after that. |
 | `tags` | operator | Never derived or written; `check` suggests them (`unadopted-tag`). `set --add-tag`/`--remove-tag`/`--clear-tags`; filter with `list`/`tree --tag`, which ANDs repeated tags. |
-| `parent` | derived, or operator | `backfill` fills it in from a plan reference (see [`parent` is empty](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#parent-is-empty)). `--rederive` recomputes it from scratch: it replaces a parent set with `set --parent` by the derived one, or removes it when no reference resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |
-| `project` | derived, or operator | `backfill` derives it from a session's `cwd` (a Cursor plan's: see [Cursor](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md#cursor)). `set --project`/`--clear-project` set or clear it directly; `--project .` resolves to the current directory's name. |
-| `created` | derived once | A local date, set once and then immutable except through `backfill --recreate`. |
+| `parent` | derived, or operator | Views derive it from a plan reference and `backfill` persists it (see [`parent` is empty](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md#parent-is-empty)). `--rederive` recomputes it from scratch: it replaces a parent set with `set --parent` by the derived one, or removes it when no reference resolves. `set --parent`/`--clear-parent` set or clear it directly; `set --parent` rejects a value that would create a cycle. Read the chain back with `tree <id>`/`tree <id> --ancestors`. |
+| `project` | derived, or operator | Views derive it from a session's `cwd` and `backfill` persists it, which keeps it after Claude Code prunes the transcript (a Cursor plan's: see [Cursor](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md#cursor)). `set --project`/`--clear-project` set or clear it directly; `--project .` resolves to the current directory's name. |
+| `created` | derived once | A local date, derived by views and persisted once by `backfill`, then immutable except through `backfill --recreate`. |
 | `modified` | derived, not stored | Not a frontmatter field: `max(session end time, file mtime)`. Neither `backfill` nor `set` bumps it when the write only touches frontmatter bookkeeping. |
 
 Lineage and source discovery are covered in full in

@@ -1420,7 +1420,9 @@ class FindingTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.directory = Path(self._tmp.name)
         _isolate_env(self, self.directory)
-        _write(self.directory, "underivable", "---\nproject: p1\n---\n\n# Underivable\n")
+        _write(
+            self.directory, "underivable", "---\npentimento:\n  project: p1\n---\n\n# Underivable\n"
+        )
         _write(
             self.directory,
             "clean",
@@ -2547,9 +2549,7 @@ class CheckFooterTests(unittest.TestCase):
         )
 
     def test_several_codes_leave_the_placeholder(self):
-        _write(
-            self.directory, "other", "---\nstatus: partial\n---\n\n# O\n\n## Progress\n- [x] a\n"
-        )
+        _write(self.directory, "other", "---\nstatus: partial\n---\n\nno title here\n")
         _, out, _ = _main(["check", "--color", "never"])
         self.assertIn("--finding <code>", out)
 

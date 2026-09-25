@@ -324,19 +324,17 @@ def _has_finding(plan, code: str | None) -> bool:
     return bool(plan.findings) if code is None else code in plan.findings
 
 
-def _findings_by_id(plans) -> dict[str, list[check_module.Finding]]:
+def _findings_by_id(plans, touches) -> dict[str, list[check_module.Finding]]:
     by_id: dict[str, list[check_module.Finding]] = {}
-    for finding in check_module.run(
-        plans, corpus.with_cursor(plans, sessions_module.load()), touches_module.load()
-    ):
+    for finding in check_module.run(plans, touches):
         by_id.setdefault(finding.id, []).append(finding)
     return by_id
 
 
-def _attach_findings(plans) -> dict[str, list[check_module.Finding]]:
+def _attach_findings(plans, touches) -> dict[str, list[check_module.Finding]]:
     """Set each plan's `findings` from a check over `plans`, which must be
     the whole corpus so lineage findings stay correct."""
-    by_id = _findings_by_id(plans)
+    by_id = _findings_by_id(plans, touches)
     for p in plans:
         p.findings = sorted({f.code for f in by_id.get(p.id, [])})
     return by_id
@@ -805,11 +803,11 @@ def cmd_list(args) -> int:
     if args.columns is not None and args.format != formats.TABLE:
         raise UsageError("--columns only applies to --format table")
 
-    corpus_plans = corpus.load_all()
+    corpus_plans, _, touches = corpus.load_derived()
     _report_if_empty(corpus_plans)
     selection = None if args.format != formats.TABLE else _columns_selection(args)
     if _finding_requested(args) or args.format != formats.TABLE or _selects_finding(selection):
-        _attach_findings(corpus_plans)
+        _attach_findings(corpus_plans, touches)
     plans = _apply_filters(corpus_plans, args)
     plans = sorted(plans, key=_sort_key(args, corpus_plans), reverse=_sort_descending(args))
     plans = _apply_limit(plans, args)
@@ -832,7 +830,7 @@ def cmd_list(args) -> int:
 def cmd_tree(args) -> int:
     if args.id is None and args.ancestors:
         raise UsageError("--ancestors requires a plan id")
-    corpus_plans = corpus.load_all()
+    corpus_plans, _, touches = corpus.load_derived()
     _report_if_empty(corpus_plans)
     target = None
     if args.id is not None:
@@ -841,7 +839,7 @@ def cmd_tree(args) -> int:
             _report(_no_such_plan(corpus_plans, args.id))
             return 1
     if _finding_requested(args) or args.format != formats.TABLE:
-        _attach_findings(corpus_plans)
+        _attach_findings(corpus_plans, touches)
     plans = _apply_filters(_select_lineage(corpus_plans, target, args), args)
     root_id = target.id if target else None
     key, reverse = _sort_key(args, corpus_plans), _sort_descending(args)
@@ -888,9 +886,8 @@ _FIELD_CODES = {"status": style.STATUS_CODES, "intent": style.INTENT_CODES}
 
 
 def _header_values(target) -> dict[str, str]:
-    """Frontmatter with the effective `status`, `intent`, `created`, and `tags`."""
-    values = dict(target.fields)
-    values.pop("tags", None)
+    """Frontmatter with the effective `status`, `intent`, `created`, `parent`, `project`, `tags`."""
+    values = {k: v for k, v in target.fields.items() if k not in ("tags", "parent", "project")}
     values.update(
         id=target.id,
         path=_display_path(target.path),
@@ -901,6 +898,9 @@ def _header_values(target) -> dict[str, str]:
     )
     if target.created:
         values["created"] = target.created
+    for key in ("parent", "project"):
+        if value := getattr(target, key):
+            values[key] = value
     if target.tags:
         values["tags"] = tags_module.render(target.tags)
     return values
@@ -994,12 +994,12 @@ def _should_page(args, line_count: int) -> bool:
 
 
 def cmd_show(args) -> int:
-    plans = corpus.load_all()
+    plans, _, touches = corpus.load_derived()
     target = corpus.by_id(plans, args.id)
     if target is None:
         _report(_no_such_plan(plans, args.id))
         return 1
-    found = _attach_findings(plans).get(target.id, [])
+    found = _attach_findings(plans, touches).get(target.id, [])
     if args.format != formats.TABLE:
         record = {**record_module.as_dict(target), "body": target.body}
         formats.emit([record], args.format, sys.stdout, (*record_module.FIELDS, "body"))
@@ -1302,7 +1302,7 @@ def cmd_backfill(args) -> int:
 
 
 def cmd_index(_args) -> int:
-    plans = corpus.load_all()
+    plans, _, _ = corpus.load_derived()
     _report_if_empty(plans)
     index_module.write(plans, corpus.plans_directory())
     print(f"{counts.plural(len(plans), 'plan')} indexed")
@@ -1357,11 +1357,10 @@ def _print_check_table(findings, plans, args) -> None:
 
 
 def cmd_check(args) -> int:
-    touches = touches_module.load()
     skips = []
-    plans, sessions = corpus.load_with_sessions(skips)
+    plans, sessions, touches = corpus.load_derived(skips)
     _report_if_empty(plans)
-    findings = check_module.run(plans, sessions, touches, skips=skips)
+    findings = check_module.run(plans, touches, skips=skips)
     if args.format == formats.TABLE:
         _print_check_table(findings, plans, args)
     else:

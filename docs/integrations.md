@@ -1,15 +1,18 @@
 # Integrations
 
 Wiring pentimento into Claude Code and Cursor, and `check` into CI. Start here
-to keep frontmatter current without running `backfill` by hand, or to let an
-agent search past plans on its own.
+to persist derived fields without running `backfill` by hand, or to let an
+agent search past plans on its own. Views derive `project`, `status`, `intent`,
+`created`, and `parent` live, so the hooks are optional: they write those
+values into frontmatter, which keeps them after Claude Code prunes a
+transcript and makes them visible to other tools.
 
 ## Claude Code
 
-Two hooks, split by what each field needs to be trustworthy:
+Two hooks, split by what each field needs to be persisted:
 
 - A `PostToolUse` hook on `Write|Edit` runs `pentimento hook` after every
-  plan-file write and backfills that plan on the spot; what it fills is in
+  plan-file write and persists that plan's derived fields on the spot; what it fills is in
   [reference.md](reference.md#flags).
 - A `SessionEnd` hook runs `pentimento backfill` as a full sweep, which
   advances `status` to `complete`. `SessionEnd` supports a `matcher` on the
@@ -29,7 +32,8 @@ that was derived from a transient preamble reference; and a wholesale
 re-`Write` of a plan file (as opposed to an edit) replaces the frontmatter
 outright, dropping every operator-set field (`intent`, `tags`, `pinned`,
 `parent`). The next `backfill` refills only what it derives: `intent` at its
-default, `created`, `project`, `parent`, and `status`.
+default, `created`, `project`, `parent`, and `status`. Views keep showing
+them meanwhile.
 
 Both hooks run the plain, monotonic form of `backfill` — never `--rederive`
 — so neither ever sets or clears `pinned`, and both leave a pinned `status`

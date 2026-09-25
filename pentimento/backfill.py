@@ -67,6 +67,36 @@ def derive_fields(
     return fields
 
 
+def derive_all(
+    plans,
+    sessions,
+    touches,
+    *,
+    rederive: bool = False,
+    recreate: bool = False,
+    max_status: str | None = None,
+) -> dict:
+    """`derive_fields` for every plan, keyed by path, with parent cycles pruned."""
+    fields_by_path = {
+        target.path: derive_fields(
+            target,
+            plans,
+            sessions,
+            touches,
+            rederive=rederive,
+            recreate=recreate,
+            max_status=max_status,
+        )
+        for target in plans
+    }
+    parent_of = {target.id: fields_by_path[target.path].get("parent") for target in plans}
+    for target in plans:
+        if parent_of[target.id] and lineage.in_cycle(target.id, parent_of):
+            fields_by_path[target.path].pop("parent", None)
+            parent_of[target.id] = None
+    return fields_by_path
+
+
 def run(
     plans,
     sessions=None,
@@ -86,25 +116,14 @@ def run(
 
     `only`, when given, restricts writes to those ids; derivation still spans all `plans`.
     """
-    sessions = sessions or {}
-    touches = touches or {}
-    new_fields_by_path = {
-        target.path: derive_fields(
-            target,
-            plans,
-            sessions,
-            touches,
-            rederive=rederive,
-            recreate=recreate,
-            max_status=max_status,
-        )
-        for target in plans
-    }
-    parent_of = {target.id: new_fields_by_path[target.path].get("parent") for target in plans}
-    for target in plans:
-        if parent_of[target.id] and lineage.in_cycle(target.id, parent_of):
-            new_fields_by_path[target.path].pop("parent", None)
-            parent_of[target.id] = None
+    new_fields_by_path = derive_all(
+        plans,
+        sessions or {},
+        touches or {},
+        rederive=rederive,
+        recreate=recreate,
+        max_status=max_status,
+    )
 
     rendered = {
         target.path: frontmatter.serialize(

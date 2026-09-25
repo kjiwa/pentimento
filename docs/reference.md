@@ -43,7 +43,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
 | `set <id>...` | Edits every named plan in one run. Every id is resolved first, so a miss exits 1 and writes nothing; with more than one id, each change block is headed by the plan's short id. `--dry-run` applies to all. A `--parent` that would create a cycle, counting every plan being edited, exits 2. Changes print as `field: 'old' -> 'new'`, `field: set to 'value'`, or `field: cleared`, with a parent as its short id. A `--remove-tag` that matches nothing prints `no changes; <id> has no tag '<tag>'`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
-| `hook` | Reads a `PostToolUse` payload on stdin and backfills the one plan it wrote: fills `intent`, `created`, `project`, and `parent`, and derives `status` capped at `partial`. Only a full `backfill` advances `status` to `complete`. Always exits 0. |
+| `hook` | Reads a `PostToolUse` payload on stdin and persists the derived fields of the one plan it wrote: fills `intent`, `created`, `project`, and `parent`, and derives `status` capped at `partial`. Only a full `backfill` advances `status` to `complete`. Always exits 0. |
 
 ## Plan ids
 

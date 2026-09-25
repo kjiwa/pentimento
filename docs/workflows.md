@@ -162,8 +162,8 @@ thread.
 ## Backfilling safely
 
 With the `pentimento hook` `PostToolUse` hook and the `SessionEnd` sweep both
-installed ([docs/integrations.md](integrations.md)), frontmatter stays current
-without a manual step. Run `pentimento backfill --dry-run` periodically anyway
+installed ([docs/integrations.md](integrations.md)), derived fields stay
+persisted without a manual step; views show them either way. Run `pentimento backfill --dry-run` periodically anyway
 to confirm no unexpected churn — e.g. after installing the hooks for the first
 time, or against a corpus a harness wrote to directly. Its footer reports `N
 plans updated` (or `N plans would change (dry run)`, or `no changes`);
@@ -207,11 +207,12 @@ done](#auditing-what-was-actually-done).
 
 ## Auditing what was actually done
 
-Frontmatter `status` only reflects what the operator set or `backfill` derived
+`status` only reflects what the operator set or pentimento derived
 from the plan's own [status signals](troubleshooting.md#status-unknown); it
 says nothing about whether a later session actually picked the plan up. `check`
 surfaces the gap as
-`status-behind-history` ([troubleshooting](troubleshooting.md#check-findings)).
+`status-behind-history` ([troubleshooting](troubleshooting.md#check-findings)),
+for plans with a `pentimento:` frontmatter block.
 
 `pentimento history <id>` shows a plan's full trail, one row per session,
 labeled `authored`, `worked`, or `read` as [the README

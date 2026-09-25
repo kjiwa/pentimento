@@ -323,7 +323,7 @@ Lineage and source discovery are covered in full in
 [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md)
 and
 [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md).
-Cursor plans get body-only lineage and no `project` at all; a `stop` hook keeps their status current.
+Cursor plans get `project` and prompt lineage from Cursor's agent transcripts when their `name` matches exactly one; a `stop` hook keeps their status current.
 
 ## Commands
 
@@ -378,8 +378,9 @@ The longer comparison is in
 Stdlib-only Python 3.9+, zero runtime dependencies, no PyYAML.
 
 pentimento enriches `modified` and lineage by reading Claude Code's session
-transcripts (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`), an
-undocumented, private format. If that format changes, or the transcripts are
+transcripts (`AGENT_SESSIONS_DIR`, default `~/.claude/projects`) and Cursor's
+agent transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`), both
+undocumented, private formats. If a format changes, or the transcripts are
 absent, this enrichment degrades to file mtimes and plain body/preamble
 references — it does not break, and the frontmatter itself stays plain,
 hand-editable markdown either way.

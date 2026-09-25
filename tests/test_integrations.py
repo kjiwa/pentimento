@@ -34,6 +34,7 @@ class CursorHooksTests(unittest.TestCase):
                 PYTHONPATH=str(ROOT),
                 AGENT_PLANS_DIR=tmp,
                 CURSOR_PLANS_DIR=tmp,
+                CURSOR_SESSIONS_DIR=tmp,
                 AGENT_SESSIONS_DIR=tmp,
             )
             command = self.command.replace("pentimento", f"{sys.executable} -m pentimento", 1)

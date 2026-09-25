@@ -106,9 +106,14 @@ because Cursor expects JSON on stdout.
 There is no per-edit hook: Cursor's plan writes and Build's todo updates fire no
 file-edit hook, so status refreshes when a chat ends, not on each edit. Configure
 `CURSOR_PLANS_DIR` (see [reference.md](reference.md)) if plans live outside the
-default directory. Because Cursor keeps no session transcripts, a Cursor plan's
-`project` is never derived and its `parent` only ever comes from the
-body-preamble reference scan.
+default directory.
+
+A Cursor plan's `project` and prompt lineage come from Cursor's agent
+transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`), matched by the
+plan's frontmatter `name` against the transcript's `CreatePlan` call. When
+two plans share a `name`, or two transcripts create the same `name`, the match is
+ambiguous and both `project` and prompt lineage stay unset; `parent` then comes
+only from the body-preamble reference scan.
 
 ## `check` in CI
 

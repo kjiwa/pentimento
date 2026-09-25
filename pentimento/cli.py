@@ -326,7 +326,9 @@ def _has_finding(plan, code: str | None) -> bool:
 
 def _findings_by_id(plans) -> dict[str, list[check_module.Finding]]:
     by_id: dict[str, list[check_module.Finding]] = {}
-    for finding in check_module.run(plans, sessions_module.load(), touches_module.load()):
+    for finding in check_module.run(
+        plans, corpus.with_cursor(plans, sessions_module.load()), touches_module.load()
+    ):
         by_id.setdefault(finding.id, []).append(finding)
     return by_id
 
@@ -444,7 +446,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
             "CURSOR_PLANS_DIR; session history from AGENT_SESSIONS_DIR (default:\n"
-            "~/.claude/projects).\n\n"
+            "~/.claude/projects) and CURSOR_SESSIONS_DIR (default: ~/.cursor/projects).\n\n"
             "Run `pentimento <command> --help` for a command's flags."
         ),
         formatter_class=_HelpFormatter,
@@ -1215,12 +1217,10 @@ def _backfill(
     touches=None,
     details=None,
 ) -> list[str]:
-    if sessions is None:
-        sessions = sessions_module.load()
+    if plans is None or sessions is None:
+        plans, sessions = corpus.load_with_sessions()
     if touches is None:
         touches = touches_module.load()
-    if plans is None:
-        plans = corpus.load_all(sessions=sessions)
     return backfill_module.run(
         plans,
         sessions,
@@ -1241,8 +1241,7 @@ def cmd_hook(_args) -> int:
         path = hook_module.touched_plan_path(sys.stdin.read())
         if path is None:
             return 0
-        sessions = sessions_module.load()
-        plans = corpus.load_all(sessions=sessions)
+        plans, sessions = corpus.load_with_sessions()
         target = corpus.by_id(plans, path.name)
         if target is None:
             return 0
@@ -1258,8 +1257,7 @@ def cmd_hook(_args) -> int:
 
 
 def cmd_backfill(args) -> int:
-    sessions = sessions_module.load()
-    plans = corpus.load_all(sessions=sessions)
+    plans, sessions = corpus.load_with_sessions()
     _report_if_empty(plans)
     duplicates = sorted({p.id for p in check_module.duplicate_ids(plans)})
     if duplicates:
@@ -1358,10 +1356,9 @@ def _print_check_table(findings, plans, args) -> None:
 
 
 def cmd_check(args) -> int:
-    sessions = sessions_module.load()
     touches = touches_module.load()
     skips = []
-    plans = corpus.load_all(sessions=sessions, skips=skips)
+    plans, sessions = corpus.load_with_sessions(skips)
     _report_if_empty(plans)
     findings = check_module.run(plans, sessions, touches, skips=skips)
     if args.format == formats.TABLE:

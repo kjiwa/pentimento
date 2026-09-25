@@ -270,8 +270,8 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
     """Return structured findings; an empty list means a clean corpus.
 
     `sessions`, when given, enables the `underived-project` finding; it
-    stays silent by default so Cursor plans and session-less plans, where
-    an empty `project` is a legitimate state, are not flagged. `touches`,
+    stays silent by default so plans without a session, where an empty
+    `project` is a legitimate state, are not flagged. `touches`,
     when given, enables `status-behind-history` the same way. `skips`, when
     given, is the `(source, path, error)` list `corpus.load_all` collected
     for files it could not read; each becomes an `unreadable-file` finding.

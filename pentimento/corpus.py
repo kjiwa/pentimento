@@ -6,9 +6,9 @@ import difflib
 import sys
 from pathlib import Path
 
+from pentimento import cursor_sessions, shortid
 from pentimento import plan as plan_module
 from pentimento import sessions as sessions_module
-from pentimento import shortid
 from pentimento import sources as sources_module
 
 
@@ -46,6 +46,18 @@ def load_all(
             if skips is not None:
                 skips.append((name, path, exc))
     return plans
+
+
+def with_cursor(plans: list[plan_module.Plan], sessions: dict) -> dict:
+    """`sessions` plus the Cursor sessions of `plans`, which need the plans loaded first."""
+    return {**sessions, **cursor_sessions.load(plans)}
+
+
+def load_with_sessions(skips: list | None = None) -> tuple[list[plan_module.Plan], dict]:
+    """Every plan and the sessions that describe them, Claude Code and Cursor alike."""
+    claude_sessions = sessions_module.load()
+    plans = load_all(sessions=claude_sessions, skips=skips)
+    return plans, with_cursor(plans, claude_sessions)
 
 
 def _only(matched: list[plan_module.Plan]) -> plan_module.Plan | None:

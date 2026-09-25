@@ -28,6 +28,7 @@ def _isolate_env(test, directory):
         ("AGENT_PLANS_DIR", str(directory)),
         ("AGENT_SESSIONS_DIR", str(directory / "no-such-sessions-dir")),
         ("CURSOR_PLANS_DIR", str(directory / "no-such-cursor-plans-dir")),
+        ("CURSOR_SESSIONS_DIR", str(directory / "no-such-cursor-sessions-dir")),
     ):
         previous = os.environ.get(key)
         os.environ[key] = value

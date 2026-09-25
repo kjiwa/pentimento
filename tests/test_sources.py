@@ -23,7 +23,7 @@ class _EnvIsolated(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.directory = Path(self._tmp.name)
 
-        for key in ("AGENT_PLANS_DIR", "CURSOR_PLANS_DIR"):
+        for key in ("AGENT_PLANS_DIR", "CURSOR_PLANS_DIR", "CURSOR_SESSIONS_DIR"):
             previous = os.environ.get(key)
             os.environ[key] = str(self.directory / "no-such-dir")
             self.addCleanup(_restore_env, key, previous)

@@ -19,8 +19,9 @@ stdout.
 
 Either there's no session transcript for that plan (nothing in
 `AGENT_SESSIONS_DIR`, default `~/.claude/projects`, records that plan's id as a
-session `slug` or shows a session writing the plan file), it's a Cursor plan — Cursor keeps no session transcripts, so
-`project` is never derived for one — or `backfill` hasn't run since the session
+session `slug` or shows a session writing the plan file), it's a Cursor plan whose
+`name` matches no transcript in `CURSOR_SESSIONS_DIR` (default `~/.cursor/projects`)
+or matches more than one, or `backfill` hasn't run since the session
 transcript appeared; run `pentimento backfill` (or `check`, which flags this as
 `underived-project`). With the `pentimento hook` `PostToolUse` hook installed
 ([docs/integrations.md](integrations.md)), a Claude Code plan gets `project` on

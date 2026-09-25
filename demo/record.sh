@@ -37,6 +37,7 @@ main() {
     cd "$REPO_ROOT" && \
     AGENT_SESSIONS_DIR="$DEMO_HOME/.claude/plans/sessions" \
       CURSOR_PLANS_DIR=/nonexistent \
+      CURSOR_SESSIONS_DIR=/nonexistent \
       "$VHS" "$SCRIPT_DIR/pentimento.tape"
   )
 

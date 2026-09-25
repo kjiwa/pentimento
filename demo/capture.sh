@@ -19,6 +19,7 @@ _capture() {
   AGENT_PLANS_DIR="$FIXTURE_DIR" \
     AGENT_SESSIONS_DIR="$FIXTURE_DIR/sessions" \
     CURSOR_PLANS_DIR=/nonexistent \
+    CURSOR_SESSIONS_DIR=/nonexistent \
     COLUMNS="$_capture_columns" \
     pentimento "$@" --color never >"$CAPTURE_DIR/$_capture_name.txt" || _capture_status=$?
 

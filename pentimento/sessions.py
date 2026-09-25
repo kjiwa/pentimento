@@ -89,11 +89,11 @@ def _parse_log(log_path: Path) -> dict[str, dict]:
             and record.get("type") == "user"
             and (entry["prompt_ts"] is None or timestamp < entry["prompt_ts"])
         ):
-            text = _prompt_text(record)
+            text = prompt_text(record)
             if text is not None:
                 entry["prompt"] = text
                 entry["prompt_ts"] = timestamp
-        entry["paths"].extend(_home_paths(record))
+        entry["paths"].extend(home_paths(record))
     for entry in partials.values():
         if not _is_home_rooted(entry["cwds"]):
             entry["paths"] = []
@@ -137,7 +137,7 @@ def read_records(log_path: Path):
         return
 
 
-def _prompt_text(record: dict) -> str | None:
+def prompt_text(record: dict) -> str | None:
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if isinstance(content, str):
@@ -167,7 +167,7 @@ def _is_home_rooted(cwds) -> bool:
     return bool(cwds) and os.path.commonpath(cwds) == str(Path.home())
 
 
-def _home_paths(record: dict) -> list[str]:
+def home_paths(record: dict) -> list[str]:
     """Absolute paths under home named in a record's tool calls."""
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None

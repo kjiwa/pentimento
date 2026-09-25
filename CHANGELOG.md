@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+A Cursor plan now gets `project` and session-prompt lineage from Cursor's agent
+transcripts (`CURSOR_SESSIONS_DIR`, default `~/.cursor/projects`), matched by the plan's
+`name`; an ambiguous match leaves both unset. The docs no longer say Cursor keeps no
+session transcripts.
+
 A session touches a plan only through a tool's target path (or a `Task` prompt); a `Write` or
 `Edit` whose content merely mentions a plan no longer counts as work on it or as its author.
 

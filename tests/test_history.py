@@ -89,7 +89,7 @@ class RenderTests(unittest.TestCase):
     def test_render_lists_columns_and_sessions(self):
         plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
         rendered = _with_width(
-            120, lambda: history.render("the-plan", plan_touches, on_color=False)
+            120, lambda: history.render("the-plan", plan_touches, on_color=False, short_ids={})
         )
         lines = rendered.split("\n")
         self.assertEqual(lines[0].split(), ["WHEN", "WHAT", "SESSION", "TOUCHES"])
@@ -98,7 +98,9 @@ class RenderTests(unittest.TestCase):
 
     def test_a_narrow_width_stacks_with_every_field_kept(self):
         plan_touches = [_touch("implement-it-later", "Read", "2026-09-05T00:00:00.000Z")]
-        rendered = _with_width(30, lambda: history.render("the-plan", plan_touches, on_color=False))
+        rendered = _with_width(
+            30, lambda: history.render("the-plan", plan_touches, on_color=False, short_ids={})
+        )
         lines = rendered.split("\n")
         self.assertEqual(lines[0], "implement-it-later")
         self.assertIn("worked", lines[1])
@@ -110,9 +112,23 @@ class RenderTests(unittest.TestCase):
         session = "implement-a-session-name-that-is-longer-than-any-floor"
         plan_touches = [_touch(session, "Read", "2026-09-05T00:00:00.000Z")]
         rendered = _with_width(
-            None, lambda: history.render("the-plan", plan_touches, on_color=False)
+            None, lambda: history.render("the-plan", plan_touches, on_color=False, short_ids={})
         )
         self.assertIn(session, rendered)
+
+
+class SessionShortIdTests(unittest.TestCase):
+    def test_the_session_column_shows_the_short_id(self):
+        session = "is-it-possible-to-abundant-rabbit"
+        plan_touches = [_touch(session, "Read", "2026-09-05T00:00:00.000Z")]
+        rendered = _with_width(
+            120,
+            lambda: history.render(
+                "the-plan", plan_touches, on_color=False, short_ids={session: "abundant-rabbit"}
+            ),
+        )
+        self.assertIn("abundant-rabbit", rendered)
+        self.assertNotIn(session, rendered)
 
 
 if __name__ == "__main__":

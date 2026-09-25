@@ -36,7 +36,7 @@ class ParseAbsoluteTests(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             columns.parse("bogus", VALID)
         message = str(ctx.exception)
-        self.assertIn("unknown column: bogus", message)
+        self.assertIn("unknown column: 'bogus'", message)
         self.assertTrue(message.endswith(f"valid columns: {', '.join(VALID)}"))
 
     def test_empty_spec_is_an_error(self):
@@ -70,7 +70,7 @@ class ParseRelativeTests(unittest.TestCase):
     def test_unknown_relative_name_is_an_error(self):
         with self.assertRaises(ValueError) as ctx:
             columns.parse("+bogus", VALID)
-        self.assertIn("unknown column: bogus", str(ctx.exception))
+        self.assertIn("unknown column: 'bogus'", str(ctx.exception))
 
     def test_mixing_absolute_and_relative_is_an_error(self):
         with self.assertRaises(ValueError) as ctx:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import re
 
 from pentimento import cli as cli_module
 from pentimento import corpus, listing, shortid
@@ -216,8 +217,9 @@ def _column_candidates(word: str) -> list[tuple[str, str]]:
     text through its last `,`, `+`, or `-`."""
     cut = max(word.rfind(sep) for sep in ",+-") + 1
     head, tail = word[:cut], word[cut:]
+    selected = set(re.split("[,+-]", head))
     names = listing.NAMES + (("all",) if not head else ())
-    return [(head + name, "") for name in names if name.startswith(tail)]
+    return [(head + name, "") for name in names if name.startswith(tail) and name not in selected]
 
 
 def _option_value_candidates(

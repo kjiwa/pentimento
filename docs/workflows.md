@@ -10,7 +10,8 @@ exact flags, see [reference.md](reference.md).
 worth looking at today. Narrow further with `--intent active` (just the ones in
 flight) or `--intent queued` (up next). `--status` filters by lifecycle stage
 independently of intent, so `--status partial --starred` finds work that's
-underway and still wanted. `--title PATTERN` and `--grep PATTERN` narrow by a
+underway and still wanted. `pentimento list --starred --sort intent` lists the
+`active` plans before the `queued` ones. `--title PATTERN` and `--grep PATTERN` narrow by a
 case-insensitive regex over the title, or over title and body, when a
 status/intent/tag filter isn't specific enough; `--project .` filters to the
 current directory's project without typing its name out.

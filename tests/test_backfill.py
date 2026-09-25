@@ -470,21 +470,19 @@ class BackfillTests(unittest.TestCase):
         reloaded = {p.id: p for p in corpus.load_all(self.directory, sessions=session_sessions)}
         self.assertEqual(reloaded["plan-a"].fields["parent"], "plan-b")
 
-    def test_an_invalid_value_writes_no_plan(self):
+    def test_a_derived_project_that_cannot_be_written_is_skipped(self):
         _write(self.directory, "plan-a", "# A\n\n## Progress\n- [x] done\n")
-        _write(self.directory, "plan-b", "# B\n\n## Progress\n- [x] done\n")
         bad = {
-            "plan-b": sessions.Session(
-                slug="plan-b", project="a #b", started="2026-09-01T00:00:00.000Z", prompt=""
+            "plan-a": sessions.Session(
+                slug="plan-a", project="a #b", started="2026-09-01T00:00:00.000Z", prompt=""
             )
         }
-        before = {n: (self.directory / f"{n}.md").read_text() for n in ("plan-a", "plan-b")}
         plans = corpus.load_all(self.directory, sessions=bad)
-        with self.assertRaises(ValueError):
-            backfill.run(plans, bad)
+        backfill.run(plans, bad)
 
-        after = {n: (self.directory / f"{n}.md").read_text() for n in ("plan-a", "plan-b")}
-        self.assertEqual(after, before)
+        text = (self.directory / "plan-a.md").read_text()
+        self.assertNotIn("project:", text)
+        self.assertIn("intent:", text)
 
     def test_only_restricts_writes_and_returned_changed(self):
         _write(self.directory, "root-plan", "# Root\n\n## Progress\n- [x] done\n")

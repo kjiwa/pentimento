@@ -1527,7 +1527,7 @@ class CmdListSortTests(unittest.TestCase):
 
         args = cli.build_parser().parse_args(["list", "--format", "json"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["older-plan", "newer-plan"])
 
     def test_order_desc_puts_newest_modified_first(self):
@@ -1538,7 +1538,7 @@ class CmdListSortTests(unittest.TestCase):
 
         args = cli.build_parser().parse_args(["list", "--order", "desc"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["newer-plan", "older-plan"])
 
     def test_id_sort_is_ascending_by_default(self):
@@ -1546,7 +1546,7 @@ class CmdListSortTests(unittest.TestCase):
         _write(self.directory, "a-plan", "# A\n")
         args = cli.build_parser().parse_args(["list", "--sort", "id"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["a-plan", "b-plan"])
 
     def test_status_sort_ranks_lifecycle_order(self):
@@ -1554,8 +1554,83 @@ class CmdListSortTests(unittest.TestCase):
         _write(self.directory, "new-plan", "---\nstatus: not-started\n---\n\n# New\n")
         args = cli.build_parser().parse_args(["list", "--sort", "status"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["new-plan", "done-plan"])
+
+    def _sorted_ids(self, *argv):
+        args = cli.build_parser().parse_args(["list", *argv])
+        plans = corpus.load_all(self.directory)
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
+        return [p.id for p in ordered]
+
+    def _write_dated(self, name, mtime, extra=""):
+        _write(self.directory, name, f"---\n{extra}---\n\n# {name}\n")
+        os.utime(self.directory / f"{name}.md", (mtime, mtime))
+
+    def test_status_sort_breaks_ties_by_modified(self):
+        self._write_dated("old-one", 1000, "status: partial\n")
+        self._write_dated("new-one", 3000, "status: partial\n")
+        self._write_dated("mid-one", 2000, "status: partial\n")
+        self.assertEqual(self._sorted_ids("--sort", "status"), ["old-one", "mid-one", "new-one"])
+        self.assertEqual(
+            self._sorted_ids("--sort", "status", "--order", "desc"),
+            ["new-one", "mid-one", "old-one"],
+        )
+
+    def test_intent_sort_ranks_active_queued_someday_abandoned_unset(self):
+        for name, intent in (
+            ("unset-plan", "unset"),
+            ("queued-plan", "queued"),
+            ("active-plan", "active"),
+            ("abandoned-plan", "abandoned"),
+            ("someday-plan", "someday"),
+        ):
+            self._write_dated(name, 1000, f"intent: {intent}\n")
+        self.assertEqual(
+            self._sorted_ids("--sort", "intent"),
+            ["active-plan", "queued-plan", "someday-plan", "abandoned-plan", "unset-plan"],
+        )
+
+    def test_intent_sort_breaks_ties_by_modified(self):
+        self._write_dated("later-plan", 2000, "intent: active\n")
+        self._write_dated("earlier-plan", 1000, "intent: active\n")
+        self.assertEqual(self._sorted_ids("--sort", "intent"), ["earlier-plan", "later-plan"])
+
+    def test_title_sort_ignores_case(self):
+        _write(self.directory, "aa-plan", "# banana\n")
+        _write(self.directory, "bb-plan", "# Apple\n")
+        _write(self.directory, "cc-plan", "# cherry\n")
+        self.assertEqual(self._sorted_ids("--sort", "title"), ["bb-plan", "aa-plan", "cc-plan"])
+
+    def test_modified_ties_resolve_by_id_in_both_orders(self):
+        for name in ("b-plan", "a-plan", "c-plan"):
+            self._write_dated(name, 1000)
+        self.assertEqual(self._sorted_ids(), ["a-plan", "b-plan", "c-plan"])
+        self.assertEqual(self._sorted_ids("--order", "desc"), ["c-plan", "b-plan", "a-plan"])
+
+    def test_id_sort_follows_the_displayed_short_id(self):
+        for name in ("zzz-red-fox", "aaa-blue-owl", "mmm-red-cat", "bbb-red-cat"):
+            _write(self.directory, name, "# Plan\n")
+        # short ids: red-fox, blue-owl, mmm-red-cat, bbb-red-cat
+        self.assertEqual(
+            self._sorted_ids("--sort", "id"),
+            ["bbb-red-cat", "aaa-blue-owl", "mmm-red-cat", "zzz-red-fox"],
+        )
+
+    def test_limit_under_desc_keeps_the_highest_sorting_rows_in_order(self):
+        for index, name in enumerate(("one-plan", "two-plan", "three-plan")):
+            self._write_dated(name, 1000 * (index + 1))
+        _, out, _ = _main(["list", "--order", "desc", "-n", "2", "--format", "tsv"])
+        ids = [line.split("\t")[0] for line in out.splitlines()[1:]]
+        self.assertEqual(ids, ["three-plan", "two-plan"])
+
+    def test_tree_project_groups_reverse_under_desc(self):
+        _write(self.directory, "alpha-plan", "---\nproject: alpha\n---\n\n# A\n")
+        _write(self.directory, "beta-plan", "---\nproject: beta\n---\n\n# B\n")
+        _, asc, _ = _main(["tree", "--color", "never"])
+        _, desc, _ = _main(["tree", "--order", "desc", "--color", "never"])
+        self.assertLess(asc.index("alpha\n"), asc.index("beta\n"))
+        self.assertLess(desc.index("beta\n"), desc.index("alpha\n"))
 
     def test_created_sort_uses_the_printed_created_field(self):
         # "recent-plan" is written (and so gets a birthtime) before
@@ -1565,7 +1640,7 @@ class CmdListSortTests(unittest.TestCase):
         _write(self.directory, "glowing-penguin", "---\ncreated: 2026-08-11\n---\n\n# Penguin\n")
         args = cli.build_parser().parse_args(["list", "--sort", "created"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["glowing-penguin", "recent-plan"])
 
     def test_created_sort_falls_back_to_created_at_on_a_tie(self):
@@ -1577,7 +1652,7 @@ class CmdListSortTests(unittest.TestCase):
         }
         args = cli.build_parser().parse_args(["list", "--sort", "created"])
         plans = corpus.load_all(self.directory, sessions=started)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual([p.id for p in ordered], ["second-plan", "first-plan"])
 
     def test_created_sort_does_not_raise_on_missing_or_junk_created(self):
@@ -1585,7 +1660,7 @@ class CmdListSortTests(unittest.TestCase):
         _write(self.directory, "junk-created", "---\ncreated: not-a-date\n---\n\n# Junk\n")
         args = cli.build_parser().parse_args(["list", "--sort", "created"])
         plans = corpus.load_all(self.directory)
-        ordered = sorted(plans, key=cli._sort_key(args), reverse=cli._sort_descending(args))
+        ordered = sorted(plans, key=cli._sort_key(args, plans), reverse=cli._sort_descending(args))
         self.assertEqual({p.id for p in ordered}, {"no-created-field", "junk-created"})
 
 

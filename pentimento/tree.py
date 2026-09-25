@@ -166,7 +166,7 @@ def render_grouped(
         groups.setdefault(p.project or "(no project)", []).append(p)
 
     blocks = []
-    for project in sorted(groups):
+    for project in sorted(groups, reverse=reverse):
         heading = style.paint(project, style.BOLD, on=on_color)
         blocks.append(
             heading

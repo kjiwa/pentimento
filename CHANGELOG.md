@@ -26,6 +26,15 @@ written to frontmatter (it contains `#` or `: `) instead of failing the run.
 round-trips byte for byte and that `list`, `tree`, `check`, `history`, and
 `show` emit the same keys and rows in `json` and `tsv`.
 
+Sorting is a total order. `--sort status` breaks ties by `modified`, and every
+key ends in the full id, so `--order desc` is exactly `--order asc` reversed;
+before, ties kept discovery order in both directions. `--sort title` ignores
+case and `--sort id` follows the short id the table shows. `--sort intent` is
+new and ranks `active`, `queued`, `someday`, `abandoned`, `unset`, so
+`list --starred --sort intent` shows the in-flight plans before the queued
+ones. `tree` orders its project groups by `--order` as well.
+`-n` keeps the N highest-sorting rows, displayed in the chosen order.
+
 ## 0.1.17
 
 bash completion now completes the `--flag=value` form. bash 4 and later split

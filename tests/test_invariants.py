@@ -70,6 +70,40 @@ class RoundTripTests(FixtureCorpusTestCase):
                 self.assertEqual(frontmatter.serialize(fields, body, extras), text)
 
 
+def _mirror(nodes) -> list:
+    """Sibling order reversed at every level: what `asc` becomes under `desc`."""
+    return [{"id": n["id"], "children": _mirror(n["children"])} for n in reversed(nodes)]
+
+
+def _shape(nodes) -> list:
+    return [{"id": n["id"], "children": _shape(n["children"])} for n in nodes]
+
+
+class OrderTests(FixtureCorpusTestCase):
+    def test_desc_is_asc_reversed_for_every_sort_key(self):
+        for key in cli.SORT_CHOICES:
+            with self.subTest(command="list", sort=key):
+                asc = [r["id"] for r in _json(["list", "--sort", key])]
+                desc = [r["id"] for r in _json(["list", "--sort", key, "--order", "desc"])]
+                self.assertEqual(desc, asc[::-1])
+
+    def test_tree_desc_mirrors_asc_for_every_sort_key(self):
+        for key in cli.SORT_CHOICES:
+            with self.subTest(command="tree", sort=key):
+                asc = _shape(_json(["tree", "--sort", key]))
+                desc = _shape(_json(["tree", "--sort", key, "--order", "desc"]))
+                self.assertEqual(desc, _mirror(asc))
+
+    def test_flattened_tree_desc_visits_the_same_plans_as_list_desc(self):
+        for key in cli.SORT_CHOICES:
+            with self.subTest(sort=key):
+                _, rows = _tsv(["tree", "--sort", key, "--order", "desc"])
+                self.assertEqual(
+                    sorted(row[0] for row in rows),
+                    sorted(r["id"] for r in _json(["list", "--sort", key, "--order", "desc"])),
+                )
+
+
 class ProjectionTests(FixtureCorpusTestCase):
     def test_list_json_keys_and_rows_match_tsv(self):
         records = _json(["list"])

@@ -46,22 +46,34 @@ from pentimento import vocabulary as vocabulary_module
 STARRED_INTENTS = vocabulary_module.STARRED_INTENTS
 _MIN_INSTANT = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
 _MIN_DATE = datetime.date.min
-_UNRANKED_STATUS = len(vocabulary_module.STATUS_ORDER)
 
 
-def _status_rank(status: str) -> int:
+def _rank(value: str, order: tuple[str, ...]) -> int:
     try:
-        return vocabulary_module.STATUS_ORDER.index(status)
+        return order.index(value)
     except ValueError:
-        return _UNRANKED_STATUS
+        return len(order)
 
 
 SORT_KEYS = {
-    "modified": lambda p: p.modified,
-    "created": lambda p: (p.created_date or _MIN_DATE, p.created_at or _MIN_INSTANT),
-    "id": lambda p: p.id,
-    "status": lambda p: _status_rank(p.status),
-    "title": lambda p: p.title,
+    "modified": lambda p, short_ids: (p.modified, p.id),
+    "created": lambda p, short_ids: (
+        p.created_date or _MIN_DATE,
+        p.created_at or _MIN_INSTANT,
+        p.id,
+    ),
+    "id": lambda p, short_ids: (short_ids[p.id], p.id),
+    "status": lambda p, short_ids: (
+        _rank(p.status, vocabulary_module.STATUS_ORDER),
+        p.modified,
+        p.id,
+    ),
+    "intent": lambda p, short_ids: (
+        _rank(p.intent, vocabulary_module.INTENT_VALUES),
+        p.modified,
+        p.id,
+    ),
+    "title": lambda p, short_ids: (p.title.casefold(), p.id),
 }
 SORT_CHOICES = tuple(SORT_KEYS)
 
@@ -192,7 +204,15 @@ def _add_filter_args(parser):
 def _add_sort_args(parser):
     group = parser.add_argument_group("sorting")
     group.add_argument(
-        "--sort", choices=SORT_CHOICES, default="modified", help="sort key (default: modified)"
+        "--sort",
+        choices=SORT_CHOICES,
+        default="modified",
+        help=(
+            "sort key (default: modified); status and intent sort by rank "
+            "(status: not-started, partial, complete, superseded, unknown; "
+            "intent: active, queued, someday, abandoned, unset), then modified; "
+            "title ignores case; id sorts by the displayed short id"
+        ),
     )
     group.add_argument(
         "--order",
@@ -203,8 +223,11 @@ def _add_sort_args(parser):
     return group
 
 
-def _sort_key(args):
-    return SORT_KEYS[args.sort]
+def _sort_key(args, corpus_plans):
+    """Total-order key for `--sort`; `id` sorts by the short id the tables display."""
+    short_ids = shortid.shorten(p.id for p in corpus_plans)
+    key = SORT_KEYS[args.sort]
+    return lambda p: key(p, short_ids)
 
 
 def _sort_descending(args) -> bool:
@@ -370,10 +393,10 @@ def build_parser() -> argparse.ArgumentParser:
         "list",
         "flat table of plans",
         description=(
-            "One line per plan; the row nearest the prompt is the most recent.\n"
-            "TAGS and CREATED appear only when the corpus has them. When the\n"
-            "terminal is too narrow for the table, each plan prints as a short\n"
-            "record with every field kept; see docs/reference.md#columns."
+            "One row per plan; by default the row nearest the prompt is the most\n"
+            "recent. TAGS and CREATED appear only when a listed plan has them.\n"
+            "When the terminal is too narrow for the table, each plan prints as a\n"
+            "short record with every field kept; see docs/reference.md#columns."
         ),
         epilog=(
             "Examples:\n"
@@ -405,7 +428,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--limit",
         metavar="N",
         type=_non_negative_int,
-        help="keep only the N rows nearest the prompt (before rendering or emitting); 0 means none",
+        help=(
+            "keep only the N highest-sorting rows, by default the N most recent, displayed "
+            "in the chosen order (before rendering or emitting); 0 means none"
+        ),
     )
 
     p_tree = _add_command(
@@ -643,7 +669,8 @@ def _report_if_empty(plans) -> None:
 
 
 def _apply_limit(plans, args):
-    """Keep the N rows nearest the prompt: the tail under `--order asc`, the head under `desc`."""
+    """Keep the N highest-sorting rows, in the chosen order: the tail under `--order asc`,
+    the head under `desc`."""
     if args.limit is None:
         return plans
     if args.limit == 0:
@@ -697,7 +724,7 @@ def cmd_list(args) -> int:
     if _finding_requested(args) or args.format != formats.TABLE or _selects_finding(selection):
         _attach_findings(corpus_plans)
     plans = _apply_filters(corpus_plans, args)
-    plans = sorted(plans, key=_sort_key(args), reverse=_sort_descending(args))
+    plans = sorted(plans, key=_sort_key(args, corpus_plans), reverse=_sort_descending(args))
     plans = _apply_limit(plans, args)
     if args.format != formats.TABLE:
         formats.emit(
@@ -730,7 +757,7 @@ def cmd_tree(args) -> int:
         _attach_findings(corpus_plans)
     plans = _apply_filters(_select_lineage(corpus_plans, target, args), args)
     root_id = target.id if target else None
-    key, reverse = _sort_key(args), _sort_descending(args)
+    key, reverse = _sort_key(args, corpus_plans), _sort_descending(args)
     if args.format != formats.TABLE:
         records = tree_module.as_records(plans, key=key, reverse=reverse, root_id=root_id)
         if args.format == "tsv":

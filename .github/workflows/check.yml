@@ -17,6 +17,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v10.1.0
+      - if: runner.os == 'Linux'
+        run: sudo apt-get install -y zsh fish shellcheck
+      - if: runner.os == 'macOS'
+        run: brew install fish shellcheck
       - run: python3 -m unittest discover
       - run: uvx ruff check
       - run: uvx ruff format --check

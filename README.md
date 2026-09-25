@@ -322,7 +322,7 @@ Lineage and source discovery are covered in full in
 [docs/integrations.md](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md)
 and
 [docs/troubleshooting.md](https://github.com/kjiwa/pentimento/blob/main/docs/troubleshooting.md).
-Cursor plans get body-only lineage and no `project` at all.
+Cursor plans get body-only lineage and no `project` at all; a `stop` hook keeps their status current.
 
 ## Commands
 

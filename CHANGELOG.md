@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+A Cursor `stop` hook, shipped as `integrations/cursor/hooks.json`, runs `backfill` when a
+chat ends; `docs/integrations.md` covers installing it.
+
 Lineage now resolves Cursor's underscore ids (`skip_list_range_query_d3d1b015`) in a plan's
 preamble or session prompt, so a Cursor follow-up finds its parent.
 

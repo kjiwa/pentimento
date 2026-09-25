@@ -9,6 +9,7 @@ import importlib.metadata
 import os
 import re
 import sys
+import textwrap
 import traceback
 from pathlib import Path
 
@@ -77,6 +78,8 @@ SORT_KEYS = {
 }
 SORT_CHOICES = tuple(SORT_KEYS)
 
+FINDING_CODES = tuple(code for code in check_module.HINTS if code != "unreadable-file")
+
 _DOCS_URL = "https://github.com/kjiwa/pentimento/blob/main/docs"
 
 _ORDER_ASC, _ORDER_DESC = "asc", "desc"
@@ -89,6 +92,11 @@ _DRY_RUN_HELP = "report what would change, without writing"
 _PROJECT_FORM = "use a single line with no surrounding space, '#', or ': '"
 _TAG_FORM = "use lowercase letters, digits, and . _ / -, starting with a letter or digit"
 _TAG_MATCH_HELP = f"tags match {tags_module.PATTERN}, and matching ignores case"
+
+
+def _choices_help(text: str, choices, default: str | None = None) -> str:
+    listed = f"{text}: {', '.join(choices)}"
+    return listed if default is None else f"{listed} (default: {default})"
 
 
 class UsageError(Exception):
@@ -110,9 +118,9 @@ def _non_negative_int(value: str) -> int:
     try:
         parsed = int(value)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"not an integer: {value}") from None
+        raise argparse.ArgumentTypeError(f"not an integer: '{value}'") from None
     if parsed < 0:
-        raise argparse.ArgumentTypeError(f"limit must not be negative: {value}")
+        raise argparse.ArgumentTypeError(f"limit must not be negative: '{value}'")
     return parsed
 
 
@@ -120,13 +128,13 @@ def _regex(value: str) -> re.Pattern:
     try:
         return re.compile(value, re.IGNORECASE)
     except re.error as exc:
-        raise argparse.ArgumentTypeError(f"invalid regex: {exc}") from exc
+        raise argparse.ArgumentTypeError(f"invalid regex: '{value}'; {exc.msg}") from exc
 
 
 def _tag(value: str) -> str:
     tag = tags_module.normalize(value)
     if not tags_module.is_valid(tag):
-        raise argparse.ArgumentTypeError(f"invalid tag: '{value}' -- {_TAG_FORM}")
+        raise argparse.ArgumentTypeError(f"invalid tag: '{value}'; {_TAG_FORM}")
     return tag
 
 
@@ -134,7 +142,7 @@ def _when(value: str) -> datetime.date:
     day = times_module.parse_when(value)
     if day is None:
         raise argparse.ArgumentTypeError(
-            f"invalid date or age: {value} -- use YYYY-MM-DD or an age like 14m, 5h, 3d, 2w, 1y"
+            f"invalid date or age: '{value}'; use YYYY-MM-DD or an age like 14m, 5h, 3d, 2w, 1y"
         )
     return day
 
@@ -148,12 +156,27 @@ def _column_spec(value: str) -> columns_module.Selection:
 
 def _add_filter_args(parser):
     group = parser.add_argument_group("filters")
-    group.add_argument("--status", choices=vocabulary_module.STATUS_ORDER, help="filter by status")
-    group.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="filter by intent")
+    group.add_argument(
+        "--status",
+        choices=vocabulary_module.STATUS_ORDER,
+        metavar="STATUS",
+        help=_choices_help("filter by status", vocabulary_module.STATUS_ORDER),
+    )
+    group.add_argument(
+        "--intent",
+        choices=vocabulary_module.INTENT_VALUES,
+        metavar="INTENT",
+        help=_choices_help("filter by intent", vocabulary_module.INTENT_VALUES),
+    )
     group.add_argument(
         "--project", help="filter by project; '.' resolves to the current directory's name"
     )
-    group.add_argument("--source", choices=sources_module.SOURCE_NAMES, help="filter by source")
+    group.add_argument(
+        "--source",
+        choices=sources_module.SOURCE_NAMES,
+        metavar="SOURCE",
+        help=_choices_help("filter by source", sources_module.SOURCE_NAMES),
+    )
     group.add_argument("--starred", action="store_true", help="only active/queued intent")
     group.add_argument(
         "--tag",
@@ -177,7 +200,7 @@ def _add_filter_args(parser):
         "--finding",
         nargs="?",
         metavar="CODE",
-        choices=tuple(code for code in check_module.HINTS if code != "unreadable-file"),
+        choices=FINDING_CODES,
         const=None,
         default=False,
         help="only plans with a check finding, or with the finding CODE",
@@ -197,7 +220,8 @@ def _add_filter_args(parser):
     group.add_argument(
         "--date",
         choices=DATE_CHOICES,
-        help="which date --since/--until compare (default: modified)",
+        metavar="DATE",
+        help=_choices_help("which date --since/--until compare", DATE_CHOICES, "modified"),
     )
 
 
@@ -207,8 +231,10 @@ def _add_sort_args(parser):
         "--sort",
         choices=SORT_CHOICES,
         default="modified",
+        metavar="SORT",
         help=(
-            "sort key (default: modified); status and intent sort by rank "
+            f"{_choices_help('sort key', SORT_CHOICES, 'modified')}; "
+            "status and intent sort by rank "
             "(status: not-started, partial, complete, superseded, unknown; "
             "intent: active, queued, someday, abandoned, unset), then modified; "
             "title ignores case; id sorts by the displayed short id"
@@ -218,7 +244,8 @@ def _add_sort_args(parser):
         "--order",
         choices=ORDER_CHOICES,
         default=_ORDER_ASC,
-        help=f"sort direction (default: {_ORDER_ASC})",
+        metavar="ORDER",
+        help=_choices_help("sort direction", ORDER_CHOICES, _ORDER_ASC),
     )
     return group
 
@@ -240,13 +267,15 @@ def _add_format_args(parser):
         "--format",
         choices=formats.CHOICES,
         default=formats.TABLE,
-        help=f"output format (default: {formats.TABLE})",
+        metavar="FORMAT",
+        help=_choices_help("output format", formats.CHOICES, formats.TABLE),
     )
     group.add_argument(
         "--color",
         choices=style.COLOR_CHOICES,
         default="auto",
-        help="color policy (default: auto)",
+        metavar="COLOR",
+        help=_choices_help("color policy", style.COLOR_CHOICES, "auto"),
     )
     return group
 
@@ -267,7 +296,7 @@ def _require_valid_dates(args) -> None:
     if args.date is not None and args.since is None and args.until is None:
         raise UsageError("--date requires --since or --until")
     if args.since is not None and args.until is not None and args.since > args.until:
-        raise UsageError(f"--since {args.since} is after --until {args.until}")
+        raise UsageError(f"--since '{args.since}' is after --until '{args.until}'")
 
 
 def _within_dates(plans, args):
@@ -359,13 +388,50 @@ def _version() -> str:
         return "unknown"
 
 
+class _HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Refills description paragraphs to the terminal width; indented lines
+    (Examples) stay verbatim so they remain copy-pasteable."""
+
+    def _split_lines(self, text, width):
+        return textwrap.wrap(" ".join(text.split()), width, break_on_hyphens=False)
+
+    def _fill_text(self, text, width, indent):
+        lines = []
+        paragraph: list[str] = []
+
+        def flush():
+            if paragraph:
+                filled = textwrap.fill(
+                    " ".join(paragraph),
+                    width,
+                    initial_indent=indent,
+                    subsequent_indent=indent,
+                    break_long_words=False,
+                    break_on_hyphens=False,
+                )
+                lines.append(filled)
+                paragraph.clear()
+
+        for line in text.splitlines():
+            if not line.strip():
+                flush()
+                lines.append("")
+            elif line[0] == " ":
+                flush()
+                lines.append(indent + line)
+            else:
+                paragraph.append(line.strip())
+        flush()
+        return "\n".join(lines) + "\n"
+
+
 def _add_command(sub, name, help, description=None, epilog=None):
     command_parser = sub.add_parser(
         name,
         help=help,
         description=description or help,
         epilog=epilog,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=_HelpFormatter,
     )
     command_parser.set_defaults(command_parser=command_parser)
     return command_parser
@@ -378,10 +444,10 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
             "CURSOR_PLANS_DIR; session history from AGENT_SESSIONS_DIR (default:\n"
-            "~/.claude/projects).\n"
+            "~/.claude/projects).\n\n"
             "Run `pentimento <command> --help` for a command's flags."
         ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=_HelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"pentimento {_version()}")
     sub = parser.add_subparsers(
@@ -497,24 +563,31 @@ def build_parser() -> argparse.ArgumentParser:
             "  pentimento set wobbly-willow api-auth-cleanup --intent someday"
         ),
     )
-    p_set.add_argument("ids", nargs="+", metavar="ID", help=f"{_ID_HELP}; one or more")
+    p_set.add_argument("ids", nargs="+", metavar="id", help=f"{_ID_HELP}; one or more")
     pin_group = p_set.add_mutually_exclusive_group()
     pin_group.add_argument(
         "--status",
         choices=vocabulary_module.STATUS_ORDER,
-        help="new status; pins it against derivation",
+        metavar="STATUS",
+        help=_choices_help("new status", vocabulary_module.STATUS_ORDER)
+        + "; pins it against derivation",
     )
     pin_group.add_argument(
         "--unpin", action="store_true", help="release a pinned status back to derivation"
     )
-    p_set.add_argument("--intent", choices=vocabulary_module.INTENT_VALUES, help="new intent")
+    p_set.add_argument(
+        "--intent",
+        choices=vocabulary_module.INTENT_VALUES,
+        metavar="INTENT",
+        help=_choices_help("new intent", vocabulary_module.INTENT_VALUES),
+    )
     parent_group = p_set.add_mutually_exclusive_group()
     parent_group.add_argument(
         "--parent",
         metavar="ID",
         help=f"new parent: {_ID_HELP}; rejected if it would create a cycle",
     )
-    parent_group.add_argument("--clear-parent", action="store_true", help="clear parent plan id")
+    parent_group.add_argument("--clear-parent", action="store_true", help="clear parent")
     project_group = p_set.add_mutually_exclusive_group()
     project_group.add_argument(
         "--project", help="new project; '.' resolves to the current directory's name"
@@ -570,7 +643,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="recompute derived fields across the whole corpus; cannot change a pinned status",
     )
     p_backfill.add_argument(
-        "--recreate", action="store_true", help="recompute created from local time too"
+        "--recreate",
+        action="store_true",
+        help="recompute created, which is otherwise set once",
     )
 
     _add_command(
@@ -639,20 +714,24 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=("Examples:\n  pentimento completion bash\n  pentimento completion zsh"),
     )
     p_completion.add_argument(
-        "shell", choices=completion.SHELLS, metavar="SHELL", help="bash, zsh, or fish"
+        "shell", choices=completion.SHELLS, metavar="shell", help=", ".join(completion.SHELLS)
     )
 
     return parser
 
 
+def _quoted(values) -> str:
+    return ", ".join(f"'{value}'" for value in values)
+
+
 def _no_such_plan(plans, wanted: str) -> str:
     matches = corpus.ambiguous(plans, wanted)
     if matches:
-        return f"ambiguous plan id: {wanted} -- matches: {', '.join(matches)}"
-    message = f"no such plan: {wanted}"
+        return f"ambiguous plan id: '{wanted}'; matches: {_quoted(matches)}"
+    message = f"no such plan: '{wanted}'"
     close = corpus.suggest(plans, wanted)
     if close:
-        message += f" -- did you mean: {', '.join(close)}?"
+        message += f"; did you mean: {_quoted(close)}?"
     return message
 
 
@@ -660,7 +739,11 @@ def _empty_corpus_hint() -> str:
     directories = []
     for source in sources_module.all_sources():
         directories.extend(str(d) for d in source.directories)
-    return "no plans found; searched: " + ", ".join(directories)
+    return (
+        "no plans found; searched: "
+        + ", ".join(directories)
+        + "; set AGENT_PLANS_DIR or CURSOR_PLANS_DIR to search elsewhere"
+    )
 
 
 def _report_if_empty(plans) -> None:
@@ -858,12 +941,18 @@ def _flow_pairs(pairs: list[tuple[str, str]], width: int) -> list[str]:
 
 
 def _show_header(target, width: int, *, on_color: bool) -> list[str]:
-    lines = [style.paint(f"# {target.title}", style.BOLD, on=on_color), ""]
+    title = style.wrap(f"# {target.title}", width)
+    lines = [style.paint(line, style.BOLD, on=on_color) for line in title] + [""]
     for group in _show_field_groups(target):
-        pairs = [
-            style.render_cells([(f"{key}:", (style.DIM,)), (value, codes)], " ", on_color=on_color)
-            for key, value, codes in group
-        ]
+        pairs = []
+        for key, value, codes in group:
+            cells = [(f"{key}:", (style.DIM,)), (value, codes)]
+            plain, painted = style.render_cells(cells, " ", on_color=on_color)
+            if key == "path" and style.display_width(plain) > width:
+                lines.append(style.paint(f"{key}:", style.DIM, on=on_color))
+                lines.append(style.paint(value, *codes, on=on_color))
+            else:
+                pairs.append((plain, painted))
         lines.extend(_flow_pairs(pairs, width))
     lines.append("")
     return lines
@@ -949,18 +1038,32 @@ def _apply_tag_edit(target, args) -> None:
         target.fields.pop("tags", None)
 
 
-def _describe_field_changes(before: dict, after: dict) -> list[str]:
+_UNQUOTED_FIELDS = ("tags", "pinned")
+
+
+def _change_value(key: str, value: str, short_ids: dict) -> str:
+    """A frontmatter value as `set` and `backfill` print it: quoted, a parent as its short id."""
+    if key in _UNQUOTED_FIELDS:
+        return value
+    if key == "parent":
+        value = short_ids.get(value, value)
+    return f"'{value}'"
+
+
+def _describe_field_changes(before: dict, after: dict, short_ids: dict) -> list[str]:
     changes = []
     for key in sorted(set(before) | set(after)):
         old, new = before.get(key), after.get(key)
         if old == new:
             continue
         if old is None:
-            changes.append(f"{key}: set to {new}")
+            changes.append(f"{key}: set to {_change_value(key, new, short_ids)}")
         elif new is None:
             changes.append(f"{key}: cleared")
         else:
-            changes.append(f"{key}: {old} -> {new}")
+            old_text = _change_value(key, old, short_ids)
+            new_text = _change_value(key, new, short_ids)
+            changes.append(f"{key}: {old_text} -> {new_text}")
     return changes
 
 
@@ -992,7 +1095,7 @@ def _apply_project_edit(target, args) -> None:
     elif args.project is not None:
         resolved = _resolve_project(args.project)
         if not frontmatter.is_valid_value(resolved):
-            raise UsageError(f"invalid project: '{resolved}' -- {_PROJECT_FORM}")
+            raise UsageError(f"invalid project: '{resolved}'; {_PROJECT_FORM}")
         target.fields["project"] = resolved
 
 
@@ -1010,7 +1113,7 @@ def _apply_parent_edit(targets, plans, args) -> int | None:
         parent_of = {p.id: p.fields.get("parent") for p in plans}
         parent_of.update({target.id: parent_plan.id for target in targets})
         if any(lineage.in_cycle(target.id, parent_of) for target in targets):
-            raise UsageError(f"--parent {parent_plan.id} would create a cycle")
+            raise UsageError(f"--parent '{parent_plan.id}' would create a cycle")
         for target in targets:
             target.fields["parent"] = parent_plan.id
     return None
@@ -1037,6 +1140,21 @@ def _resolve_targets(plans, values):
             return [], _no_such_plan(plans, value)
         targets.setdefault(target.id, target)
     return list(targets.values()), None
+
+
+def _no_tag_notes(targets, args, short_ids) -> list[str]:
+    """Why a `--remove-tag` changed nothing: each target lacking a tag it was asked to drop."""
+    return [
+        f"{short_ids.get(target.id, target.id)} has no tag '{tag}'"
+        for target in targets
+        for tag in args.remove_tag or ()
+        if tag not in tags_module.normalized(target.tags)
+    ]
+
+
+def _no_changes_message(targets, args, short_ids) -> str:
+    notes = _no_tag_notes(targets, args, short_ids)
+    return "; ".join(["no changes", *notes])
 
 
 def _print_set_changes(changed, short_ids, args) -> None:
@@ -1068,15 +1186,16 @@ def cmd_set(args) -> int:
     if refused is not None:
         return refused
 
+    short_ids = shortid.shorten(p.id for p in plans)
     changed = [
         (target, changes)
         for target in targets
-        if (changes := _describe_field_changes(before[target.id], target.fields))
+        if (changes := _describe_field_changes(before[target.id], target.fields, short_ids))
     ]
     if not changed:
-        print("no changes")
+        print(_no_changes_message(targets, args, short_ids))
         return 0
-    _print_set_changes(changed, shortid.shorten(p.id for p in plans), args)
+    _print_set_changes(changed, short_ids, args)
     if not args.dry_run:
         for target, _ in changed:
             plan_module.save(target, keep_mtime=True)
@@ -1140,7 +1259,7 @@ def cmd_backfill(args) -> int:
     duplicates = sorted({p.id for p in check_module.duplicate_ids(plans)})
     if duplicates:
         _report(
-            f"duplicate plan id(s): {', '.join(duplicates)} -- "
+            f"duplicate plan id(s): {_quoted(duplicates)}; "
             "run `pentimento check` and resolve before backfilling"
         )
         return 1
@@ -1164,9 +1283,10 @@ def cmd_backfill(args) -> int:
         details=details,
     )
     if not args.quiet:
+        short_ids = shortid.shorten(p.id for p in plans)
         for plan_id in changed:
             print(plan_id)
-            for change in _describe_field_changes(*details[plan_id]):
+            for change in _describe_field_changes(*details[plan_id], short_ids):
                 print(f"  {change}")
         if not changed:
             print("no changes")
@@ -1198,6 +1318,22 @@ def _render_check_table(findings, plans, *, on_color: bool) -> str:
     return table.render(columns, rows, on_color=on_color, width=style.terminal_width())
 
 
+def _narrow_code(codes: list[str]) -> str:
+    """The code to narrow by: the one present, or a placeholder when several are."""
+    return codes[0] if len(codes) == 1 and codes[0] in FINDING_CODES else "<code>"
+
+
+def _wrap_hint(text: str, width: int | None) -> list[str]:
+    """`text` wrapped to `width`, continuation lines indented two spaces."""
+    if width is None:
+        return [text]
+    first = style.wrap(text, width)[0]
+    rest = text[len(first) :].strip()
+    if not rest:
+        return [first]
+    return [first, *(f"  {line}" for line in style.wrap(rest, width - 2))]
+
+
 def _print_check_table(findings, plans, args) -> None:
     on_color = style.enabled(sys.stdout, args.color)
     if findings:
@@ -1206,10 +1342,14 @@ def _print_check_table(findings, plans, args) -> None:
     plan_count = counts.plural(len(plans), "plan")
     finding_count = counts.plural(len(findings), "finding")
     print(style.paint(f"{plan_count} checked, {finding_count}", style.DIM, on=on_color))
-    for code in sorted({f.code for f in findings}):
-        print(style.paint(f"{code}: {check_module.HINTS[code]}", style.DIM, on=on_color))
+    codes = sorted({f.code for f in findings})
+    hints = [f"{code}: {check_module.HINTS[code]}" for code in codes]
     if findings:
-        print(style.paint("narrow with: pentimento list --finding <code>", style.DIM, on=on_color))
+        hints.append(f"narrow with: pentimento list --finding {_narrow_code(codes)}")
+    width = style.terminal_width()
+    for hint in hints:
+        for line in _wrap_hint(hint, width):
+            print(style.paint(line, style.DIM, on=on_color))
 
 
 def cmd_check(args) -> int:
@@ -1251,7 +1391,8 @@ def cmd_history(args) -> int:
         )
         return 0
     on_color = style.enabled(sys.stdout, args.color)
-    print(history_module.render(target.id, plan_touches, on_color))
+    short_ids = shortid.shorten(p.id for p in plans)
+    print(history_module.render(target.id, plan_touches, on_color, short_ids))
     return 0
 
 
@@ -1286,7 +1427,9 @@ def _dispatch(argv) -> int:
         code = completion.complete(argv[1:])
     else:
         parser = build_parser()
-        args = parser.parse_args(argv)
+        args, extra = parser.parse_known_args(argv)
+        if extra:
+            args.command_parser.error(f"unrecognized arguments: {' '.join(extra)}")
         try:
             code = COMMANDS[args.command](args)
         except (UsageError, columns_module.EmptySelectionError) as exc:

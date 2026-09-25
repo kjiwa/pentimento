@@ -35,6 +35,24 @@ new and ranks `active`, `queued`, `someday`, `abandoned`, `unset`, so
 ones. `tree` orders its project groups by `--order` as well.
 `-n` keeps the N highest-sorting rows, displayed in the chosen order.
 
+CLI output is consistent. Error messages quote every value and separate the
+reason with `; ` (`no such plan: 'x'; did you mean: 'y'?`), and an invalid
+regex quotes the pattern instead of showing Python's text. Extra arguments
+after a subcommand (`pentimento list extra`) show that subcommand's usage.
+Options with a fixed set of values show an uppercase metavar (`--status
+STATUS`) and list their choices in help, and command descriptions refill to
+the terminal width, with Examples left verbatim. `history`, the `tree` `parent
+elided` note, and `set` and `backfill` change lines show short ids, and
+change lines quote values (`project: 'a' -> 'b'`). `check` wraps its hint
+lines to the terminal and names the finding code in `narrow with:` when only
+one is present. `show` wraps a long title, and puts a path wider than the
+terminal on its own line. `set --remove-tag` on a plan without the tag prints
+`no changes; <id> has no tag '<tag>'`. The empty-corpus message names
+`AGENT_PLANS_DIR` and `CURSOR_PLANS_DIR`, and `--columns` completion skips
+names already selected. `tests/test_invariants.py` checks that no table or
+help line is wider than the terminal at 40 to 110 columns, and that every id
+in a table resolves to its row's plan.
+
 ## 0.1.17
 
 bash completion now completes the `--flag=value` form. bash 4 and later split

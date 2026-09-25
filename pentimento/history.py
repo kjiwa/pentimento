@@ -22,7 +22,7 @@ COLUMNS = (
     table.Column("TOUCHES", align="right", stack_label="touches"),
 )
 
-EMPTY_MESSAGE = "no session history for {plan_id}; searched: {directory}"
+EMPTY_MESSAGE = "no session history for '{plan_id}'; searched: {directory}"
 
 
 @dataclasses.dataclass
@@ -65,10 +65,13 @@ def as_records(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[d
     return records
 
 
-def render(plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool) -> str:
+def render(
+    plan_id: str, plan_touches: list[touches_module.Touch], on_color: bool, short_ids: dict
+) -> str:
     rows = []
     for g in group(plan_id, plan_touches):
         when = times.local_stamp(times.parse_iso(g.when)) or g.when
-        rows.append(((when, ()), (g.what, ()), (g.session, ()), (str(g.touches), ())))
+        session = short_ids.get(g.session, g.session)
+        rows.append(((when, ()), (g.what, ()), (session, ()), (str(g.touches), ())))
     width = style.terminal_width()
     return table.render(COLUMNS, rows, on_color=on_color, width=width)

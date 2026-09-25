@@ -264,9 +264,11 @@ unadopted-tag           auth-docs             no tags, but its thread carries [a
 9 plans checked, 5 findings
 dangling-parent: pentimento set <id> --parent <id>, or --clear-parent
 status-behind-history: pentimento history <id>, then pentimento set <id> --status <value>
-status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status <value>
+status-behind-progress: pentimento backfill, or pentimento show <id>, then pentimento set <id> --status
+  <value>
 unadopted-tag: pentimento set <id> --add-tag <tag>
-underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id> --status <value>
+underivable-status: add a checklist to '## Progress', or pentimento show <id>, then pentimento set <id>
+  --status <value>
 narrow with: pentimento list --finding <code>
 ```
 <!-- /sample -->
@@ -281,7 +283,7 @@ or delegated work on it worked it. For an empty result, see
 <!-- sample:history -->
 ```
 WHEN              WHAT      SESSION                                TOUCHES
-2026-08-30 12:30  authored  api-auth-cleanup                             1
+2026-08-30 12:30  authored  auth-cleanup                                 1
 2026-09-11 12:30  worked    implement-api-auth-cleanup-eager-wolf        1
 ```
 <!-- /sample -->

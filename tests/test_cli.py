@@ -181,7 +181,7 @@ class CmdSetTests(unittest.TestCase):
         )
         code, _, err = _main(["set", "root-plan", "--parent", "child-plan"])
         self.assertEqual(code, 2)
-        self.assertIn("--parent child-plan would create a cycle", err)
+        self.assertIn("--parent 'child-plan' would create a cycle", err)
 
         reloaded = corpus.by_id(corpus.load_all(self.directory), "root-plan")
         self.assertEqual(reloaded.fields["parent"], "child-plan")
@@ -314,7 +314,7 @@ class CmdSetTests(unittest.TestCase):
         _write(self.directory, "root-plan", original)
         code, _, err = _main(["set", "root-plan", "--add-tag", "Nope!"])
         self.assertEqual(code, 2)
-        self.assertIn("invalid tag: 'Nope!' -- use lowercase letters", err)
+        self.assertIn("invalid tag: 'Nope!'; use lowercase letters", err)
 
         text = (self.directory / "root-plan.md").read_text()
         self.assertEqual(text, original)
@@ -622,7 +622,7 @@ class CmdGrepProjectLimitTests(unittest.TestCase):
     def test_non_integer_limit_has_a_plain_message(self):
         code, _, err = _main(["list", "-n", "abc"])
         self.assertEqual(code, 2)
-        self.assertIn("not an integer: abc", err)
+        self.assertIn("not an integer: 'abc'", err)
         self.assertNotIn("_non_negative_int", err)
 
     def test_project_dot_resolves_to_the_current_directory_name(self):
@@ -914,9 +914,8 @@ class CmdShowTests(unittest.TestCase):
 
     def test_path_wider_than_the_terminal_is_never_truncated(self):
         _write(self.directory, "root-plan", "---\nstatus: complete\n---\n\n# Root\n")
-        expected = f"path: {self.directory / 'root-plan.md'}"
         header = self._show_header_lines("root-plan", "20")
-        self.assertIn(expected, header)
+        self.assertEqual(header[1:3], ["path:", str(self.directory / "root-plan.md")])
 
     def test_json_path_matches_the_rendered_path(self):
         _write(self.directory, "root-plan", "# Root\n")
@@ -1189,14 +1188,14 @@ class CmdHistoryTests(unittest.TestCase):
         code, out, err = _main(["history", "root-plan"])
         self.assertEqual(code, 0)
         self.assertEqual(out, "")
-        self.assertIn("pentimento: no session history for root-plan; searched: ", err)
+        self.assertIn("pentimento: no session history for 'root-plan'; searched: ", err)
         self.assertIn(os.environ["AGENT_SESSIONS_DIR"], err)
 
     def test_resolves_a_short_id(self):
         _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
         code, _, err = _main(["history", "abundant-rabbit"])
         self.assertEqual(code, 0)
-        self.assertIn("no session history for is-it-possible-to-abundant-rabbit", err)
+        self.assertIn("no session history for 'is-it-possible-to-abundant-rabbit'", err)
 
 
 class AmbiguousShortIdTests(unittest.TestCase):
@@ -1214,7 +1213,7 @@ class AmbiguousShortIdTests(unittest.TestCase):
         with contextlib.redirect_stderr(out):
             result = cli.cmd_show(args)
         self.assertEqual(result, 1)
-        self.assertIn("ambiguous plan id: abundant-rabbit", out.getvalue())
+        self.assertIn("ambiguous plan id: 'abundant-rabbit'", out.getvalue())
         self.assertIn("foo-abundant-rabbit", out.getvalue())
         self.assertIn("bar-abundant-rabbit", out.getvalue())
 
@@ -1340,7 +1339,9 @@ class CmdFooterTests(unittest.TestCase):
         self.assertEqual(lines[summary - 1], "")
         self.assertEqual(len(lines) - summary - 1, 2)
         self.assertTrue(lines[summary + 1].startswith("dangling-parent: "))
-        self.assertEqual(lines[summary + 2], "narrow with: pentimento list --finding <code>")
+        self.assertEqual(
+            lines[summary + 2], "narrow with: pentimento list --finding dangling-parent"
+        )
 
     def test_check_omits_the_narrowing_line_when_clean(self):
         _write(
@@ -1703,7 +1704,7 @@ class CmdListColumnsTests(unittest.TestCase):
     def test_columns_reject_the_old_display_names(self):
         code, _, err = _main(["list", "--columns", "updated"])
         self.assertEqual(code, 2)
-        self.assertIn("unknown column: updated", err)
+        self.assertIn("unknown column: 'updated'", err)
 
     def test_bare_plus_reports_a_missing_name(self):
         code, _, err = _main(["list", "--columns", "+"])
@@ -1981,7 +1982,7 @@ class DateFilterTests(unittest.TestCase):
     def test_inverted_range_is_a_usage_error(self):
         code, _, err = _main(["list", "--since", "2026-09-20", "--until", "2026-09-02"])
         self.assertEqual(code, 2)
-        self.assertIn("pentimento: --since 2026-09-20 is after --until 2026-09-02", err)
+        self.assertIn("pentimento: --since '2026-09-20' is after --until '2026-09-02'", err)
 
     def test_invalid_value_names_both_forms(self):
         code, _, err = _main(["list", "--since", "yesterday"])
@@ -2028,7 +2029,7 @@ class UsageErrorTests(unittest.TestCase):
     def test_set_invalid_project_is_a_usage_error_naming_the_valid_form(self):
         code, _, err = _main(["set", "root-plan", "--project", "a: b"])
         self.assertEqual(code, 2)
-        self.assertIn("invalid project: 'a: b' -- use a single line", err)
+        self.assertIn("invalid project: 'a: b'; use a single line", err)
 
     def test_unknown_plan_still_exits_one_with_the_prefix(self):
         code, _, err = _main(["show", "no-such-plan"])
@@ -2147,18 +2148,18 @@ class BackfillOnlyTests(unittest.TestCase):
     def test_only_with_an_unknown_value_reports_no_such_plan(self):
         code, _, err = _main(["backfill", "--only", "no-such-plan"])
         self.assertEqual(code, 1)
-        self.assertIn("pentimento: no such plan: no-such-plan", err)
+        self.assertIn("pentimento: no such plan: 'no-such-plan'", err)
 
     def test_dry_run_lists_field_changes_under_each_id(self):
         code, out, _ = _main(["backfill", "--dry-run", "--only", "other-plan"])
         lines = out.splitlines()
         self.assertEqual(lines[0], "other-plan")
-        self.assertIn("  status: set to unknown", lines)
+        self.assertIn("  status: set to 'unknown'", lines)
         self.assertTrue(any(line.startswith("  intent: set to") for line in lines))
 
     def test_real_run_lists_field_changes_and_quiet_suppresses_them(self):
         _, out, _ = _main(["backfill", "--only", "other-plan"])
-        self.assertIn("  status: set to unknown", out.splitlines())
+        self.assertIn("  status: set to 'unknown'", out.splitlines())
         _write(self.directory, "quiet-plan", "# Q\n")
         _, out, _ = _main(["backfill", "--quiet", "--only", "quiet-plan"])
         self.assertEqual(out, "")
@@ -2170,7 +2171,7 @@ class BackfillOnlyTests(unittest.TestCase):
             "---\nstatus: not-started\n---\n\n# Done\n\n## Progress\n- [x] all\n",
         )
         _, out, _ = _main(["backfill", "--dry-run", "--rederive", "--only", "done-plan"])
-        self.assertIn("  status: not-started -> complete", out.splitlines())
+        self.assertIn("  status: 'not-started' -> 'complete'", out.splitlines())
 
 
 class TreeCycleRootTests(unittest.TestCase):
@@ -2249,9 +2250,9 @@ class MultiIdSetTests(unittest.TestCase):
             out.splitlines(),
             [
                 "plan-one",
-                "  intent: unset -> active",
+                "  intent: 'unset' -> 'active'",
                 "plan-two",
-                "  intent: unset -> active",
+                "  intent: 'unset' -> 'active'",
             ],
         )
         self.assertEqual(self._fields("alpha-plan-one")["intent"], "active")
@@ -2260,7 +2261,7 @@ class MultiIdSetTests(unittest.TestCase):
     def test_a_missing_id_exits_one_and_writes_nothing(self):
         code, _, err = _main(["set", "alpha-plan-one", "no-such-plan", "--intent", "active"])
         self.assertEqual(code, 1)
-        self.assertIn("pentimento: no such plan: no-such-plan", err)
+        self.assertIn("pentimento: no such plan: 'no-such-plan'", err)
         self.assertEqual(self._fields("alpha-plan-one")["intent"], "unset")
 
     def test_dry_run_applies_to_all_and_writes_nothing(self):
@@ -2297,11 +2298,11 @@ class MultiIdSetTests(unittest.TestCase):
 
 class ChangeLineTests(unittest.TestCase):
     def test_lines_use_plain_values(self):
-        before = {"a": "1", "b": "[x]", "c": "3"}
-        after = {"a": "2", "b": "[x, y]", "d": "4"}
+        before = {"a": "1", "tags": "[x]", "c": "3"}
+        after = {"a": "2", "tags": "[x, y]", "d": "4"}
         self.assertEqual(
-            cli._describe_field_changes(before, after),
-            ["a: 1 -> 2", "b: [x] -> [x, y]", "c: cleared", "d: set to 4"],
+            cli._describe_field_changes(before, after, {}),
+            ["a: '1' -> '2'", "c: cleared", "d: set to '4'", "tags: [x] -> [x, y]"],
         )
 
 
@@ -2430,6 +2431,133 @@ class AsciiOutputTests(unittest.TestCase):
         self.assertIn(
             "\u00fcn\u00ee\u00e7\u00f8d\u00e9", outputs[("show", "root", "--full", "--no-pager")]
         )
+
+
+class SubcommandUsageTests(unittest.TestCase):
+    def test_extra_arguments_show_the_subcommands_usage_and_exit_two(self):
+        code, out, err = _main(["list", "extra"])
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("usage: pentimento list "))
+        self.assertIn("pentimento: unrecognized arguments: extra", err)
+
+
+class ChoiceMetavarTests(unittest.TestCase):
+    def _help(self, *command):
+        with mock.patch.dict(os.environ, {"COLUMNS": "200"}):
+            _, out, _ = _main([*command, "--help"])
+        return out
+
+    def test_choice_options_show_an_uppercase_metavar_and_list_their_choices(self):
+        text = self._help("list")
+        for metavar in ("STATUS", "INTENT", "SOURCE", "DATE", "FORMAT", "COLOR", "SORT", "ORDER"):
+            self.assertIn(f"[--{metavar.lower()} {metavar}]", text.replace("\n", " "))
+        self.assertNotIn("{", text)
+        self.assertIn("filter by status: not-started, partial", text)
+        self.assertIn("color policy: auto, always, never (default: auto)", text)
+
+    def test_positionals_are_lowercase(self):
+        self.assertIn(" id [id ...]", self._help("set").replace("\n", " "))
+        self.assertIn("usage: pentimento completion [-h] shell", self._help("completion"))
+
+    def test_help_wording(self):
+        self.assertIn("clear parent\n", self._help("set"))
+        self.assertIn("recompute created, which is otherwise set once", self._help("backfill"))
+
+
+class HelpFormatterTests(unittest.TestCase):
+    def test_description_paragraphs_refill_to_the_terminal_and_examples_stay_verbatim(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "50"}):
+            _, out, _ = _main(["list", "--help"])
+        lines = out.splitlines()
+        description = lines[lines.index("") + 1 : lines.index("options:")]
+        self.assertTrue(all(len(line) <= 50 for line in description if line))
+        self.assertGreater(len([line for line in description if line]), 1)
+        self.assertIn("  pentimento list --project . --status partial", lines)
+
+
+class SetNoTagTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_removing_an_absent_tag_names_the_plan_and_tag(self):
+        _write(self.directory, "root-plan", "---\ntags: [a]\n---\n\n# Root\n")
+        code, out, _ = _main(["set", "root-plan", "--remove-tag", "x"])
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "no changes; root-plan has no tag 'x'\n")
+
+    def test_a_plain_no_op_still_says_no_changes(self):
+        _write(self.directory, "root-plan", "---\nintent: active\n---\n\n# Root\n")
+        _, out, _ = _main(["set", "root-plan", "--intent", "active"])
+        self.assertEqual(out, "no changes\n")
+
+    def test_a_changed_parent_prints_its_short_id_and_quoted_values(self):
+        _write(self.directory, "is-it-possible-to-abundant-rabbit", "# Root\n")
+        _write(self.directory, "child-plan", "---\nproject: a\n---\n\n# Child\n")
+        _, out, _ = _main(
+            ["set", "child-plan", "--parent", "abundant-rabbit", "--project", "b", "--dry-run"]
+        )
+        self.assertIn("parent: set to 'abundant-rabbit'", out)
+        self.assertIn("project: 'a' -> 'b'", out)
+
+
+class EmptyCorpusHintTests(unittest.TestCase):
+    def test_the_hint_names_both_directory_variables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["AGENT_PLANS_DIR"] = str(Path(tmp) / "none")
+            self.addCleanup(os.environ.pop, "AGENT_PLANS_DIR", None)
+            _, _, err = _main(["list"])
+        self.assertIn("AGENT_PLANS_DIR", err)
+        self.assertIn("CURSOR_PLANS_DIR", err)
+
+
+class CheckFooterTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        _write(
+            self.directory,
+            "dangler",
+            "---\nparent: nope\nstatus: partial\n---\n\n# D\n\n## Progress\n- [ ] a\n- [x] b\n",
+        )
+
+    def test_hints_wrap_to_the_terminal_with_a_two_space_continuation(self):
+        with mock.patch.dict(os.environ, {"COLUMNS": "40"}):
+            _, out, _ = _main(["check", "--color", "never"])
+        footer = out.splitlines()[out.splitlines().index("") + 1 :]
+        self.assertTrue(all(len(line) <= 40 for line in footer), footer)
+        self.assertTrue(any(line.startswith("  ") for line in footer), footer)
+        self.assertEqual(
+            footer[-2:], ["narrow with: pentimento list --finding", "  dangling-parent"]
+        )
+
+    def test_several_codes_leave_the_placeholder(self):
+        _write(
+            self.directory, "other", "---\nstatus: partial\n---\n\n# O\n\n## Progress\n- [x] a\n"
+        )
+        _, out, _ = _main(["check", "--color", "never"])
+        self.assertIn("--finding <code>", out)
+
+
+class ShowNarrowTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_a_long_title_wraps_to_the_terminal(self):
+        _write(self.directory, "root-plan", "# " + "word " * 12 + "\n")
+        with mock.patch.dict(os.environ, {"COLUMNS": "30"}):
+            _, out, _ = _main(["show", "root-plan", "--color", "never"])
+        title = out.split("\n\n")[0].splitlines()
+        self.assertGreater(len(title), 1)
+        self.assertTrue(all(len(line) <= 30 for line in title), title)
 
 
 if __name__ == "__main__":

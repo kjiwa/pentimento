@@ -302,6 +302,18 @@ class CompleteDispatchTests(_CorpusTestCase):
         self.assertIn("abundant-rabbit\tRoll out auth", stdout.getvalue())
 
 
+class ColumnsSkipSelectedTests(_CorpusTestCase):
+    def _values(self, word):
+        return {value for value, _ in completion.candidates(["list", "--columns", word])}
+
+    def test_an_already_selected_column_is_not_offered_again(self):
+        self.assertNotIn("status,status", self._values("status,st"))
+        self.assertIn("status,source", self._values("status,so"))
+
+    def test_a_removed_column_is_not_offered_again(self):
+        self.assertNotIn("-tags,tags", self._values("-tags,ta"))
+
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -353,5 +353,13 @@ class CycleRootTests(unittest.TestCase):
         self.assertTrue(rendered.split("\n")[0].endswith("B"))
 
 
+class ElidedParentTests(unittest.TestCase):
+    def test_elided_parent_is_shown_as_its_short_id(self):
+        orphan = FakePlan(id="orphan", title="Orphan", parent="is-it-possible-to-abundant-rabbit")
+        short_ids = {"orphan": "orphan", "is-it-possible-to-abundant-rabbit": "abundant-rabbit"}
+        rendered = _with_width(120, lambda: tree.render([orphan], short_ids=short_ids))
+        self.assertIn("(parent elided: abundant-rabbit)", rendered)
+
+
 if __name__ == "__main__":
     unittest.main()

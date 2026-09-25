@@ -5,8 +5,9 @@ when the output is not what you expected.
 
 ## No output at all
 
-`pentimento: no plans found; searched: <directories>` on stderr, with exit 0,
-means every plan directory is missing or empty. `AGENT_PLANS_DIR` (default
+`pentimento: no plans found; searched: <directories>; set AGENT_PLANS_DIR or
+CURSOR_PLANS_DIR to search elsewhere` on stderr, with exit 0, means every plan
+directory is missing or empty. `AGENT_PLANS_DIR` (default
 `~/.claude/plans`) or `CURSOR_PLANS_DIR` pointing at a directory that doesn't
 exist contributes nothing: a missing harness is a normal, supported state, not
 an error. Check the directories named in the message actually hold `.md` files
@@ -122,11 +123,11 @@ off. Pass `--color always` to force it, e.g. when piping `list` through `less
 ## A plan id doesn't resolve
 
 `show`, `set`, `tree`, `history`, and `backfill --only` exit 1 and print `no
-such plan: <id>` to stderr when the id doesn't resolve to exactly one plan; see
+such plan: '<id>'` to stderr when the id doesn't resolve to exactly one plan; see
 [Plan ids](reference.md#plan-ids) for the accepted forms. If a close match
-exists in the corpus, the message also appends `-- did you mean: <id>?`. If a
+exists in the corpus, the message also appends `; did you mean: '<id>'?`. If a
 short id matches more than one plan, the message is instead `ambiguous plan id:
-<id> -- matches: <id1>, <id2>` — use the full id to disambiguate. `set
+'<id>'; matches: '<id1>', '<id2>'` — use the full id to disambiguate. `set
 --parent` also exits 1, before writing anything, if the given parent id doesn't
 resolve, and exits 2 if the parent would create a cycle.
 

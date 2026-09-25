@@ -1,6 +1,6 @@
 """`--columns`/`PENTIMENTO_COLUMNS` spec parsing and resolution.
 
-Pure parsing, no dependency on `listing` -- the caller passes the valid
+Pure parsing, no dependency on `listing`; the caller passes the valid
 column names, avoiding an import cycle.
 """
 
@@ -22,10 +22,16 @@ class EmptySelectionError(ValueError):
     """A relative selection removed every column."""
 
 
+def _quoted(names) -> str:
+    return ", ".join(f"'{name}'" for name in names)
+
+
+def _error(message: str, valid: tuple[str, ...]) -> ValueError:
+    return ValueError(f"{message}; valid columns: {', '.join(valid)}")
+
+
 def _unknown_error(bad: set[str], valid: tuple[str, ...]) -> ValueError:
-    return ValueError(
-        f"unknown column: {', '.join(sorted(bad))} -- valid columns: {', '.join(valid)}"
-    )
+    return _error(f"unknown column: {_quoted(sorted(bad))}", valid)
 
 
 def parse(spec: str, valid: tuple[str, ...]) -> Selection:
@@ -34,7 +40,7 @@ def parse(spec: str, valid: tuple[str, ...]) -> Selection:
     or unknown-name spec, ending with `valid columns: ...`."""
     segments = [segment.strip() for segment in spec.split(",") if segment.strip()]
     if not segments:
-        raise ValueError(f"empty column spec -- valid columns: {', '.join(valid)}")
+        raise _error("empty column spec", valid)
 
     if segments == [ALL]:
         return Selection(absolute=valid, add=frozenset(), remove=frozenset())
@@ -42,9 +48,7 @@ def parse(spec: str, valid: tuple[str, ...]) -> Selection:
     relative = [segment for segment in segments if segment[0] in "+-"]
     absolute = [segment for segment in segments if segment[0] not in "+-"]
     if relative and absolute:
-        raise ValueError(
-            f"cannot mix absolute and relative columns: {spec} -- valid columns: {', '.join(valid)}"
-        )
+        raise _error(f"cannot mix absolute and relative columns: '{spec}'", valid)
 
     if absolute:
         unknown = {name for name in absolute if name not in valid}
@@ -52,16 +56,11 @@ def parse(spec: str, valid: tuple[str, ...]) -> Selection:
             raise _unknown_error(unknown, valid)
         duplicates = {name for name in absolute if absolute.count(name) > 1}
         if duplicates:
-            raise ValueError(
-                f"duplicate column: {', '.join(sorted(duplicates))} -- "
-                f"valid columns: {', '.join(valid)}"
-            )
+            raise _error(f"duplicate column: {_quoted(sorted(duplicates))}", valid)
         return Selection(absolute=tuple(absolute), add=frozenset(), remove=frozenset())
 
     if any(len(segment) == 1 for segment in relative):
-        raise ValueError(
-            f"missing column name after +/-: {spec} -- valid columns: {', '.join(valid)}"
-        )
+        raise _error(f"missing column name after +/-: '{spec}'", valid)
 
     add = {segment[1:] for segment in relative if segment[0] == "+"}
     remove = {segment[1:] for segment in relative if segment[0] == "-"}

@@ -144,7 +144,9 @@ def render(
     )
     for index, root in enumerate(roots):
         annotation = (
-            f"parent elided: {root.parent}" if root.parent and root.parent not in ids else None
+            f"parent elided: {short_ids.get(root.parent, root.parent)}"
+            if root.parent and root.parent not in ids
+            else None
         )
         _render_node(ctx, root, "", index == len(roots) - 1, annotation)
     return "\n".join(ctx.lines)

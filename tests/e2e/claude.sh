@@ -50,7 +50,6 @@ _watch() {
     kill "$1" 2>/dev/null || true
   ) &
   WATCHDOG_PID=$!
-  readonly WATCHDOG_PID
 }
 
 _run_claude() {

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+A Cursor `stop` hook, shipped as `integrations/cursor/hooks.json`, runs `backfill` when a
+chat ends; `docs/integrations.md` covers installing it.
+
+Lineage now resolves Cursor's underscore ids (`skip_list_range_query_d3d1b015`) in a plan's
+preamble or session prompt, so a Cursor follow-up finds its parent.
+
+A Cursor plan's status now derives from the `todos:` in its frontmatter when the
+body has no `## Progress` section or checkboxes, instead of staying `unknown`.
+
 A session that only reads a plan no longer counts as having worked it.
 `status-behind-history` fires only for a later session that edited, wrote, or
 delegated work on the plan, and `history` labels a read-only session `read`. The

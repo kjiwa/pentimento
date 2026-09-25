@@ -1,6 +1,9 @@
 import unittest
+from pathlib import Path
 
-from pentimento import status
+from pentimento import frontmatter, status
+
+CURSOR_FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
 
 
 class DeriveStatusTests(unittest.TestCase):
@@ -31,6 +34,75 @@ class DeriveStatusTests(unittest.TestCase):
     def test_progress_section_stops_at_next_heading(self):
         body = "# Title\n\n## Progress\n- [x] one\n\n## Context\n- [ ] not part of progress\n"
         self.assertEqual(status.derive_status(body), "complete")
+
+
+def _cursor(name):
+    _, body, extras = frontmatter.parse((CURSOR_FIXTURES / name).read_text())
+    return body, extras
+
+
+def _todos(*statuses):
+    items = "".join(
+        f"  - id: t{i}\n    content: c\n    status: {v}\n" for i, v in enumerate(statuses)
+    )
+    text = f"---\nname: N\ntodos:\n{items}pentimento:\n  status: unknown\n---\n# Body\n"
+    _, body, extras = frontmatter.parse(text)
+    return body, extras
+
+
+class CursorTodosTests(unittest.TestCase):
+    def test_all_completed_is_complete(self):
+        self.assertEqual(status.derive_status(*_cursor("quiet_flag_83cddd33.plan.md")), "complete")
+
+    def test_all_pending_is_not_started(self):
+        for name in (
+            "skip_list_range_query_d3d1b015.plan.md",
+            "range_vs_submap_benchmark_4a0ba26d.plan.md",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(status.derive_status(*_cursor(name)), "not-started")
+
+    def test_mixed_is_partial(self):
+        self.assertEqual(
+            status.derive_status(*_cursor("add_dry-run_flag_c900747b.plan.md")), "partial"
+        )
+
+    def test_in_progress_alone_is_partial(self):
+        self.assertEqual(status.derive_status(*_todos("in_progress")), "partial")
+
+    def test_unseen_value_is_unknown(self):
+        self.assertEqual(status.derive_status(*_todos("completed", "cancelled")), "unknown")
+
+    def test_empty_todos_is_unknown(self):
+        self.assertEqual(status.derive_status(*_todos()), "unknown")
+
+    def test_unindented_list_items_stay_in_the_todos_block(self):
+        text = (
+            "---\ntodos:\n- id: a\n  content: c\n  status: completed\n"
+            "- id: b\n  content: c\n  status: pending\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
+    def test_blank_line_inside_the_todos_block_does_not_end_it(self):
+        text = (
+            "---\ntodos:\n  - id: a\n    status: completed\n\n"
+            "  - id: b\n    status: pending\n---\n# Body\n"
+        )
+        _, body, extras = frontmatter.parse(text)
+        self.assertEqual(status.derive_status(body, extras), "partial")
+
+    def test_pentimento_block_status_is_not_read_as_a_todo(self):
+        body, extras = _todos("completed")
+        self.assertEqual(status.derive_status(body, extras), "complete")
+
+    def test_progress_wins_over_todos(self):
+        _, extras = _todos("completed")
+        self.assertEqual(status.derive_status("## Progress\n- [ ] a\n", extras), "not-started")
+
+    def test_body_checkboxes_win_over_todos(self):
+        _, extras = _todos("completed")
+        self.assertEqual(status.derive_status("- [ ] a\n", extras), "not-started")
 
 
 if __name__ == "__main__":

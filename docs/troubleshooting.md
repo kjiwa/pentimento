@@ -50,7 +50,11 @@ land here:
 
 - There's no `## Progress` heading at all, and no checkboxes anywhere in
   the body (checkboxes outside a `## Progress` section are only consulted
-  when the heading is entirely absent — a Cursor plan, say).
+  when the heading is entirely absent), and no Cursor `todos:` frontmatter.
+  A Cursor plan derives from its todos: all `pending` is `not-started`, all
+  `completed` is `complete`, any other mix of `pending`, `in_progress`, and
+  `completed` is `partial`. An empty list or any other todo status stays
+  `unknown`.
 - There is a `## Progress` heading, but its section has no checkboxes and
   no recognized prose phrase (`nothing started`, `planning only`,
   `not started`, `no progress`). Body-wide checkboxes are *not* consulted

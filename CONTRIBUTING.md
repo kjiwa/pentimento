@@ -22,6 +22,17 @@ sh demo/capture.sh && git diff --exit-code README.md
 
 Run it when a change could alter what a sample shows.
 
+A separate CI job drives the real Claude Code CLI against a scripted local endpoint
+(no account or subscription) to check the shipped hooks. It needs `claude` and
+`pentimento` on `PATH` and a free loopback port:
+
+```sh
+sh tests/e2e/claude.sh
+```
+
+Run it when a change touches `pentimento hook`, `backfill`, or
+`integrations/claude/`.
+
 User-visible output must satisfy `tests/test_invariants.py`. A defect found in
 review is fixed with a test for its class, not only its instance.
 

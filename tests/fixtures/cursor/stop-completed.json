@@ -1,0 +1,30 @@
+{
+  "conversation_id": "d7913d1b-8d13-4fcc-9d3e-d4d3824ffa45",
+  "generation_id": "b9f69784-1954-4340-8074-21af95807e1d",
+  "model": "cursor-grok-4.6-medium",
+  "model_id": "grok-4.6",
+  "model_params": [
+    {
+      "id": "effort",
+      "value": "medium"
+    },
+    {
+      "id": "fast",
+      "value": "false"
+    }
+  ],
+  "status": "completed",
+  "loop_count": 0,
+  "input_tokens": 108441,
+  "output_tokens": 2905,
+  "cache_read_tokens": 49920,
+  "cache_write_tokens": 0,
+  "session_id": "d7913d1b-8d13-4fcc-9d3e-d4d3824ffa45",
+  "hook_event_name": "stop",
+  "cursor_version": "3.22.7",
+  "workspace_roots": [
+    "/home/user/src/github/kjiwa/dircompare"
+  ],
+  "user_email": "user@example.com",
+  "transcript_path": "/home/user/.cursor/projects/home-user-src-github-kjiwa-dircompare/agent-transcripts/d7913d1b-8d13-4fcc-9d3e-d4d3824ffa45/d7913d1b-8d13-4fcc-9d3e-d4d3824ffa45.jsonl"
+}

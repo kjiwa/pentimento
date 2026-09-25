@@ -34,7 +34,7 @@ def derive_fields(
         fields["created"] = _created_date(target)
 
     existing_status = fields.get("status")
-    derived_status = status.derive_status(target.body)
+    derived_status = status.derive_status(target.body, target.extras)
     if max_status and status.rank(derived_status) > status.rank(max_status):
         derived_status = max_status
     if existing_status is None:

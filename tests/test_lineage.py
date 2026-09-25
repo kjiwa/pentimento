@@ -1,7 +1,10 @@
 import dataclasses
 import unittest
+from pathlib import Path
 
-from pentimento import lineage, times
+from pentimento import frontmatter, lineage, times
+
+CURSOR_FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
 
 
 @dataclasses.dataclass
@@ -23,6 +26,44 @@ class FakeSession:
 
 
 class DeriveParentTests(unittest.TestCase):
+    def test_cursor_follow_up_fixture_resolves_its_snake_case_parent(self):
+        parent_id = "skip_list_range_query_d3d1b015"
+        child_id = "range_vs_submap_benchmark_4a0ba26d"
+        _, child_body, _ = frontmatter.parse((CURSOR_FIXTURES / f"{child_id}.plan.md").read_text())
+        parent = FakePlan(
+            id=parent_id, body="# Parent\n", started="2026-09-01T00:00:00Z", source="cursor"
+        )
+        child = FakePlan(
+            id=child_id, body=child_body, started="2026-09-02T00:00:00Z", source="cursor"
+        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent_id)
+
+    def test_snake_case_identifier_that_is_not_an_id_resolves_to_nothing(self):
+        parent = FakePlan(
+            id="skip_list_range_query_d3d1b015",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
+            source="cursor",
+        )
+        child = FakePlan(
+            id="other_plan_00000000",
+            body="Uses the skip_list module\n",
+            started="2026-09-02T00:00:00Z",
+            source="cursor",
+        )
+        self.assertIsNone(lineage.derive_parent(child, [parent, child], {}))
+
+    def test_codename_glued_to_an_underscore_prefix_still_resolves(self):
+        parent = FakePlan(
+            id="implement-the-plan-eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z"
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="# Child\n\nContinues plan_eager-bird\n\n## Progress\n- [ ] todo\n",
+            started="2026-09-02T00:00:00Z",
+        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent.id)
+
     def test_started_is_compared_as_an_instant_not_as_text(self):
         parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z")
         child = FakePlan(id="slow-otter", body="# Child\n", started="2026-09-01T00:00:00.500Z")

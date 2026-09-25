@@ -7,6 +7,8 @@ from pathlib import Path
 
 from pentimento import sources
 
+CURSOR_FIXTURES = Path(__file__).parent / "fixtures" / "cursor"
+
 
 def _restore_env(key, previous):
     if previous is None:
@@ -142,6 +144,19 @@ class ContainsTests(_EnvIsolated):
 
 
 class DiscoverTests(_EnvIsolated):
+    def test_real_cursor_plans_are_discovered_by_suffix(self):
+        os.environ["CURSOR_PLANS_DIR"] = str(CURSOR_FIXTURES)
+        names = sorted(p.name for name, p in sources.discover() if name == "cursor")
+        self.assertEqual(
+            names,
+            [
+                "add_dry-run_flag_c900747b.plan.md",
+                "quiet_flag_83cddd33.plan.md",
+                "range_vs_submap_benchmark_4a0ba26d.plan.md",
+                "skip_list_range_query_d3d1b015.plan.md",
+            ],
+        )
+
     def test_pairs_carry_source_name(self):
         claude_dir = self.directory / "claude-plans"
         claude_dir.mkdir()

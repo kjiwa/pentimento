@@ -97,12 +97,18 @@ your harness names sessions and where it keeps state.
 
 ## Cursor
 
-Cursor has no hook system, so there's no way to run `backfill` automatically.
-Configure `CURSOR_PLANS_DIR` (see [docs/reference.md](reference.md)) and run
-`pentimento backfill` by hand, or on a schedule (e.g. a cron job or a CI
-job). Because Cursor keeps no session transcripts, a Cursor plan's `project` is
-never derived and its `parent` only ever comes from the body-preamble
-reference scan.
+One `stop` hook runs `pentimento backfill` when a chat ends. Copy
+[integrations/cursor/hooks.json](../integrations/cursor/hooks.json) to
+`~/.cursor/hooks.json`, or merge its `stop` entry into an existing file; Cursor
+reloads hooks on save. The command discards `backfill` output and prints `{}`
+because Cursor expects JSON on stdout.
+
+There is no per-edit hook: Cursor's plan writes and Build's todo updates fire no
+file-edit hook, so status refreshes when a chat ends, not on each edit. Configure
+`CURSOR_PLANS_DIR` (see [reference.md](reference.md)) if plans live outside the
+default directory. Because Cursor keeps no session transcripts, a Cursor plan's
+`project` is never derived and its `parent` only ever comes from the
+body-preamble reference scan.
 
 ## `check` in CI
 

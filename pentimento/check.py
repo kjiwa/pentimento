@@ -170,7 +170,7 @@ def _underivable_status(plans):
     for p in plans:
         if _explicit(p) or p.status != vocabulary_module.UNKNOWN:
             continue
-        if status_module.derive_status(p.body) != vocabulary_module.UNKNOWN:
+        if status_module.derive_status(p.body, p.extras) != vocabulary_module.UNKNOWN:
             continue
         if status_module.progress_section(p.body) is None:
             message = "no '## Progress' heading and no checkboxes in the body"
@@ -198,7 +198,7 @@ def _status_behind_history(plans, touches):
 
 
 def _behind_progress(p):
-    derived = status_module.derive_status(p.body)
+    derived = status_module.derive_status(p.body, p.extras)
     if status_module.rank(derived) > status_module.rank(p.status):
         return derived
     return None

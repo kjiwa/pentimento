@@ -2470,7 +2470,10 @@ class HelpFormatterTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"COLUMNS": "50"}):
             _, out, _ = _main(["list", "--help"])
         lines = out.splitlines()
-        description = lines[lines.index("") + 1 : lines.index("options:")]
+        heading = next(
+            i for i, line in enumerate(lines) if line in ("options:", "optional arguments:")
+        )
+        description = lines[lines.index("") + 1 : heading]
         self.assertTrue(all(len(line) <= 50 for line in description if line))
         self.assertGreater(len([line for line in description if line]), 1)
         self.assertIn("  pentimento list --project . --status partial", lines)

@@ -16,6 +16,11 @@ A session that only reads a plan no longer counts as having worked it.
 delegated work on the plan, and `history` labels a read-only session `read`. The
 finding's hint now leads with ticking `## Progress`, since `set --status` pins.
 
+A plan written by a session whose slug is not the plan's id, such as a second plan from
+one session, is now attributed to that session. `backfill` derives its `project`,
+`underived-project` flags it, and `history` labels the writing session `authored` rather
+than `worked`.
+
 ## 0.1.18
 
 Several correctness fixes. `tree --format tsv` listed only root plans; it now

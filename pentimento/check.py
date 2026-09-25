@@ -151,10 +151,10 @@ def _malformed_tags(plans):
     return findings
 
 
-def _underived_project(plans, sessions):
+def _underived_project(plans, sessions, touches):
     findings = []
     for p in plans:
-        session = sessions.get(p.id)
+        session = sessions.get(touches_module.author(touches.get(p.id, []), p.id))
         if not p.project and session and session.project:
             message = f"session supplies project {session.project!r} but frontmatter has none"
             findings.append(Finding("underived-project", p.id, message))
@@ -293,7 +293,7 @@ def run(plans, sessions=None, touches=None, skips=None) -> list[Finding]:
         *_missing_title(plans),
         *_malformed_tags(plans),
         *_underivable_status(plans),
-        *_underived_project(plans, sessions),
+        *_underived_project(plans, sessions, touches),
         *_status_behind_history(plans, touches),
         *_status_behind_progress(plans),
         *_pin_behind_progress(plans),

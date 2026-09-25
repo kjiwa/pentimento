@@ -1,7 +1,7 @@
 """Render a plan's session-touch history: who touched it, and when.
 
 Groups the `touches.Touch` list for a single plan by session. A session
-whose id equals the plan's own id authored it; any other session that later
+that wrote the plan (`touches.author`) authored it; any other session that later
 edited or delegated work on it worked it, and one that only read it is `read`.
 Absence of any group is
 never rendered as evidence the plan wasn't worked -- see `touches.py`.
@@ -40,6 +40,7 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
     `plan_touches` is expected already sorted by `at`, as `touches.load`
     returns it, so the first appearance of a session is its earliest touch.
     """
+    writer = touches_module.author(plan_touches, plan_id)
     worked_sessions = {t.session for t in touches_module.worked(plan_touches, plan_id)}
     groups: dict[str, Group] = {}
     for touch in plan_touches:
@@ -47,7 +48,7 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
         if existing is None:
             groups[touch.session] = Group(
                 session=touch.session,
-                what=_what(touch.session, plan_id, worked_sessions),
+                what=_what(touch.session, writer, worked_sessions),
                 when=touch.at,
                 touches=1,
             )
@@ -56,8 +57,8 @@ def group(plan_id: str, plan_touches: list[touches_module.Touch]) -> list[Group]
     return list(groups.values())
 
 
-def _what(session: str, plan_id: str, worked_sessions: set[str]) -> str:
-    if session == plan_id:
+def _what(session: str, writer: str, worked_sessions: set[str]) -> str:
+    if session == writer:
         return "authored"
     return "worked" if session in worked_sessions else "read"
 

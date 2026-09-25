@@ -2,8 +2,8 @@
 
 Reads the same `~/.claude/projects/**/*.jsonl` transcripts as `sessions.py`,
 but looks for `tool_use` records that name a plan's *path* rather than for
-the `slug` field a session was started with -- a plan's own authoring
-session and every later session that reads, edits, or delegates work on it
+the `slug` field a session was started with -- a plan's authoring
+session (see `author`) and every later session that reads, edits, or delegates work on it
 both leave records here; only edits, writes, and delegation count as work.
 Restricting to tool_use inputs that name the plan path (rather than
 free-text substring matching) keeps this signal clean: pentimento's own dev
@@ -100,9 +100,19 @@ def _touches_in_record(record: dict, log_path: Path):
             yield Touch(plan_id=plan_id, session=session, tool=tool, at=at, cwd=cwd)
 
 
+def author(touches: list[Touch], plan_id: str) -> str:
+    """The session that wrote the plan: the same-slug session if it touched the plan,
+    else the session of the earliest `Write`, else the plan id."""
+    if any(t.session == plan_id for t in touches):
+        return plan_id
+    return next((t.session for t in touches if t.tool == "Write"), plan_id)
+
+
 def authored(touches: list[Touch], plan_id: str) -> list[Touch]:
-    return [t for t in touches if t.session == plan_id]
+    writer = author(touches, plan_id)
+    return [t for t in touches if t.session == writer]
 
 
 def worked(touches: list[Touch], plan_id: str) -> list[Touch]:
-    return [t for t in touches if t.session != plan_id and t.tool in _WORK_TOOLS]
+    writer = author(touches, plan_id)
+    return [t for t in touches if t.session != writer and t.tool in _WORK_TOOLS]

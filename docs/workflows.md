@@ -212,7 +212,7 @@ from `## Progress` checkboxes — it says nothing about whether a later session
 actually picked the plan up. `check` surfaces the gap as
 `status-behind-history` ([troubleshooting](troubleshooting.md#check-findings)).
 `pentimento history <id>` shows a plan's full trail — one row per session,
-`authored` for the session that wrote the plan, `worked` for every session
+`authored` for the session that wrote the plan (the one whose slug is the plan's id, else the earliest to `Write` it), `worked` for every session
 since that edited it or delegated work on it, and `read` for one that only
 opened it.
 

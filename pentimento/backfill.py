@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from pentimento import frontmatter, lineage, status, times, vocabulary
 from pentimento import plan as plan_module
+from pentimento import touches as touches_module
 
 
 def _created_date(target) -> str:
     return times.local_date(target.created_at) or target.started[:10]
 
 
-def _derive_project(target, sessions) -> str | None:
-    session = sessions.get(target.id)
+def _derive_project(target, sessions, touches) -> str | None:
+    session = sessions.get(touches_module.author(touches.get(target.id, []), target.id))
     if session and session.project:
         return session.project
     return target.fields.get("project")
@@ -21,12 +22,14 @@ def derive_fields(
     target,
     candidates,
     sessions,
+    touches=None,
     *,
     rederive: bool = False,
     recreate: bool = False,
     max_status: str | None = None,
 ) -> dict[str, str]:
     """Fields to backfill for `target`."""
+    touches = touches or {}
     fields = dict(target.fields)
     fields.setdefault("intent", vocabulary.DEFAULT_INTENT)
     fields.setdefault("created", _created_date(target))
@@ -49,7 +52,7 @@ def derive_fields(
                 fields["status"] = derived_status
 
     if rederive or "project" not in fields:
-        project = _derive_project(target, sessions)
+        project = _derive_project(target, sessions, touches)
         if project and frontmatter.is_valid_value(project):
             fields["project"] = project
 
@@ -68,6 +71,7 @@ def derive_fields(
 def run(
     plans,
     sessions=None,
+    touches=None,
     *,
     dry_run: bool = False,
     rederive: bool = False,
@@ -84,11 +88,13 @@ def run(
     `only`, when given, restricts writes to those ids; derivation still spans all `plans`.
     """
     sessions = sessions or {}
+    touches = touches or {}
     new_fields_by_path = {
         target.path: derive_fields(
             target,
             plans,
             sessions,
+            touches,
             rederive=rederive,
             recreate=recreate,
             max_status=max_status,

@@ -2,6 +2,6 @@
   "private": true,
   "description": "Claude Code CLI driven by tests/e2e/claude.sh",
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.282"
+    "@anthropic-ai/claude-code": "2.1.283"
   }
 }

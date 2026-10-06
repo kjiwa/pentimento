@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.21
 
 A Claude Code plan's `project` is its session's launch directory, no longer
 the common ancestor of every directory the session ran in, so a session that

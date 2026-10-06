@@ -48,7 +48,7 @@ def load(directory: Path | None = None) -> dict[str, Session]:
     return {
         slug: Session(
             slug=slug,
-            project=_project_name(entry["cwds"], entry["paths"], roots),
+            project=_project_name(entry["launch"], entry["cwds"] + entry["paths"], roots),
             started=entry["started"] or "",
             prompt=entry["prompt"] or "",
             ended=entry["ended"] or "",
@@ -81,7 +81,8 @@ def _parse_log(log_path: Path) -> dict[str, dict]:
         cwd = record.get("cwd")
         if cwd:
             entry["cwds"].append(cwd)
-            entry["launch"] = entry["launch"] or cwd
+            if os.path.isabs(cwd):
+                entry["launch"] = entry["launch"] or cwd
         timestamp = record.get("timestamp")
         if timestamp and (entry["started"] is None or timestamp < entry["started"]):
             entry["started"] = timestamp
@@ -198,14 +199,12 @@ def _contains(root: str, path: str) -> bool:
     return path == root or path.startswith(root + os.sep)
 
 
-def _project_name(cwds, paths, roots) -> str:
-    cwds = [c for c in cwds if os.path.isabs(c)]
-    if not cwds:
+def _project_name(launch, evidence, roots) -> str:
+    if not launch:
         return ""
-    common = os.path.commonpath(cwds)
-    if common == str(Path.home()):
-        return _launch_root_name(cwds + paths, roots)
-    return os.path.basename(common)
+    if launch == str(Path.home()):
+        return _launch_root_name(evidence, roots)
+    return os.path.basename(launch)
 
 
 def _launch_root_name(evidence, roots) -> str:

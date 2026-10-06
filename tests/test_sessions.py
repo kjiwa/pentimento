@@ -43,6 +43,24 @@ class LoadTests(unittest.TestCase):
         (project_dir / "gone.jsonl").symlink_to(self.directory / "absent.jsonl")
         self.assertEqual(sessions.load(self.directory), {})
 
+    def _project_of(self, cwds):
+        project_dir = self.directory / "-home-user-src-a"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                {"type": "user", "slug": "s", "cwd": cwd, "timestamp": f"2026-09-01T00:00:0{i}Z"}
+                for i, cwd in enumerate(cwds)
+            ],
+        )
+        return sessions.load(self.directory)["s"].project
+
+    def test_project_is_the_launch_directory_when_the_session_moves_to_a_sibling(self):
+        self.assertEqual(self._project_of(["/home/user/src/a", "/home/user/src/b"]), "a")
+
+    def test_project_is_the_launch_directory_when_the_session_enters_a_subdirectory(self):
+        self.assertEqual(self._project_of(["/home/user/src/a", "/home/user/src/a/sub"]), "a")
+
     def test_loads_slug_project_started_and_prompt(self):
         project_dir = self.directory / "-home-user-src-example"
         project_dir.mkdir()
@@ -322,11 +340,11 @@ class HostileRecordTests(unittest.TestCase):
 
 class ProjectNameTests(unittest.TestCase):
     def test_malformed_relative_cwd_mixed_with_absolute_does_not_crash(self):
-        name = sessions._project_name(["not/absolute", "/home/user/src/project-a"], [], set())
+        name = sessions._project_name("/home/user/src/project-a", [], set())
         self.assertEqual(name, "project-a")
 
     def test_all_relative_cwds_yield_empty_project(self):
-        self.assertEqual(sessions._project_name(["relative/one", "relative/two"], [], set()), "")
+        self.assertEqual(sessions._project_name(None, [], set()), "")
 
 
 if __name__ == "__main__":

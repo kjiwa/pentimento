@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A Claude Code plan's `project` is its session's launch directory, no longer
+the common ancestor of every directory the session ran in, so a session that
+ran commands in a sibling repo keeps the project it was started in.
+
 `list`, `show`, `tree`, `index`, `history`, and `check` show the derived
 `project`, `status`, `intent`, `created`, and `parent` without a prior
 `backfill`. `backfill` and the hooks only persist them, which keeps them after

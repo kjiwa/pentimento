@@ -1,9 +1,9 @@
 #!/bin/sh
-# Build demo/pentimento-preview.png for GitHub's social-preview slot.
+# Build pentimento-preview.png for GitHub's social-preview slot.
 #
 # Usage: sh demo/preview.sh [output-dir]
 #
-# Fits demo/pentimento-tree.png -- a Screenshot taken by the VHS tape -- to
+# Fits demo/pentimento-tree.png -- a screenshot taken by the VHS tape -- to
 # GitHub's 1280x640 social-preview size. Writes to $1, or ${TMPDIR:-/tmp} by
 # default, and prints the path. The PNG is not committed -- GitHub stores the
 # uploaded copy, and record.sh does not commit intermediates either.

@@ -3,3 +3,4 @@ graft demo
 graft docs
 graft integrations
 prune tests/e2e/node_modules
+exclude demo/*.gif demo/*.png demo/*.tape

@@ -5,3 +5,5 @@ build/
 dist/
 demo/pentimento-tree.png
 node_modules/
+.venv/
+uv.lock

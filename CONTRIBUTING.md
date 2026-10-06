@@ -4,8 +4,8 @@
 
 ```sh
 python3 -m unittest discover
-uvx ruff check
-uvx ruff format --check
+uv run --only-group dev ruff check
+uv run --only-group dev ruff format --check
 ```
 
 The shell tests skip when `shellcheck`, `zsh`, or `fish` is not installed;

@@ -1,16 +1,21 @@
 name: check
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.9', '3.13']
+        python-version: ['3.9', '3.14']
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -24,11 +29,12 @@ jobs:
       - if: runner.os == 'macOS'
         run: brew install fish shellcheck
       - run: python3 -m unittest discover
-      - run: uvx ruff check
-      - run: uvx ruff format --check
+      - run: uv run --only-group dev ruff check
+      - run: uv run --only-group dev ruff format --check
 
   readme-samples:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,6 +64,7 @@ jobs:
 
   release-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

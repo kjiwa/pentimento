@@ -5,12 +5,14 @@ does a source tree that is not a git work tree.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import unittest
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent
+_UNANCHORED_GREP = re.compile(r'grep\s+-(?![A-Za-z]*[Fx])[A-Za-z]+\s+"\$')
 
 
 def _in_work_tree() -> bool:
@@ -64,6 +66,14 @@ class ShellFileTests(unittest.TestCase):
         paths = _files(".fish")
         self.assertTrue(paths)
         self.assertEqual([], _failures(["fish", "--no-execute"], paths))
+
+    def test_grep_of_a_variable_is_not_a_regex(self):
+        offenders = []
+        for path in _files(".sh"):
+            for number, line in enumerate((_REPO_ROOT / path).read_text().splitlines(), 1):
+                if _UNANCHORED_GREP.search(line):
+                    offenders.append(f"{path}:{number}: {line.strip()}")
+        self.assertEqual([], offenders)
 
 
 if __name__ == "__main__":

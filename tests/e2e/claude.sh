@@ -71,7 +71,7 @@ _assert_output_has() {
   _assert_output_has_expect=$1
   shift
   _assert_output_has_output=$(pentimento "$@" --color never) || _fail "pentimento $* exited nonzero"
-  printf '%s\n' "$_assert_output_has_output" | grep -q "$_assert_output_has_expect" ||
+  printf '%s\n' "$_assert_output_has_output" | grep -Fq "$_assert_output_has_expect" ||
     _fail "pentimento $* lacks '$_assert_output_has_expect'"
 }
 

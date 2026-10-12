@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent
-_UNANCHORED_GREP = re.compile(r'grep\s+-(?![A-Za-z]*[Fx])[A-Za-z]+\s+"\$')
+_REGEX_GREP = re.compile(r'grep\s+-(?![A-Za-z]*F)[A-Za-z]+\s+"\$')
 
 
 def _in_work_tree() -> bool:
@@ -71,7 +71,7 @@ class ShellFileTests(unittest.TestCase):
         offenders = []
         for path in _files(".sh"):
             for number, line in enumerate((_REPO_ROOT / path).read_text().splitlines(), 1):
-                if _UNANCHORED_GREP.search(line):
+                if _REGEX_GREP.search(line):
                     offenders.append(f"{path}:{number}: {line.strip()}")
         self.assertEqual([], offenders)
 

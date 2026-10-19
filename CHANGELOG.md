@@ -7,7 +7,9 @@ third source, shown as `antigravity` in `list --source`. Their `project`,
 `created`, `modified`, and prompt lineage come from the transcript in the same
 conversation directory. `integrations/antigravity/hooks.json` is a
 `PostToolUse` hook that backfills a plan as it is edited; `pentimento hook`
-answers an Antigravity payload with `{}`, which Antigravity requires. Set
+answers an Antigravity payload with `{}`, which Antigravity requires. An
+`implementation_plan.md` takes its conversation id as a suffix so two
+conversations never share an id. Set
 `ANTIGRAVITY_BRAIN_DIR` to read another directory.
 
 ## 0.1.21

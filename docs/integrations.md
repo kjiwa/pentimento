@@ -137,7 +137,9 @@ with several ancestors sharing that encoding, leaves `project` unset.
 Antigravity writes each plan to `~/.gemini/antigravity/brain/<conversation>/<name>.md`
 with a `<name>.md.metadata.json` sidecar beside it; both are required for
 pentimento to see it. `task.md` and `walkthrough.md`, which Antigravity writes
-there too, are not plans. The id is the filename stem. Set
+there too, are not plans. The id is the filename stem, except that
+`implementation_plan.md`, the name Antigravity gives every conversation by
+default, becomes `implementation_plan-<first 8 of the conversation id>`. Set
 `ANTIGRAVITY_BRAIN_DIR` to read another directory; see
 [reference.md](reference.md#environment-variables).
 

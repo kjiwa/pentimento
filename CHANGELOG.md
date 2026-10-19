@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.22
 
 Antigravity plans (`~/.gemini/antigravity/brain/<conversation>/<name>.md`) are a
 third source, shown as `antigravity` in `list --source`. Their `project`,

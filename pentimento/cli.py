@@ -1253,8 +1253,8 @@ def cmd_hook(_args) -> int:
             return 0
         plans, sessions = corpus.load_with_sessions()
         target = next((p for p in plans if p.path.resolve() == path.resolve()), None)
-        if target is None:
-            return 0
+        if target is None or target.id in {p.id for p in check_module.duplicate_ids(plans)}:
+            return 0  # _backfill filters by id, so a shared id would rewrite the other plan too
         changed = _backfill(
             only={target.id}, max_status=vocabulary.PARTIAL, sessions=sessions, plans=plans
         )

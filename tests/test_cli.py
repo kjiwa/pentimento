@@ -1993,6 +1993,12 @@ class CmdHookAntigravityTests(unittest.TestCase):
         self.assertEqual(self._run_hook(self._write()), (0, "{}\n"))
         self.assertEqual((self.directory / "release.md").read_text(), claude_text)
 
+    def test_plan_sharing_an_id_with_another_plan_is_not_backfilled(self):
+        claude_text = "# Release\n\n## Progress\n- [x] done\n"
+        (self.directory / "release.md").write_text(claude_text)
+        self.assertEqual(self._run_hook(self._write()), (0, "{}\n"))
+        self.assertEqual((self.directory / "release.md").read_text(), claude_text)
+
     def test_claude_payloads_never_print_json(self):
         path = self.directory / "root-plan.md"
         path.write_text("# Root\n\n## Progress\n- [x] done\n")

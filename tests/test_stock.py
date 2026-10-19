@@ -39,6 +39,7 @@ def _seed_claude(root: Path) -> dict[str, str]:
         "AGENT_PLANS_DIR": str(plans),
         "AGENT_SESSIONS_DIR": str(root / "claude-sessions"),
         "CURSOR_PLANS_DIR": str(root / "no-cursor-plans"),
+        "ANTIGRAVITY_BRAIN_DIR": str(root / "no-brain"),
         "CURSOR_SESSIONS_DIR": str(root / "no-cursor-sessions"),
     }
 
@@ -50,6 +51,7 @@ def _seed_cursor(root: Path) -> dict[str, str]:
         "AGENT_PLANS_DIR": str(root / "no-claude-plans"),
         "AGENT_SESSIONS_DIR": str(root / "no-claude-sessions"),
         "CURSOR_PLANS_DIR": str(plans),
+        "ANTIGRAVITY_BRAIN_DIR": str(root / "no-brain"),
         "CURSOR_SESSIONS_DIR": str(FIXTURES / "cursor" / "projects"),
     }
 

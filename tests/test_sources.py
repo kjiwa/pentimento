@@ -23,7 +23,12 @@ class _EnvIsolated(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.directory = Path(self._tmp.name)
 
-        for key in ("AGENT_PLANS_DIR", "CURSOR_PLANS_DIR", "CURSOR_SESSIONS_DIR"):
+        for key in (
+            "AGENT_PLANS_DIR",
+            "CURSOR_PLANS_DIR",
+            "CURSOR_SESSIONS_DIR",
+            "ANTIGRAVITY_BRAIN_DIR",
+        ):
             previous = os.environ.get(key)
             os.environ[key] = str(self.directory / "no-such-dir")
             self.addCleanup(_restore_env, key, previous)
@@ -55,7 +60,6 @@ class FilesTests(_EnvIsolated):
             name="claude",
             directories=[self.directory / "missing"],
             suffix=".md",
-            strip_suffix=".md",
         )
         self.assertEqual(sources.files(source), [])
 
@@ -65,9 +69,7 @@ class FilesTests(_EnvIsolated):
         (plans_dir / "root-plan.md").write_text("# Root\n")
         (plans_dir / "README.md").write_text("# readme\n")
         (plans_dir / "INDEX.md").write_text("# index\n")
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         found = sources.files(source)
         self.assertEqual([p.name for p in found], ["root-plan.md"])
 
@@ -76,60 +78,113 @@ class FilesTests(_EnvIsolated):
         plans_dir.mkdir()
         (plans_dir / "refactor-auth.plan.md").write_text("# Refactor auth\n")
         (plans_dir / "notes.md").write_text("# not a plan\n")
-        source = sources.Source(
-            name="cursor", directories=[plans_dir], suffix=".plan.md", strip_suffix=".plan.md"
-        )
+        source = sources.Source(name="cursor", directories=[plans_dir], suffix=".plan.md")
         found = sources.files(source)
         self.assertEqual([p.name for p in found], ["refactor-auth.plan.md"])
 
 
+def _plan(brain: Path, conversation: str, name: str = "plan.md", sidecar: bool = True) -> Path:
+    directory = brain / conversation
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text("# Plan\n")
+    if sidecar:
+        (directory / (name + ".metadata.json")).write_text("{}")
+    return path
+
+
+class AntigravitySourceTests(_EnvIsolated):
+    def setUp(self):
+        super().setUp()
+        self.brain = self.directory / "brain"
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(self.brain)
+        self.source = sources.antigravity_source()
+
+    def test_uses_antigravity_brain_dir(self):
+        self.assertEqual(self.source.directories, [self.brain])
+
+    def test_default_is_under_gemini(self):
+        del os.environ["ANTIGRAVITY_BRAIN_DIR"]
+        expected = Path.home() / ".gemini" / "antigravity" / "brain"
+        self.assertEqual(sources.antigravity_source().directories, [expected])
+
+    def test_finds_plans_with_a_sidecar_one_level_down(self):
+        one = _plan(self.brain, "aaaa", "gui_tests.md")
+        two = _plan(self.brain, "bbbb", "release.md")
+        self.assertEqual(sources.files(self.source), [one, two])
+
+    def test_requires_the_sidecar(self):
+        _plan(self.brain, "aaaa", "notes.md", sidecar=False)
+        self.assertEqual(sources.files(self.source), [])
+
+    def test_excludes_task_and_walkthrough(self):
+        _plan(self.brain, "aaaa", "task.md")
+        _plan(self.brain, "aaaa", "walkthrough.md")
+        keep = _plan(self.brain, "aaaa", "implementation_plan.md")
+        self.assertEqual(sources.files(self.source), [keep])
+
+    def test_conversation_without_a_plan_contributes_nothing(self):
+        (self.brain / "cccc" / ".system_generated" / "logs").mkdir(parents=True)
+        (self.brain / "cccc" / ".system_generated" / "logs" / "transcript.jsonl").write_text("{}")
+        self.assertEqual(sources.files(self.source), [])
+
+    def test_missing_brain_dir_contributes_nothing(self):
+        self.assertEqual(sources.files(self.source), [])
+
+    def test_contains_matches_the_conversation_directory_parent(self):
+        path = self.brain / "aaaa" / "plan.md"
+        self.assertTrue(sources.contains(self.source, path))
+
+    def test_contains_does_not_require_the_sidecar(self):
+        self.assertTrue(sources.contains(self.source, self.brain / "aaaa" / "new.md"))
+
+    def test_contains_rejects_other_depths_and_excluded_names(self):
+        self.assertFalse(sources.contains(self.source, self.brain / "plan.md"))
+        self.assertFalse(sources.contains(self.source, self.brain / "aaaa" / "task.md"))
+        self.assertFalse(sources.contains(self.source, self.brain / "aaaa" / "scratch" / "plan.md"))
+
+    def test_discover_labels_the_source(self):
+        path = _plan(self.brain, "aaaa", "plan.md")
+        self.assertIn(("antigravity", path), sources.discover())
+
+
 class AllSourcesTests(_EnvIsolated):
-    def test_returns_claude_and_cursor(self):
+    def test_returns_every_source(self):
         found = sources.all_sources()
-        self.assertEqual([s.name for s in found], ["claude", "cursor"])
+        self.assertEqual([s.name for s in found], ["claude", "cursor", "antigravity"])
 
 
 class ContainsTests(_EnvIsolated):
     def test_matching_file_in_directory(self):
         plans_dir = self.directory / "plans"
         plans_dir.mkdir()
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         self.assertTrue(sources.contains(source, plans_dir / "root-plan.md"))
 
     def test_file_need_not_exist(self):
         plans_dir = self.directory / "plans"
         plans_dir.mkdir()
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         self.assertTrue(sources.contains(source, plans_dir / "not-yet-written.md"))
 
     def test_excluded_filename_is_false(self):
         plans_dir = self.directory / "plans"
         plans_dir.mkdir()
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         self.assertFalse(sources.contains(source, plans_dir / "README.md"))
         self.assertFalse(sources.contains(source, plans_dir / "INDEX.md"))
 
     def test_wrong_suffix_is_false(self):
         plans_dir = self.directory / "plans"
         plans_dir.mkdir()
-        source = sources.Source(
-            name="cursor", directories=[plans_dir], suffix=".plan.md", strip_suffix=".plan.md"
-        )
+        source = sources.Source(name="cursor", directories=[plans_dir], suffix=".plan.md")
         self.assertFalse(sources.contains(source, plans_dir / "notes.md"))
 
     def test_nested_subdirectory_is_false(self):
         plans_dir = self.directory / "plans"
         nested = plans_dir / "nested"
         nested.mkdir(parents=True)
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         self.assertFalse(sources.contains(source, nested / "root-plan.md"))
 
     def test_outside_every_directory_is_false(self):
@@ -137,9 +192,7 @@ class ContainsTests(_EnvIsolated):
         plans_dir.mkdir()
         other = self.directory / "elsewhere"
         other.mkdir()
-        source = sources.Source(
-            name="claude", directories=[plans_dir], suffix=".md", strip_suffix=".md"
-        )
+        source = sources.Source(name="claude", directories=[plans_dir], suffix=".md")
         self.assertFalse(sources.contains(source, other / "root-plan.md"))
 
 

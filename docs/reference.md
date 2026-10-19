@@ -6,8 +6,8 @@ syntax; for what to do with them, see [workflows.md](workflows.md).
 ## Commands
 
 ```sh
-pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--columns SPEC] [--sort modified|created|id|status|intent|title] [--order asc|desc] [-n N]
-pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--sort modified|created|id|status|intent|title] [--order asc|desc]
+pentimento list [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor|antigravity] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--columns SPEC] [--sort modified|created|id|status|intent|title] [--order asc|desc] [-n N]
+pentimento tree [<id>] [--ancestors] [--status STATUS] [--intent INTENT] [--project PROJECT] [--source claude|cursor|antigravity] [--starred] [--tag TAG]... [--grep PATTERN] [--title PATTERN] [--finding [CODE]] [--since WHEN] [--until WHEN] [--date created|modified] [--format table|json|tsv] [--color auto|always|never] [--sort modified|created|id|status|intent|title] [--order asc|desc]
 pentimento show <id> [--full] [--no-pager] [--format table|json|tsv] [--color auto|always|never]
 pentimento set <id>... [--status STATUS | --unpin] [--intent INTENT] [--parent ID | --clear-parent] [--project PROJECT | --clear-project] [--add-tag TAG]... [--remove-tag TAG]... [--clear-tags] [--dry-run]
 pentimento backfill [--dry-run] [--quiet] [--only ID]... [--rederive] [--recreate]
@@ -125,6 +125,7 @@ Every error message goes to stderr, prefixed `pentimento: `.
 | `AGENT_SESSIONS_DIR` | `~/.claude/projects` | Claude Code's session transcripts, the source for a Claude Code plan's `project`, `parent`, `modified`, and `history`. |
 | `CURSOR_PLANS_DIR` | `~/.cursor/plans` and `~/Library/Application Support/Cursor/User/plans` (both searched) | Cursor's plan directory. Set to override the defaults; the value is an `os.pathsep`-separated list of paths, so more than one directory can be searched at once. |
 | `CURSOR_SESSIONS_DIR` | `~/.cursor/projects` | Cursor's agent transcripts, the source for a Cursor plan's `project` and prompt lineage. |
+| `ANTIGRAVITY_BRAIN_DIR` | `~/.gemini/antigravity/brain` | Antigravity's conversation directories. A plan is `<conversation>/<name>.md` with a `<name>.md.metadata.json` beside it, excluding `task.md` and `walkthrough.md`; the same directory holds the transcript that supplies the plan's `project`, `created`, `modified`, and prompt lineage. |
 | `PAGER` | `less` | Pager for `show --full`. Split with shell quoting, so `PAGER="less -S"` works. Empty disables paging. When it is `less` and `LESS` is unset, pentimento sets `LESS=FRX` so color survives and short output does not open the pager. |
 | `PENTIMENTO_COLUMNS` | unset | Default `--columns` value for `list`'s `--format table` output; same syntax. Ignored for `--format json\|tsv`. An invalid value prints `pentimento: PENTIMENTO_COLUMNS: <message>` to stderr and exits 2. |
 | `PENTIMENTO_DEBUG` | unset | When set, `pentimento hook` prints a traceback to stderr on an internal error instead of failing silently. |

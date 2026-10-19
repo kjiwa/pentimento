@@ -440,11 +440,15 @@ def _add_command(sub, name, help, description=None, epilog=None):
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(
         prog="pentimento",
-        description="Status, intent, and lineage for Claude Code and Cursor plan files.",
+        description=(
+            "Status, intent, and lineage for Claude Code, Cursor, and Antigravity plan files."
+        ),
         epilog=(
-            "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans) and\n"
-            "CURSOR_PLANS_DIR; session transcripts from AGENT_SESSIONS_DIR (default:\n"
-            "~/.claude/projects) and CURSOR_SESSIONS_DIR (default: ~/.cursor/projects).\n\n"
+            "Plans are read from AGENT_PLANS_DIR (default: ~/.claude/plans),\n"
+            "CURSOR_PLANS_DIR, and ANTIGRAVITY_BRAIN_DIR (default:\n"
+            "~/.gemini/antigravity/brain); session transcripts from AGENT_SESSIONS_DIR\n"
+            "(default: ~/.claude/projects) and CURSOR_SESSIONS_DIR (default:\n"
+            "~/.cursor/projects). Antigravity plans carry their own transcript.\n\n"
             "Run `pentimento <command> --help` for a command's flags."
         ),
         formatter_class=_HelpFormatter,
@@ -744,7 +748,7 @@ def _empty_corpus_hint() -> str:
     return (
         "no plans found; searched: "
         + ", ".join(directories)
-        + "; set AGENT_PLANS_DIR or CURSOR_PLANS_DIR to search elsewhere"
+        + "; set AGENT_PLANS_DIR, CURSOR_PLANS_DIR, or ANTIGRAVITY_BRAIN_DIR to search elsewhere"
     )
 
 
@@ -1238,22 +1242,30 @@ def _backfill(
 def cmd_hook(_args) -> int:
     # PostToolUse treats exit 2 as blocking and surfaces other non-zero exits, so a
     # crash here would visibly interrupt every session -- fail open and silent instead.
+    # Antigravity requires a JSON object on stdout, so it gets `{}` in place of plan ids.
+    text = ""
+    antigravity = False
     try:
-        path = hook_module.touched_plan_path(sys.stdin.read())
+        text = sys.stdin.read()
+        antigravity = hook_module.is_antigravity(text)
+        path = hook_module.touched_plan_path(text)
         if path is None:
             return 0
         plans, sessions = corpus.load_with_sessions()
-        target = corpus.by_id(plans, path.name)
+        target = corpus.by_id(plans, str(path)) or corpus.by_id(plans, path.name)
         if target is None:
             return 0
         changed = _backfill(
             only={target.id}, max_status=vocabulary.PARTIAL, sessions=sessions, plans=plans
         )
-        for plan_id in changed:
+        for plan_id in () if antigravity else changed:
             print(plan_id)
     except Exception:
         if os.environ.get("PENTIMENTO_DEBUG"):
             traceback.print_exc(file=sys.stderr)
+    finally:
+        if antigravity:
+            print("{}")
     return 0
 
 

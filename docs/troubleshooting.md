@@ -5,13 +5,14 @@ when the output is not what you expected.
 
 ## No output at all
 
-`pentimento: no plans found; searched: <directories>; set AGENT_PLANS_DIR or
-CURSOR_PLANS_DIR to search elsewhere` on stderr, with exit 0, means every plan
+`pentimento: no plans found; searched: <directories>; set AGENT_PLANS_DIR,
+CURSOR_PLANS_DIR, or ANTIGRAVITY_BRAIN_DIR to search elsewhere` on stderr, with exit 0, means every plan
 directory is missing or empty. `AGENT_PLANS_DIR` (default
-`~/.claude/plans`) or `CURSOR_PLANS_DIR` pointing at a directory that doesn't
-exist contributes nothing: a missing harness is a normal, supported state, not
+`~/.claude/plans`), `CURSOR_PLANS_DIR`, or `ANTIGRAVITY_BRAIN_DIR` pointing at a
+directory that doesn't exist contributes nothing: a missing harness is a normal, supported state, not
 an error. Check the directories named in the message actually hold `.md` files
-(or `.plan.md` for Cursor). `list`, `tree`, `index`, `backfill`, and `check`
+(`.plan.md` for Cursor; for Antigravity, one level down, each beside a
+`.md.metadata.json` file). `list`, `tree`, `index`, `backfill`, and `check`
 print the message in every `--format`; `--format json` still prints `[]` on
 stdout.
 
@@ -23,7 +24,8 @@ It is empty when there's no transcript for that plan (nothing in
 session `slug` or shows a session writing the plan file), when the transcript
 has been pruned and `backfill` never persisted the value, or when it's a Cursor
 plan that fails the [name-match rule](integrations.md#cursor) against
-`CURSOR_SESSIONS_DIR` (default `~/.cursor/projects`). Persisting it with
+`CURSOR_SESSIONS_DIR` (default `~/.cursor/projects`), or when an Antigravity
+conversation never ran a command outside `~/.gemini`. Persisting it with
 `pentimento backfill`, or the `pentimento hook` `PostToolUse` hook
 ([docs/integrations.md](integrations.md)), keeps it after the transcript goes.
 `pentimento set <id> --project <name>` fills a plan no transcript covers.
@@ -93,7 +95,7 @@ what the status signals derive.
 | `self-parent` | `parent` is the plan's own id. | `pentimento set <id> --clear-parent`. |
 | `cross-project-parent` | `parent` resolves to a plan in a different `project`. | `pentimento set <id> --project <name>` on whichever plan is wrong. |
 | `cycle` | Following `parent` links eventually loops back to the plan itself. | `pentimento set <id> --parent <id>`, or `--clear-parent`, on one plan in the chain. |
-| `duplicate-id` | The same id appears from two sources (e.g. a Claude plan and a Cursor plan share a filename stem). | Rename one of the files. |
+| `duplicate-id` | The same id appears from two sources (e.g. a Claude plan and an Antigravity plan share a filename stem). | Rename one of the files. |
 | `off-vocabulary-status` | `status` isn't one of `not-started`, `partial`, `complete`, `superseded`, `unknown`. | `pentimento set <id> --status <value>`. |
 | `off-vocabulary-intent` | `intent` isn't one of `active`, `queued`, `someday`, `abandoned`, `unset`. | `pentimento set <id> --intent <value>`. |
 | `missing-title` | The body has no H1, so `title` falls back to the plan id. | Add a '# Title' line to the plan body. |
@@ -117,8 +119,8 @@ exit 0) means no transcript under that directory (`AGENT_SESSIONS_DIR`, default
 call's prompt, names that plan. It is never a claim the plan wasn't worked.
 Common causes: the work happened in a session whose transcript has since been
 deleted (Claude Code prunes old transcripts), or on a different machine. A
-Cursor chat never appears in `history`, since Cursor transcripts feed only
-`project` and prompt lineage. Absent history is not evidence of absent work.
+Cursor or Antigravity chat never appears in `history`, since those transcripts
+feed only `project`, `created`, `modified`, and prompt lineage. Absent history is not evidence of absent work.
 
 ## No color
 

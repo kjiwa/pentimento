@@ -23,6 +23,7 @@ body:
       options:
         - Claude Code
         - Cursor
+        - Antigravity
         - Other/unknown
     validations:
       required: false

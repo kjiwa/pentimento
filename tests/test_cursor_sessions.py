@@ -199,14 +199,14 @@ class MatchTests(_Isolated):
         plans = [plan_module.load(path), _plan(self.plans_dir, "same_aaaaaaaa", "Same")]
         self.assertEqual(list(cursor_sessions.load(plans, self.transcripts)), ["same_aaaaaaaa"])
 
-    def test_with_cursor_keeps_the_claude_session(self):
+    def test_with_harness_sessions_keeps_the_claude_session(self):
         self._transcript("chat-1", "Same")
         path = self.plans_dir / "same-plan-eager-bird.md"
         path.write_text("---\nname: Same\n---\n# Plan\n")
         claude_plan = plan_module.load(path)
         claude = sessions.Session(slug=claude_plan.id, project="mine", started="", prompt="p")
         with mock.patch.object(cursor_sessions, "transcripts_directory", lambda: self.transcripts):
-            merged = corpus.with_cursor([claude_plan], {claude_plan.id: claude})
+            merged = corpus.with_harness_sessions([claude_plan], {claude_plan.id: claude})
         self.assertEqual(merged, {claude_plan.id: claude})
 
     def test_workspace_root_itself_is_the_project(self):

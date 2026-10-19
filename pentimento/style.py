@@ -58,6 +58,7 @@ _require_matching_keys(INTENT_CODES, vocabulary_module.INTENT_VALUES, "INTENT_CO
 SOURCE_CODES = {
     "claude": (CYAN,),
     "cursor": (MAGENTA,),
+    "antigravity": (YELLOW,),
 }
 
 

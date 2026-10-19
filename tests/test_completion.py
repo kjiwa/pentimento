@@ -28,6 +28,7 @@ def _isolate_env(test, directory):
         ("AGENT_PLANS_DIR", str(directory)),
         ("AGENT_SESSIONS_DIR", str(directory / "no-such-sessions-dir")),
         ("CURSOR_PLANS_DIR", str(directory / "no-such-cursor-plans-dir")),
+        ("ANTIGRAVITY_BRAIN_DIR", str(directory / "no-such-brain-dir")),
         ("CURSOR_SESSIONS_DIR", str(directory / "no-such-cursor-sessions-dir")),
     ):
         previous = os.environ.get(key)
@@ -90,7 +91,7 @@ class ChoicesFlagTests(_CorpusTestCase):
 
     def test_source_choices(self):
         values = {value for value, _ in completion.candidates(["list", "--source", ""])}
-        self.assertEqual(values, {"claude", "cursor"})
+        self.assertEqual(values, {"claude", "cursor", "antigravity"})
 
 
 class ColumnsChoicesTests(_CorpusTestCase):

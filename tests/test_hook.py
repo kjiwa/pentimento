@@ -33,6 +33,7 @@ class TouchedPlanPathTests(unittest.TestCase):
         for key, value in (
             ("AGENT_PLANS_DIR", str(self.plans_dir)),
             ("CURSOR_PLANS_DIR", str(self.directory / "no-such-cursor-plans-dir")),
+            ("ANTIGRAVITY_BRAIN_DIR", str(self.directory / "no-such-brain-dir")),
             ("CURSOR_SESSIONS_DIR", str(self.directory / "no-such-cursor-sessions-dir")),
         ):
             previous = os.environ.get(key)
@@ -108,6 +109,46 @@ class TouchedPlanPathTests(unittest.TestCase):
         for name in sorted(p.name for p in (FIXTURES / "cursor").glob("*.json")):
             with self.subTest(name):
                 self.assertIsNone(hook.touched_plan_path(_fixture("cursor", name)))
+
+    def test_antigravity_write_fixture_returns_path(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        result = hook.touched_plan_path(_fixture("antigravity", "post-tool-use-write.json"))
+        self.assertEqual(
+            result,
+            brain / "1732a0c9-feb1-4cfa-837d-af0493334343" / "smoke-test-gui-demo-mode.md",
+        )
+
+    def test_antigravity_payloads_that_write_no_plan_are_none(self):
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = "/home/user/.gemini/antigravity/brain"
+        for name in ("post-tool-use-command.json", "stop.json"):
+            with self.subTest(name):
+                self.assertIsNone(hook.touched_plan_path(_fixture("antigravity", name)))
+
+    def test_tool_input_without_file_path_falls_through_to_the_tool_call(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        payload = json.loads(_fixture("antigravity", "post-tool-use-write.json"))
+        payload["tool_input"] = {}
+        self.assertIsNotNone(hook.touched_plan_path(json.dumps(payload)))
+
+    def test_antigravity_task_artifact_is_none(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        text = _fixture("antigravity", "post-tool-use-write.json").replace(
+            "smoke-test-gui-demo-mode.md", "task.md"
+        )
+        self.assertIsNone(hook.touched_plan_path(text))
+
+    def test_is_antigravity(self):
+        for name in ("post-tool-use-write.json", "post-tool-use-command.json", "stop.json"):
+            with self.subTest(name):
+                self.assertTrue(hook.is_antigravity(_fixture("antigravity", name)))
+        self.assertTrue(hook.is_antigravity(json.dumps({"conversationId": "x"})))
+        self.assertFalse(hook.is_antigravity(_fixture("claude", "post-tool-use-write.json")))
+        for text in ("", "not json", "[]", "null"):
+            with self.subTest(text):
+                self.assertFalse(hook.is_antigravity(text))
 
     def test_empty_string_is_none(self):
         self.assertIsNone(hook.touched_plan_path(""))

@@ -1,6 +1,6 @@
 # Integrations
 
-Wiring pentimento into Claude Code and Cursor, and `check` into CI. Start here
+Wiring pentimento into Claude Code, Cursor, and Antigravity, and `check` into CI. Start here
 to persist derived fields without running `backfill` by hand, or to let an
 agent search past plans on its own. Views derive `project`, `status`, `intent`,
 `created`, and `parent` live, so the hooks are optional: they write those
@@ -131,6 +131,43 @@ tool-call path argument (`path`, `target_directory`, `file_path`) whose
 encoding is the transcript's project directory name. The workspace root
 itself and paths outside `$HOME` count. A transcript with no such path, or
 with several ancestors sharing that encoding, leaves `project` unset.
+
+## Antigravity
+
+Antigravity writes each plan to `~/.gemini/antigravity/brain/<conversation>/<name>.md`
+with a `<name>.md.metadata.json` sidecar beside it; both are required for
+pentimento to see it. `task.md` and `walkthrough.md`, which Antigravity writes
+there too, are not plans. The id is the filename stem, except that
+`implementation_plan.md`, the name Antigravity gives every conversation by
+default, becomes `implementation_plan-<first 8 of the conversation id>`. Set
+`ANTIGRAVITY_BRAIN_DIR` to read another directory; see
+[reference.md](reference.md#environment-variables).
+
+One `PostToolUse` hook backfills a plan as it is edited. Copy
+[integrations/antigravity/hooks.json](../integrations/antigravity/hooks.json) to
+`~/.gemini/config/hooks.json`, or merge its `pentimento` entry into an existing
+file, and restart Antigravity. The matcher is a regex on the tool name; it limits
+the hook to the tools that write files (`write_to_file`, `replace_file_content`, and
+variants of it),
+and `pentimento hook` ignores any other path itself. Antigravity requires a JSON
+object on stdout, so the hook prints `{}` and never plan ids, and, like the
+other hooks, fails open. Like the Claude Code hook, it caps `status` at
+`partial`.
+
+Antigravity hooks run with their own `PATH`, so `pentimento` must be on it. If
+`status` stops advancing, run `pentimento check`.
+
+A plan reads its own conversation's transcript, `.system_generated/logs/
+transcript.jsonl` in the same directory, so there is no matching rule:
+
+- `project` is the name of the first working directory a command ran in that is
+  outside `~/.gemini`. A conversation that ran nothing outside it leaves
+  `project` unset.
+- `created` and `modified` come from the earliest and latest step timestamps.
+- The first user request (inside `<USER_REQUEST>`) feeds prompt lineage, so
+  `Follow-up to import_models_plan.md` yields `parent: import_models_plan`.
+
+Like Cursor's, these transcripts feed only those fields, never `history`.
 
 ## `check` in CI
 

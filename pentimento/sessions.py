@@ -141,6 +141,13 @@ def read_records(log_path: Path):
         return
 
 
+def tagged_text(text, tag: str) -> str | None:
+    if not isinstance(text, str):
+        return None
+    match = re.search(rf"<{tag}>\s*(.*?)\s*</{tag}>", text, re.DOTALL)
+    return match.group(1) if match else text
+
+
 def prompt_text(record: dict) -> str | None:
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None

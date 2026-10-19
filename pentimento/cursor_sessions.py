@@ -20,7 +20,6 @@ from pentimento import cache as cache_module
 from pentimento import frontmatter, sessions
 
 _PATH_KEYS = ("path", "target_directory", "file_path")
-_QUERY = re.compile(r"<user_query>\s*(.*?)\s*</user_query>", re.DOTALL)
 
 
 def transcripts_directory() -> Path:
@@ -74,7 +73,7 @@ def _parse_transcript(log_path: Path) -> dict:
     prompt = None
     for record in sessions.read_records(log_path):
         if prompt is None and record.get("role") == "user":
-            prompt = _query_text(record)
+            prompt = sessions.tagged_text(sessions.prompt_text(record), "user_query")
         names.extend(_created_plan_names(record))
         paths.extend(_tool_paths(record))
     return {
@@ -111,12 +110,6 @@ def _tool_paths(record: dict) -> list[str]:
         for key in _PATH_KEYS
         if isinstance(tool_input.get(key), str)
     ]
-
-
-def _query_text(record: dict) -> str | None:
-    text = sessions.prompt_text(record)
-    match = _QUERY.search(text) if text is not None else None
-    return match.group(1) if match else text
 
 
 def _encode(path: str) -> str:

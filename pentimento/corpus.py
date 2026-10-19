@@ -50,25 +50,28 @@ def load_all(
 
 
 def with_harness_sessions(plans: list[plan_module.Plan], sessions: dict) -> dict:
-    """`sessions` plus the Cursor and Antigravity sessions of `plans`, which need them loaded.
+    """`sessions` plus the Cursor and Antigravity sessions of `plans`, which need them loaded."""
+    return {**sessions, **cursor_sessions.load(plans), **antigravity_sessions.load(plans)}
 
-    An Antigravity plan's `started` and `ended` become its transcript's, since the file's
+
+def apply_antigravity_times(plans: list[plan_module.Plan], sessions: dict) -> None:
+    """An Antigravity plan's `started` and `ended` become its transcript's, since the file's
     own birth time says when it was copied or synced, not when the conversation ran.
     """
-    antigravity = antigravity_sessions.load(plans)
     for plan in plans:
-        session = antigravity.get(plan.id) if plan.source == "antigravity" else None
+        session = sessions.get(plan.id) if plan.source == "antigravity" else None
         if session:
             plan.started = session.started or plan.started
             plan.ended = session.ended or plan.ended
-    return {**sessions, **cursor_sessions.load(plans), **antigravity}
 
 
 def load_with_sessions(skips: list | None = None) -> tuple[list[plan_module.Plan], dict]:
     """Every plan and the sessions that describe them, from every harness."""
     claude_sessions = sessions_module.load()
     plans = load_all(sessions=claude_sessions, skips=skips)
-    return plans, with_harness_sessions(plans, claude_sessions)
+    merged = with_harness_sessions(plans, claude_sessions)
+    apply_antigravity_times(plans, merged)
+    return plans, merged
 
 
 def load_derived(skips: list | None = None) -> tuple[list[plan_module.Plan], dict, dict]:

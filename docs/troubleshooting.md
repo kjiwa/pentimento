@@ -11,8 +11,7 @@ directory is missing or empty. `AGENT_PLANS_DIR` (default
 `~/.claude/plans`), `CURSOR_PLANS_DIR`, or `ANTIGRAVITY_BRAIN_DIR` pointing at a
 directory that doesn't exist contributes nothing: a missing harness is a normal, supported state, not
 an error. Check the directories named in the message actually hold `.md` files
-(`.plan.md` for Cursor; for Antigravity, one level down, each beside a
-`.md.metadata.json` file). `list`, `tree`, `index`, `backfill`, and `check`
+(`.plan.md` for Cursor). `list`, `tree`, `index`, `backfill`, and `check`
 print the message in every `--format`; `--format json` still prints `[]` on
 stdout.
 

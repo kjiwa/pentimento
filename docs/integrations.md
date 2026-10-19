@@ -165,7 +165,7 @@ transcript.jsonl` in the same directory, so there is no matching rule:
   `project` unset.
 - `created` and `modified` come from the earliest and latest step timestamps.
 - The first user request (inside `<USER_REQUEST>`) feeds prompt lineage, so
-  `Follow-up to import_models_plan.md` yields `parent: import_models_plan`.
+  `Follow-up to schema_plan.md` yields `parent: schema_plan`.
 
 Like Cursor's, these transcripts feed only those fields, never `history`.
 

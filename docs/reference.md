@@ -43,7 +43,7 @@ Run `pentimento <command> --help` for that command's own examples.
 | `backfill --only ID` | Restricts writes to the named plan id(s); repeatable. Derivation still spans the whole corpus, since `parent` resolves against every plan, but only the named ids are saved. The narrow alternative to a corpus-wide `--rederive`. |
 | `set <id>...` | Edits every named plan in one run. Every id is resolved first, so a miss exits 1 and writes nothing; with more than one id, each change block is headed by the plan's short id. `--dry-run` applies to all. A `--parent` that would create a cycle, counting every plan being edited, exits 2. Changes print as `field: 'old' -> 'new'`, `field: set to 'value'`, or `field: cleared`, with a parent as its short id. A `--remove-tag` that matches nothing prints `no changes; <id> has no tag '<tag>'`. |
 | `set --status` | Sets `status` and, in the same write, `pinned: true`; see the README's [Frontmatter table](../README.md#frontmatter). |
-| `hook` | Reads a `PostToolUse` payload on stdin and persists the derived fields of the one plan it wrote: fills `intent`, `created`, `project`, and `parent`, and derives `status` capped at `partial`. Only a full `backfill` advances `status` to `complete`. Always exits 0. |
+| `hook` | Reads a `PostToolUse` payload on stdin and persists the derived fields of the one plan it wrote: fills `intent`, `created`, `project`, and `parent`, and derives `status` capped at `partial`. Only a full `backfill` advances `status` to `complete`. Always exits 0; for Antigravity, prints `{}` on stdout. |
 
 ## Plan ids
 
@@ -125,7 +125,7 @@ Every error message goes to stderr, prefixed `pentimento: `.
 | `AGENT_SESSIONS_DIR` | `~/.claude/projects` | Claude Code's session transcripts, the source for a Claude Code plan's `project`, `parent`, `modified`, and `history`. |
 | `CURSOR_PLANS_DIR` | `~/.cursor/plans` and `~/Library/Application Support/Cursor/User/plans` (both searched) | Cursor's plan directory. Set to override the defaults; the value is an `os.pathsep`-separated list of paths, so more than one directory can be searched at once. |
 | `CURSOR_SESSIONS_DIR` | `~/.cursor/projects` | Cursor's agent transcripts, the source for a Cursor plan's `project` and prompt lineage. |
-| `ANTIGRAVITY_BRAIN_DIR` | `~/.gemini/antigravity/brain` | Antigravity's conversation directories. A plan is `<conversation>/<name>.md` with a `<name>.md.metadata.json` beside it, excluding `task.md` and `walkthrough.md`; the same directory holds the transcript that supplies the plan's `project`, `created`, `modified`, and prompt lineage. |
+| `ANTIGRAVITY_BRAIN_DIR` | `~/.gemini/antigravity/brain` | Antigravity's conversation directories; plan layout and exclusions in [Antigravity](integrations.md#antigravity). |
 | `PAGER` | `less` | Pager for `show --full`. Split with shell quoting, so `PAGER="less -S"` works. Empty disables paging. When it is `less` and `LESS` is unset, pentimento sets `LESS=FRX` so color survives and short output does not open the pager. |
 | `PENTIMENTO_COLUMNS` | unset | Default `--columns` value for `list`'s `--format table` output; same syntax. Ignored for `--format json\|tsv`. An invalid value prints `pentimento: PENTIMENTO_COLUMNS: <message>` to stderr and exits 2. |
 | `PENTIMENTO_DEBUG` | unset | When set, `pentimento hook` prints a traceback to stderr on an internal error instead of failing silently. |

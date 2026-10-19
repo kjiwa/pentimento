@@ -1,8 +1,9 @@
 """Where plan files live, per harness.
 
-Two harnesses are discovered: Claude Code (`~/.claude/plans/*.md`) and
-Cursor (`.plan.md` files under `~/.cursor/plans` and its Application Support
-directory).
+Three harnesses are discovered: Claude Code (`~/.claude/plans/*.md`), Cursor
+(`.plan.md` files under `~/.cursor/plans` and its Application Support
+directory), and Antigravity (`~/.gemini/antigravity/brain/<conversation>/
+<name>.md`, each with a `<name>.md.metadata.json` sidecar).
 A directory that does not exist contributes nothing.
 """
 
@@ -14,7 +15,11 @@ from pathlib import Path
 
 from pentimento import plan as plan_module
 
-SOURCE_NAMES = ("claude", "cursor")
+SOURCE_NAMES = ("claude", "cursor", "antigravity")
+
+# Antigravity also writes these artifacts next to a plan; they are not plans.
+_ANTIGRAVITY_EXCLUDED = {"task.md", "walkthrough.md"}
+_ANTIGRAVITY_SIDECAR = ".metadata.json"
 
 
 @dataclasses.dataclass
@@ -22,7 +27,7 @@ class Source:
     name: str
     directories: list[Path]
     suffix: str
-    strip_suffix: str
+    nested: bool = False
 
 
 def directory_source(directory: Path) -> Source:
@@ -31,7 +36,6 @@ def directory_source(directory: Path) -> Source:
         name="claude",
         directories=[directory],
         suffix=plan_module.PLAN_SUFFIX,
-        strip_suffix=plan_module.PLAN_SUFFIX,
     )
 
 
@@ -53,18 +57,42 @@ def cursor_source() -> Source:
         name="cursor",
         directories=directories,
         suffix=plan_module.CURSOR_SUFFIX,
-        strip_suffix=plan_module.CURSOR_SUFFIX,
+    )
+
+
+def antigravity_source() -> Source:
+    directory = Path(
+        os.environ.get(
+            "ANTIGRAVITY_BRAIN_DIR", str(Path.home() / ".gemini" / "antigravity" / "brain")
+        )
+    )
+    return Source(
+        name="antigravity",
+        directories=[directory],
+        suffix=plan_module.PLAN_SUFFIX,
+        nested=True,
     )
 
 
 def all_sources() -> tuple[Source, ...]:
-    return (claude_source(), cursor_source())
+    return (claude_source(), cursor_source(), antigravity_source())
 
 
 def _name_matches(source: Source, path: Path) -> bool:
     if source.name == "claude":
         return plan_module.is_plan_file(path) and path.name.endswith(source.suffix)
+    if source.name == "antigravity":
+        return path.name.endswith(source.suffix) and path.name not in _ANTIGRAVITY_EXCLUDED
     return path.name.endswith(source.suffix)
+
+
+def _pattern(source: Source) -> str:
+    return ("*/" if source.nested else "") + f"*{source.suffix}"
+
+
+def _root(source: Source, path: Path) -> Path:
+    """The directory a source's files sit directly in."""
+    return path.parent.parent if source.nested else path.parent
 
 
 def files(source: Source) -> list[Path]:
@@ -72,18 +100,25 @@ def files(source: Source) -> list[Path]:
     for directory in source.directories:
         if not directory.is_dir():
             continue
-        for path in sorted(directory.glob(f"*{source.suffix}")):
-            if _name_matches(source, path):
+        for path in sorted(directory.glob(_pattern(source))):
+            if _name_matches(source, path) and _has_sidecar(source, path):
                 found.append(path)
     return found
+
+
+def _has_sidecar(source: Source, path: Path) -> bool:
+    """Antigravity writes a sidecar for every plan artifact; a stray `.md` has none."""
+    if source.name != "antigravity":
+        return True
+    return path.with_name(path.name + _ANTIGRAVITY_SIDECAR).is_file()
 
 
 def contains(source: Source, path: Path) -> bool:
     """Whether `path` would be discovered by `source`, without requiring it to exist."""
     if not _name_matches(source, path):
         return False
-    resolved_parent = path.parent.resolve()
-    return any(resolved_parent == directory.resolve() for directory in source.directories)
+    root = _root(source, path).resolve()
+    return any(root == directory.resolve() for directory in source.directories)
 
 
 def discover() -> list[tuple[str, Path]]:

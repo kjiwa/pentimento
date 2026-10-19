@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+Antigravity plans (`~/.gemini/antigravity/brain/<conversation>/<name>.md`) are a
+third source, shown as `antigravity` in `list --source`. Their `project`,
+`created`, `modified`, and prompt lineage come from the transcript in the same
+conversation directory. `integrations/antigravity/hooks.json` is a
+`PostToolUse` hook that backfills a plan as it is edited; `pentimento hook`
+answers an Antigravity payload with `{}`, which Antigravity requires. Set
+`ANTIGRAVITY_BRAIN_DIR` to read another directory.
+
 ## 0.1.21
 
 A Claude Code plan's `project` is its session's launch directory, no longer

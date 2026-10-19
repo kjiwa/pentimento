@@ -13,6 +13,29 @@ CURSOR_HOOKS = ROOT / "integrations" / "cursor" / "hooks.json"
 STOP_PAYLOAD = ROOT / "tests" / "fixtures" / "cursor" / "stop-completed.json"
 
 
+ANTIGRAVITY_HOOKS = ROOT / "integrations" / "antigravity" / "hooks.json"
+ANTIGRAVITY_FIXTURES = ROOT / "tests" / "fixtures" / "antigravity"
+
+
+class AntigravityHooksTests(unittest.TestCase):
+    def setUp(self):
+        self.config = json.loads(ANTIGRAVITY_HOOKS.read_text())
+        (self.group,) = self.config["pentimento"]["PostToolUse"]
+
+    def test_config_shape(self):
+        self.assertEqual(list(self.config), ["pentimento"])
+        self.assertEqual(list(self.config["pentimento"]), ["PostToolUse"])
+        self.assertEqual(self.group["hooks"], [{"command": "pentimento hook"}])
+
+    def test_matcher_covers_the_plan_write_tools_seen_in_payloads(self):
+        names = set()
+        for path in ANTIGRAVITY_FIXTURES.glob("post-tool-use-write*.json"):
+            names.add(json.loads(path.read_text())["toolCall"]["name"])
+        self.assertTrue(names)
+        for name in names:
+            self.assertRegex(name, f"^(?:{self.group['matcher']})$")
+
+
 class CursorHooksTests(unittest.TestCase):
     def setUp(self):
         self.config = json.loads(CURSOR_HOOKS.read_text())
@@ -34,6 +57,7 @@ class CursorHooksTests(unittest.TestCase):
             PYTHONPATH=str(ROOT),
             AGENT_PLANS_DIR=tmp,
             CURSOR_PLANS_DIR=tmp,
+            ANTIGRAVITY_BRAIN_DIR=str(Path(tmp) / "no-such-brain-dir"),
             CURSOR_SESSIONS_DIR=tmp,
             AGENT_SESSIONS_DIR=tmp,
             XDG_CACHE_HOME=str(Path(tmp) / "cache"),

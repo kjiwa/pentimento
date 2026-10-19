@@ -6,7 +6,7 @@ import difflib
 import sys
 from pathlib import Path
 
-from pentimento import backfill, cursor_sessions, shortid
+from pentimento import antigravity_sessions, backfill, cursor_sessions, shortid
 from pentimento import plan as plan_module
 from pentimento import sessions as sessions_module
 from pentimento import sources as sources_module
@@ -49,16 +49,22 @@ def load_all(
     return plans
 
 
-def with_cursor(plans: list[plan_module.Plan], sessions: dict) -> dict:
-    """`sessions` plus the Cursor sessions of `plans`, which need the plans loaded first."""
-    return {**sessions, **cursor_sessions.load(plans)}
+def with_harness_sessions(plans: list[plan_module.Plan], sessions: dict) -> dict:
+    """`sessions` plus the Cursor and Antigravity sessions of `plans`, which need them loaded."""
+    antigravity = antigravity_sessions.load(plans)
+    for plan in plans:
+        session = antigravity.get(plan.id) if plan.source == "antigravity" else None
+        if session:
+            plan.started = session.started or plan.started
+            plan.ended = session.ended or plan.ended
+    return {**sessions, **cursor_sessions.load(plans), **antigravity}
 
 
 def load_with_sessions(skips: list | None = None) -> tuple[list[plan_module.Plan], dict]:
-    """Every plan and the sessions that describe them, Claude Code and Cursor alike."""
+    """Every plan and the sessions that describe them, from every harness."""
     claude_sessions = sessions_module.load()
     plans = load_all(sessions=claude_sessions, skips=skips)
-    return plans, with_cursor(plans, claude_sessions)
+    return plans, with_harness_sessions(plans, claude_sessions)
 
 
 def load_derived(skips: list | None = None) -> tuple[list[plan_module.Plan], dict, dict]:

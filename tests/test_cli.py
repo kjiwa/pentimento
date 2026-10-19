@@ -61,6 +61,7 @@ def _isolate_env(test, directory):
         ("AGENT_PLANS_DIR", str(directory)),
         ("AGENT_SESSIONS_DIR", str(directory / "no-such-sessions-dir")),
         ("CURSOR_PLANS_DIR", str(directory / "no-such-cursor-plans-dir")),
+        ("ANTIGRAVITY_BRAIN_DIR", str(directory / "no-such-brain-dir")),
         ("CURSOR_SESSIONS_DIR", str(directory / "no-such-cursor-sessions-dir")),
     ):
         previous = os.environ.get(key)
@@ -1930,6 +1931,60 @@ class CmdHookTests(unittest.TestCase):
         self.assertEqual(reloaded.fields, {})
 
 
+class CmdHookAntigravityTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+        self.brain = self.directory / "brain"
+        patcher = mock.patch.dict(os.environ, {"ANTIGRAVITY_BRAIN_DIR": str(self.brain)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.plan = self.brain / "conv" / "release.md"
+        self.plan.parent.mkdir(parents=True)
+        self.plan.write_text("# Release\n\n## Progress\n- [x] done\n- [ ] todo\n")
+        (self.brain / "conv" / "release.md.metadata.json").write_text("{}")
+
+    def _payload(self, **tool_call) -> str:
+        return json.dumps({"artifactDirectoryPath": str(self.plan.parent), "toolCall": tool_call})
+
+    def _run_hook(self, payload: str) -> tuple[int, str]:
+        out = io.StringIO()
+        with mock.patch.object(sys, "stdin", io.StringIO(payload)):
+            with contextlib.redirect_stdout(out):
+                return cli.cmd_hook(None), out.getvalue()
+
+    def _write(self):
+        return self._payload(name="write_to_file", args={"TargetFile": str(self.plan)})
+
+    def test_plan_write_is_backfilled_and_answers_with_empty_json(self):
+        code, stdout = self._run_hook(self._write())
+        self.assertEqual((code, stdout), (0, "{}\n"))
+        reloaded = corpus.by_id(corpus.load_all(sessions={}), "release")
+        self.assertEqual(reloaded.fields["status"], "partial")
+
+    def test_non_plan_tool_call_answers_with_empty_json(self):
+        payload = self._payload(name="run_command", args={"CommandLine": "ls"})
+        self.assertEqual(self._run_hook(payload), (0, "{}\n"))
+        self.assertNotIn("status:", self.plan.read_text())
+
+    def test_conversation_without_a_plan_answers_with_empty_json(self):
+        payload = json.dumps({"artifactDirectoryPath": str(self.brain / "other")})
+        self.assertEqual(self._run_hook(payload), (0, "{}\n"))
+
+    def test_a_crash_still_answers_with_empty_json(self):
+        with mock.patch("pentimento.cli.sessions_module.load", side_effect=RuntimeError("boom")):
+            self.assertEqual(self._run_hook(self._write()), (0, "{}\n"))
+
+    def test_claude_payloads_never_print_json(self):
+        path = self.directory / "root-plan.md"
+        path.write_text("# Root\n\n## Progress\n- [x] done\n")
+        payload = json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}})
+        _, stdout = self._run_hook(payload)
+        self.assertNotIn("{}", stdout)
+
+
 class DateFilterTests(unittest.TestCase):
     """Three plans whose created and modified days diverge, with "now" fixed at 2026-09-23."""
 
@@ -2511,7 +2566,7 @@ class SetNoTagTests(unittest.TestCase):
 
 
 class EmptyCorpusHintTests(unittest.TestCase):
-    def test_the_hint_names_both_directory_variables(self):
+    def test_the_hint_names_every_directory_variable(self):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.dict(
                 os.environ,
@@ -2519,11 +2574,13 @@ class EmptyCorpusHintTests(unittest.TestCase):
                     "AGENT_PLANS_DIR": str(Path(tmp) / "none"),
                     "CURSOR_PLANS_DIR": str(Path(tmp) / "none-cursor"),
                     "CURSOR_SESSIONS_DIR": str(Path(tmp) / "none-cursor-sessions"),
+                    "ANTIGRAVITY_BRAIN_DIR": str(Path(tmp) / "none-brain"),
                 },
             ):
                 _, _, err = _main(["list"])
         self.assertIn("AGENT_PLANS_DIR", err)
         self.assertIn("CURSOR_PLANS_DIR", err)
+        self.assertIn("ANTIGRAVITY_BRAIN_DIR", err)
 
 
 class CheckFooterTests(unittest.TestCase):

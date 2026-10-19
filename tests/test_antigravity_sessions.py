@@ -145,6 +145,27 @@ class LoadTests(_Brain):
         self.assertEqual(sessions["plan"].project, "tools")
 
 
+class GenericNameTests(_Brain):
+    def test_implementation_plan_ids_carry_the_conversation(self):
+        first = self.conversation(
+            "aaaaaaaa-1111", [_request("x")], plan_name="implementation_plan.md"
+        )
+        second = self.conversation(
+            "bbbbbbbb-2222", [_request("y")], plan_name="implementation_plan.md"
+        )
+        self.assertEqual(
+            [first.id, second.id], ["implementation_plan-aaaaaaaa", "implementation_plan-bbbbbbbb"]
+        )
+        self.assertEqual(sorted(antigravity_sessions.load([first, second])), [first.id, second.id])
+
+    def test_other_names_and_sources_keep_the_stem(self):
+        self.assertEqual(
+            self.conversation("aaaa", [_request("x")], plan_name="release.md").id, "release"
+        )
+        path = self.brain / "aaaa" / "implementation_plan.md"
+        self.assertEqual(plan_module._id_for(path, "claude"), "implementation_plan")
+
+
 class LineageTests(_Brain):
     def test_follow_up_prompt_yields_its_parent(self):
         parent = self.conversation(
@@ -166,6 +187,7 @@ class LineageTests(_Brain):
         sessions = antigravity_sessions.load([parent, child])
         for plan in (parent, child):
             plan.fields["project"] = sessions[plan.id].project
+            plan.started = sessions[plan.id].started
         self.assertEqual(
             lineage.derive_parent(child, [parent, child], sessions), "import_models_plan"
         )

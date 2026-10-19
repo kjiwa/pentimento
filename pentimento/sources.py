@@ -114,7 +114,11 @@ def _has_sidecar(source: Source, path: Path) -> bool:
 
 
 def contains(source: Source, path: Path) -> bool:
-    """Whether `path` would be discovered by `source`, without requiring it to exist."""
+    """Whether `path` would be discovered by `source`, without requiring it to exist.
+
+    An Antigravity plan counts before its sidecar lands, so a hook that fires on the
+    first write is not turned away; `files` still waits for the sidecar.
+    """
     if not _name_matches(source, path):
         return False
     root = _root(source, path).resolve()

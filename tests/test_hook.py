@@ -125,6 +125,13 @@ class TouchedPlanPathTests(unittest.TestCase):
             with self.subTest(name):
                 self.assertIsNone(hook.touched_plan_path(_fixture("antigravity", name)))
 
+    def test_tool_input_without_file_path_falls_through_to_the_tool_call(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        payload = json.loads(_fixture("antigravity", "post-tool-use-write.json"))
+        payload["tool_input"] = {}
+        self.assertIsNotNone(hook.touched_plan_path(json.dumps(payload)))
+
     def test_antigravity_task_artifact_is_none(self):
         brain = Path("/home/user/.gemini/antigravity/brain")
         os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
@@ -137,6 +144,7 @@ class TouchedPlanPathTests(unittest.TestCase):
         for name in ("post-tool-use-write.json", "post-tool-use-command.json", "stop.json"):
             with self.subTest(name):
                 self.assertTrue(hook.is_antigravity(_fixture("antigravity", name)))
+        self.assertTrue(hook.is_antigravity(json.dumps({"conversationId": "x"})))
         self.assertFalse(hook.is_antigravity(_fixture("claude", "post-tool-use-write.json")))
         for text in ("", "not json", "[]", "null"):
             with self.subTest(text):

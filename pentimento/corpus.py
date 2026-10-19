@@ -50,7 +50,11 @@ def load_all(
 
 
 def with_harness_sessions(plans: list[plan_module.Plan], sessions: dict) -> dict:
-    """`sessions` plus the Cursor and Antigravity sessions of `plans`, which need them loaded."""
+    """`sessions` plus the Cursor and Antigravity sessions of `plans`, which need them loaded.
+
+    An Antigravity plan's `started` and `ended` become its transcript's, since the file's
+    own birth time says when it was copied or synced, not when the conversation ran.
+    """
     antigravity = antigravity_sessions.load(plans)
     for plan in plans:
         session = antigravity.get(plan.id) if plan.source == "antigravity" else None

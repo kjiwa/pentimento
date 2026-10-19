@@ -17,6 +17,10 @@ EXCLUDED_FILENAMES = {"README.md", "INDEX.md"}
 CURSOR_SUFFIX = ".plan.md"
 PLAN_SUFFIX = ".md"
 
+# Antigravity's own artifact name, reused by every conversation; the conversation
+# id keeps those ids unique.
+ANTIGRAVITY_GENERIC_STEMS = {"implementation_plan"}
+
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
@@ -127,9 +131,11 @@ def body_below_title(body: str) -> str:
     return "\n".join(lines)
 
 
-def _id_for(path: Path) -> str:
+def _id_for(path: Path, source: str = "claude") -> str:
     if path.name.endswith(CURSOR_SUFFIX):
         return path.name[: -len(CURSOR_SUFFIX)]
+    if source == "antigravity" and path.stem in ANTIGRAVITY_GENERIC_STEMS:
+        return f"{path.stem}-{path.parent.name[:8]}"
     return path.stem
 
 
@@ -137,7 +143,7 @@ def load(path: Path, sessions: dict | None = None, source: str = "claude") -> Pl
     with path.open(encoding="utf-8", errors="replace", newline="") as handle:
         text = handle.read()
     fields, body, extras = frontmatter.parse(text)
-    plan_id = _id_for(path)
+    plan_id = _id_for(path, source)
     session = (sessions or {}).get(plan_id)
     started = session.started if session else _file_started(path)
     ended = session.ended if session else ""

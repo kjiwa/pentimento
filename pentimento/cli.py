@@ -1252,7 +1252,7 @@ def cmd_hook(_args) -> int:
         if path is None:
             return 0
         plans, sessions = corpus.load_with_sessions()
-        target = corpus.by_id(plans, path.name)
+        target = corpus.by_id(plans, str(path)) or corpus.by_id(plans, path.name)
         if target is None:
             return 0
         changed = _backfill(

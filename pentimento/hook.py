@@ -26,13 +26,15 @@ def _payload(text: str) -> dict | None:
 def is_antigravity(text: str) -> bool:
     """Whether `text` is an Antigravity hook payload, which must be answered with JSON."""
     payload = _payload(text)
-    return payload is not None and "artifactDirectoryPath" in payload
+    return payload is not None and any(
+        key in payload for key in ("artifactDirectoryPath", "conversationId", "toolCall")
+    )
 
 
 def _written_file(payload: dict):
     tool_input = payload.get("tool_input")
-    if isinstance(tool_input, dict):
-        return tool_input.get("file_path")
+    if isinstance(tool_input, dict) and "file_path" in tool_input:
+        return tool_input["file_path"]
     tool_call = payload.get("toolCall")
     args = tool_call.get("args") if isinstance(tool_call, dict) else None
     return args.get("TargetFile") if isinstance(args, dict) else None

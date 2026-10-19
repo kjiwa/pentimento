@@ -145,7 +145,8 @@ One `PostToolUse` hook backfills a plan as it is edited. Copy
 [integrations/antigravity/hooks.json](../integrations/antigravity/hooks.json) to
 `~/.gemini/config/hooks.json`, or merge its `pentimento` entry into an existing
 file, and restart Antigravity. The matcher is a regex on the tool name; it limits
-the hook to the tools that write plans (`write_to_file`, `replace_file_content`),
+the hook to the tools that write files (`write_to_file`, `replace_file_content`, and
+variants of it),
 and `pentimento hook` ignores any other path itself. Antigravity requires a JSON
 object on stdout, so the hook prints `{}` and never plan ids, and, like the
 other hooks, fails open. Like the Claude Code hook, it caps `status` at

@@ -1964,6 +1964,15 @@ class CmdHookAntigravityTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(sessions={}), "release")
         self.assertEqual(reloaded.fields["status"], "partial")
 
+    def test_only_the_written_plan_is_backfilled(self):
+        other = self.brain / "other" / "unrelated.md"
+        other.parent.mkdir()
+        other.write_text("# Release\n\n## Progress\n- [x] done\n")
+        (self.brain / "other" / "unrelated.md.metadata.json").write_text("{}")
+        self.assertEqual(self._run_hook(self._write()), (0, "{}\n"))
+        self.assertIn("status: partial", self.plan.read_text())
+        self.assertNotIn("status:", other.read_text())
+
     def test_non_plan_tool_call_answers_with_empty_json(self):
         payload = self._payload(name="run_command", args={"CommandLine": "ls"})
         self.assertEqual(self._run_hook(payload), (0, "{}\n"))

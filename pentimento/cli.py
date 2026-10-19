@@ -657,9 +657,9 @@ def build_parser() -> argparse.ArgumentParser:
     _add_command(
         sub,
         "hook",
-        "run as a Claude Code PostToolUse hook; reads the payload on stdin",
+        "run as a PostToolUse hook; reads the payload on stdin",
         description=(
-            "Read a Claude Code PostToolUse payload on stdin and backfill\n"
+            "Read a PostToolUse payload on stdin and backfill\n"
             "frontmatter for the plan just written, deriving status capped at\n"
             f"partial. Wiring:\n{_DOCS_URL}/integrations.md"
         ),
@@ -1252,9 +1252,9 @@ def cmd_hook(_args) -> int:
         if path is None:
             return 0
         plans, sessions = corpus.load_with_sessions()
-        target = corpus.by_id(plans, str(path)) or corpus.by_id(plans, path.name)
-        if target is None:
-            return 0
+        target = next((p for p in plans if p.path.resolve() == path.resolve()), None)
+        if target is None or target.id in {p.id for p in check_module.duplicate_ids(plans)}:
+            return 0  # _backfill filters by id, so a shared id would rewrite the other plan too
         changed = _backfill(
             only={target.id}, max_status=vocabulary.PARTIAL, sessions=sessions, plans=plans
         )

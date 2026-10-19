@@ -116,8 +116,16 @@ class TouchedPlanPathTests(unittest.TestCase):
         result = hook.touched_plan_path(_fixture("antigravity", "post-tool-use-write.json"))
         self.assertEqual(
             result,
-            brain / "1732a0c9-feb1-4cfa-837d-af0493334343" / "smoke-test-gui-demo-mode.md",
+            brain / "0b1c2d3e-4f50-4a61-8b72-93a4b5c6d7e8" / "demo-plan.md",
         )
+
+    def test_antigravity_write_to_file_payload_returns_path(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        payload = json.loads(_fixture("antigravity", "post-tool-use-write.json"))
+        payload["toolCall"]["name"] = "write_to_file"
+        target = payload["toolCall"]["args"]["TargetFile"]
+        self.assertEqual(hook.touched_plan_path(json.dumps(payload)), Path(target))
 
     def test_antigravity_payloads_that_write_no_plan_are_none(self):
         os.environ["ANTIGRAVITY_BRAIN_DIR"] = "/home/user/.gemini/antigravity/brain"
@@ -136,7 +144,7 @@ class TouchedPlanPathTests(unittest.TestCase):
         brain = Path("/home/user/.gemini/antigravity/brain")
         os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
         text = _fixture("antigravity", "post-tool-use-write.json").replace(
-            "smoke-test-gui-demo-mode.md", "task.md"
+            "demo-plan.md", "task.md"
         )
         self.assertIsNone(hook.touched_plan_path(text))
 

@@ -238,7 +238,7 @@ the field is computed:
 | `status` | Yes | Derived from the body and frontmatter status signals, with no transcript involved. |
 | `parent` (body-referenced) | Yes | Derived from the plan body, with no transcript involved; see [`parent` is empty](troubleshooting.md#parent-is-empty). |
 | `parent` (session-prompt-derived) | No | Derived from the originating session's first prompt, and that transcript is machine-local. |
-| `project` | No | Derived from a session's `cwd` entries, or for Cursor from its [transcript](integrations.md#cursor): no session, no derivation. |
+| `project` | No | Derived from a session's `cwd` entries, or for Cursor and Antigravity from their [transcripts](integrations.md#cursor): no session, no derivation. |
 | `modified` | No | Not a frontmatter field; see [the Frontmatter table](../README.md#frontmatter). A fresh checkout's mtime is the checkout time, and there's no session to fall back to. |
 | `tags`, `intent`, operator-set `status` | Yes | Operator-authored frontmatter, written by `set`, never derived — plain YAML that travels with the file. |
 

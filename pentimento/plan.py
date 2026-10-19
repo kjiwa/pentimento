@@ -131,7 +131,7 @@ def body_below_title(body: str) -> str:
     return "\n".join(lines)
 
 
-def _id_for(path: Path, source: str = "claude") -> str:
+def _id_for(path: Path, source: str) -> str:
     if path.name.endswith(CURSOR_SUFFIX):
         return path.name[: -len(CURSOR_SUFFIX)]
     if source == "antigravity" and path.stem in ANTIGRAVITY_GENERIC_STEMS:

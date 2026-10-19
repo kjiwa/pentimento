@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+Fixed: the hook updates only the plan at the touched path, not a same-named plan
+from another source.
+
 ## 0.1.22
 
 Antigravity plans (`~/.gemini/antigravity/brain/<conversation>/<name>.md`) are a

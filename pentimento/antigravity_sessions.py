@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 
 from pentimento import cache as cache_module
@@ -21,7 +20,6 @@ from pentimento import sessions
 
 TRANSCRIPT = Path(".system_generated") / "logs" / "transcript.jsonl"
 
-_REQUEST = re.compile(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", re.DOTALL)
 _PATH_KEYS = ("TargetFile", "AbsolutePath")
 
 
@@ -70,7 +68,7 @@ def _parse_transcript(log_path: Path) -> dict:
             started = min(started or timestamp, timestamp)
             ended = max(ended, timestamp)
         if prompt is None and record.get("type") == "USER_INPUT":
-            prompt = _request_text(record.get("content"))
+            prompt = sessions.tagged_text(record.get("content"), "USER_REQUEST")
         for args in _tool_args(record):
             cwd = _decode(args.get("Cwd"))
             if launch is None and cwd and not _is_agent_tree(cwd):
@@ -107,16 +105,8 @@ def _decode(value) -> str | None:
     return decoded if isinstance(decoded, str) else value
 
 
-def _request_text(content) -> str | None:
-    if not isinstance(content, str):
-        return None
-    match = _REQUEST.search(content)
-    return match.group(1) if match else content
-
-
 def _is_agent_tree(path: str) -> bool:
-    agent_root = str(Path.home() / ".gemini")
-    return path == agent_root or path.startswith(agent_root + os.sep)
+    return sessions._contains(str(Path.home() / ".gemini"), path)
 
 
 def _is_home_path(path: str) -> bool:

@@ -171,26 +171,24 @@ class LineageTests(_Brain):
         parent = self.conversation(
             "aaaa",
             [_request("import"), _call("2026-10-15T22:12:00Z", Cwd=OTHER)],
-            plan_name="import_models_plan.md",
+            plan_name="schema_plan.md",
         )
         child = self.conversation(
             "bbbb",
             [
                 {
-                    **_request("/plan Follow-up to import_models_plan.md: iterate"),
+                    **_request("/plan Follow-up to schema_plan.md: iterate"),
                     "created_at": "2026-10-15T22:28:02Z",
                 },
                 _call("2026-10-15T22:29:00Z", Cwd=OTHER),
             ],
-            plan_name="pegboard_models_iteration_plan.md",
+            plan_name="schema_iteration_plan.md",
         )
         sessions = antigravity_sessions.load([parent, child])
         for plan in (parent, child):
             plan.fields["project"] = sessions[plan.id].project
             plan.started = sessions[plan.id].started
-        self.assertEqual(
-            lineage.derive_parent(child, [parent, child], sessions), "import_models_plan"
-        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], sessions), "schema_plan")
 
 
 if __name__ == "__main__":

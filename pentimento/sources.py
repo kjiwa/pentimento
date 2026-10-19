@@ -91,7 +91,6 @@ def _pattern(source: Source) -> str:
 
 
 def _root(source: Source, path: Path) -> Path:
-    """The directory a source's files sit directly in."""
     return path.parent.parent if source.nested else path.parent
 
 

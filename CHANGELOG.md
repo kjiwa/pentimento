@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.23
 
 Fixed: the hook updates only the plan at the touched path, not a same-named plan
 from another source.

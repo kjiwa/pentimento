@@ -35,6 +35,10 @@ Three kinds of plan are worth finding again:
   [`prior-plans` skill](https://github.com/kjiwa/pentimento/blob/main/docs/integrations.md#prior-plans-skill)
   has the agent run that search itself before it proposes a change.
 
+In harness-engineering terms, plans are the state layer: what one session
+leaves for the next. `pentimento hook` keeps that state current as the agent
+writes it, and the `prior-plans` skill has the agent read it back.
+
 A pentimento is the earlier composition showing through a repainted canvas;
 that is what a plans directory is.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.24
+
+Fixed: `history` and `status-behind-history` no longer count one session twice.
+Request-echo records and records written before the session slug existed were
+keyed to a second session id.
+
 ## 0.1.23
 
 Fixed: the hook updates only the plan at the touched path, not a same-named plan

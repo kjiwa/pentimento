@@ -13,6 +13,9 @@ sessions and `/plans` listings mention every id, but rarely as a tool target.
 
 A prescan for the literal `/plans/` before `json.loads` keeps a full sweep
 of the transcript corpus fast.
+
+Only `assistant` records count, and a transcript file is one session: its
+first `slug`, else the file stem.
 """
 
 from __future__ import annotations
@@ -68,6 +71,13 @@ def load(directory: Path | None = None) -> dict[str, list[Touch]]:
 
 
 def _touches_in(log_path: Path):
+    records = list(_plan_records(log_path))
+    session = next((r["slug"] for r in records if r.get("slug")), log_path.stem)
+    for record in records:
+        yield from _touches_in_record(record, session)
+
+
+def _plan_records(log_path: Path):
     try:
         with log_path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
@@ -80,18 +90,17 @@ def _touches_in(log_path: Path):
                     record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if isinstance(record, dict):
-                    yield from _touches_in_record(record, log_path)
+                if isinstance(record, dict) and record.get("type") == "assistant":
+                    yield record
     except OSError:
         return
 
 
-def _touches_in_record(record: dict, log_path: Path):
+def _touches_in_record(record: dict, session: str):
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, list):
         return
-    session = record.get("slug") or log_path.stem
     at = record.get("timestamp", "")
     cwd = record.get("cwd", "")
     for block in content:

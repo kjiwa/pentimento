@@ -28,6 +28,7 @@ def _isolate_cache(test):
 
 def _tool_use_record(*, slug, cwd, timestamp, tool, input_):
     return {
+        "type": "assistant",
         "slug": slug,
         "cwd": cwd,
         "timestamp": timestamp,
@@ -128,6 +129,41 @@ class LoadTests(unittest.TestCase):
         )
         result = touches.load(self.directory)["some-plan-eager-bird"]
         self.assertEqual(touches.worked(result, "some-plan-eager-bird"), [])
+
+    def test_a_request_echo_is_not_a_touch(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        echo = _tool_use_record(
+            slug=None,
+            cwd="",
+            timestamp="",
+            tool="Edit",
+            input_={"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"},
+        )
+        echo["type"] = "api-request-blob"
+        _write_jsonl(project_dir / "session.jsonl", [echo])
+        self.assertEqual(touches.load(self.directory), {})
+
+    def test_one_transcript_is_one_session(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        target = {"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"}
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                _tool_use_record(
+                    slug=slug,
+                    cwd="/home/user/example",
+                    timestamp=f"2026-09-0{day}T00:00:00.000Z",
+                    tool="Read",
+                    input_=target,
+                )
+                for day, slug in ((1, None), (2, "later-fox"), (3, "later-fox"))
+            ],
+        )
+        result = touches.load(self.directory)["some-plan-eager-bird"]
+        self.assertEqual({t.session for t in result}, {"later-fox"})
+        self.assertEqual(len(result), 3)
 
     def test_cursor_plan_suffix_resolves_to_the_bare_id(self):
         project_dir = self.directory / "-home-user-example"

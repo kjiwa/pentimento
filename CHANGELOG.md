@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.25
+
+Fixed: a transcript's session is its first slug even when that slug sits on a
+record that does not name a plan.
+
 ## 0.1.24
 
 Fixed: `history` and `status-behind-history` no longer count one session twice.

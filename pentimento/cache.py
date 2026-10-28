@@ -11,7 +11,7 @@ import os
 import tempfile
 from pathlib import Path
 
-VERSION = 6
+VERSION = 7
 
 
 def cache_dir() -> Path:

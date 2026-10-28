@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.26
+
+Fixed: delegating a plan to a subagent counts as work in `history` and
+`status-behind-history`. Claude Code names that tool `Agent`; `Task` records
+still count.
+
 ## 0.1.25
 
 Fixed: a transcript's session is its first slug even when that slug sits on a

@@ -14,6 +14,8 @@ set -eu
 readonly PLAN_ID=e2e-sample
 readonly CLAUDE_TIMEOUT=120
 readonly START_TRIES=30
+# The CLI does not offer these in -p mode.
+readonly UNOFFERED_TOOLS="MultiEdit NotebookEdit Task"
 
 _cleanup() {
   [ -z "${WATCHDOG_PID:-}" ] || kill "$WATCHDOG_PID" 2>/dev/null || true
@@ -75,6 +77,19 @@ _assert_output_has() {
     _fail "pentimento $* lacks '$_assert_output_has_expect'"
 }
 
+_assert_tools_offered() {
+  _assert_tools_offered_missing=$(PYTHONPATH="$ROOT" python3 -c '
+import json, sys
+from pentimento import touches
+offered = set()
+for line in open(sys.argv[1]):
+    offered |= {t.get("name") for t in json.loads(line)["request"].get("tools") or []}
+print(" ".join(sorted(touches._TOOLS - offered - set(sys.argv[2].split()))))
+' "$WORK_DIR/requests.log" "$UNOFFERED_TOOLS") || _fail "could not read the offered tools"
+  [ -z "$_assert_tools_offered_missing" ] ||
+    _fail "touches matches tools the CLI does not offer: $_assert_tools_offered_missing"
+}
+
 main() {
   ROOT=$(cd -- "$(dirname "$0")/../.." && pwd)
   readonly ROOT
@@ -95,6 +110,7 @@ main() {
   _assert_output_has "status: partial" show "$PLAN_ID"
   grep -q "status: not-started" "$HOME/.claude/plans/$PLAN_ID.md" ||
     _fail "a read command rewrote the plan"
+  _assert_tools_offered
   echo "e2e ok: no hooks, status derived live for $PLAN_ID"
 
   rm "$HOME/.claude/plans/$PLAN_ID.md"

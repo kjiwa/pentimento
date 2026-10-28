@@ -52,7 +52,7 @@ class ScannedTextTests(unittest.TestCase):
         self.assertEqual(touches._scanned_text("Edit", "/plans/x.md"), '"/plans/x.md"')
 
     def test_a_task_input_is_scanned_whole(self):
-        text = touches._scanned_text("Task", {"prompt": "see /plans/x.md"})
+        text = touches._scanned_text("Agent", {"prompt": "see /plans/x.md"})
         self.assertIn("/plans/x.md", text)
 
 
@@ -267,7 +267,7 @@ class LoadTests(unittest.TestCase):
                     slug="implement-plan-later-fox",
                     cwd="/home/user/example",
                     timestamp="2026-09-05T00:00:00.000Z",
-                    tool="Task",
+                    tool="Agent",
                     input_={"prompt": "Execute the plan at /home/user/.claude/plans/some-plan.md"},
                 ),
             ],
@@ -378,8 +378,14 @@ class TargetPathTests(unittest.TestCase):
         self.assertEqual([t.tool for t in result["other-plan"]], ["Read"])
 
     def test_task_prompt_naming_a_plan_is_a_touch(self):
+        result = self._load("Agent", {"prompt": "Execute " + self.PLAN})
+        self.assertEqual([t.tool for t in result["other-plan"]], ["Agent"])
+
+    def test_legacy_task_prompt_naming_a_plan_is_worked(self):
         result = self._load("Task", {"prompt": "Execute " + self.PLAN})
-        self.assertEqual([t.tool for t in result["other-plan"]], ["Task"])
+        touch = result["other-plan"][0]
+        self.assertEqual(touch.tool, "Task")
+        self.assertEqual(touches.worked(result["other-plan"], "other-plan"), [touch])
 
     def test_author_ignores_a_session_that_only_mentions_the_plan_in_content(self):
         result = self._load(

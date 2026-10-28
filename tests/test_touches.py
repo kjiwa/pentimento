@@ -183,6 +183,24 @@ class LoadTests(unittest.TestCase):
         result = touches.load(self.directory)["some-plan-eager-bird"]
         self.assertEqual({t.session for t in result}, {"later-fox"})
 
+    def test_a_transcript_without_a_slug_is_keyed_by_its_file_stem(self):
+        project_dir = self.directory / "-home-user-example"
+        project_dir.mkdir()
+        _write_jsonl(
+            project_dir / "session.jsonl",
+            [
+                _tool_use_record(
+                    slug=None,
+                    cwd="/home/user/example",
+                    timestamp="2026-09-01T00:00:00.000Z",
+                    tool="Read",
+                    input_={"file_path": "/home/user/.claude/plans/some-plan-eager-bird.md"},
+                )
+            ],
+        )
+        result = touches.load(self.directory)["some-plan-eager-bird"]
+        self.assertEqual({t.session for t in result}, {"session"})
+
     def test_cursor_plan_suffix_resolves_to_the_bare_id(self):
         project_dir = self.directory / "-home-user-example"
         project_dir.mkdir()

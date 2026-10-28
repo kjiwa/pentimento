@@ -7,7 +7,7 @@ session (see `author`) and every later session that reads, edits, or delegates w
 both leave records here; only edits, writes, and delegation count as work.
 A tool call names a plan only through its target path (`file_path`,
 `notebook_path`, `path`); file content or an edit's new text that merely
-mentions a plan does not. `Task` is the exception: a delegation prompt naming
+mentions a plan does not. `Agent` and `Task` are the exception: a delegation prompt naming
 a plan is the signal, so its whole input is scanned. pentimento's own dev
 sessions and `/plans` listings mention every id, but rarely as a tool target.
 
@@ -28,7 +28,8 @@ from pathlib import Path
 from pentimento import cache as cache_module
 from pentimento import sessions
 
-_WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Task"}
+_DELEGATION_TOOLS = {"Agent", "Task"}
+_WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"} | _DELEGATION_TOOLS
 _TOOLS = _WORK_TOOLS | {"Read"}
 _PATH_KEYS = ("file_path", "notebook_path", "path")
 _SLUG_KEY = '"slug":"'
@@ -127,7 +128,7 @@ def _touches_in_record(record: dict):
 
 
 def _scanned_text(tool: str, tool_input) -> str:
-    if tool == "Task" or not isinstance(tool_input, dict):
+    if tool in _DELEGATION_TOOLS or not isinstance(tool_input, dict):
         return json.dumps(tool_input)
     return "\n".join(tool_input[key] for key in _PATH_KEYS if isinstance(tool_input.get(key), str))
 

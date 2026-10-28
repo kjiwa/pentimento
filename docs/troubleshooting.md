@@ -114,8 +114,8 @@ which columns appear when.
 
 `pentimento: no session history for <id>; searched: <directory>` (on stderr,
 exit 0) means no transcript under that directory (`AGENT_SESSIONS_DIR`, default
-`~/.claude/projects`) contains a tool call whose target path, or a `Task`
-call's prompt, names that plan. It is never a claim the plan wasn't worked.
+`~/.claude/projects`) contains a tool call whose target path, or an `Agent` (or `Task`) call's
+prompt, names that plan. It is never a claim the plan wasn't worked.
 Common causes: the work happened in a session whose transcript has since been
 deleted (Claude Code prunes old transcripts), or on a different machine. A
 Cursor or Antigravity chat never appears in `history`, since those transcripts

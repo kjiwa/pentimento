@@ -11,8 +11,8 @@ mentions a plan does not. `Task` is the exception: a delegation prompt naming
 a plan is the signal, so its whole input is scanned. pentimento's own dev
 sessions and `/plans` listings mention every id, but rarely as a tool target.
 
-A prescan for the literal `/plans/` before `json.loads` keeps a full sweep
-of the transcript corpus fast.
+A prescan for the literal `/plans/` (or, until a slug is found, `"slug":"`)
+before `json.loads` keeps a full sweep of the transcript corpus fast.
 
 Only `assistant` records count, and a transcript file is one session: its
 first `slug`, else the file stem.
@@ -31,6 +31,7 @@ from pentimento import sessions
 _WORK_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Task"}
 _TOOLS = _WORK_TOOLS | {"Read"}
 _PATH_KEYS = ("file_path", "notebook_path", "path")
+_SLUG_KEY = '"slug":"'
 _PLAN_PATH = re.compile(r"/plans/([^/\"\s]+?)\.(?:plan\.)?md")
 
 
@@ -71,32 +72,44 @@ def load(directory: Path | None = None) -> dict[str, list[Touch]]:
 
 
 def _touches_in(log_path: Path):
-    records = list(_plan_records(log_path))
-    session = next((r["slug"] for r in records if r.get("slug")), log_path.stem)
-    for record in records:
-        yield from _touches_in_record(record, session)
+    found: list[Touch] = []
+    slug = None
+    for line in _lines(log_path):
+        names_plan = "/plans/" in line
+        if not names_plan and (slug or _SLUG_KEY not in line):
+            continue
+        record = _parse(line)
+        if record is None:
+            continue
+        slug = slug or _slug_of(record)
+        if names_plan and record.get("type") == "assistant":
+            found.extend(_touches_in_record(record))
+    session = slug or log_path.stem
+    return [dataclasses.replace(t, session=session) for t in found]
 
 
-def _plan_records(log_path: Path):
+def _lines(log_path: Path):
     try:
         with log_path.open(encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                if "/plans/" not in line:
-                    continue
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(record, dict) and record.get("type") == "assistant":
-                    yield record
+            yield from handle
     except OSError:
         return
 
 
-def _touches_in_record(record: dict, session: str):
+def _parse(line: str) -> dict | None:
+    try:
+        record = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def _slug_of(record: dict) -> str | None:
+    slug = record.get("slug")
+    return slug if isinstance(slug, str) and slug else None
+
+
+def _touches_in_record(record: dict):
     message = record.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, list):
@@ -110,7 +123,7 @@ def _touches_in_record(record: dict, session: str):
         if tool not in _TOOLS:
             continue
         for plan_id in _PLAN_PATH.findall(_scanned_text(tool, block.get("input", {}))):
-            yield Touch(plan_id=plan_id, session=session, tool=tool, at=at, cwd=cwd)
+            yield Touch(plan_id=plan_id, session="", tool=tool, at=at, cwd=cwd)
 
 
 def _scanned_text(tool: str, tool_input) -> str:

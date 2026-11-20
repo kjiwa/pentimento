@@ -37,10 +37,15 @@ def load(directory: Path | None = None) -> dict[str, Session]:
     if not directory.is_dir():
         return {}
 
+    try:
+        project_dirs = sorted(p for p in directory.iterdir() if p.is_dir())
+    except OSError:
+        return {}
+
     cached = cache_module.read("sessions")
     fresh: dict[str, dict] = {}
     by_slug: dict[str, dict] = {}
-    for project_dir in sorted(p for p in directory.iterdir() if p.is_dir()):
+    for project_dir in project_dirs:
         _load_project(project_dir, cached, fresh, by_slug)
     cache_module.write("sessions", fresh)
 

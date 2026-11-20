@@ -154,8 +154,16 @@ object on stdout, so the hook prints `{}` and never plan ids, and, like the
 other hooks, fails open. Like the Claude Code hook, it caps `status` at
 `partial`.
 
-Antigravity hooks run with their own `PATH`, so `pentimento` must be on it. If
-`status` stops advancing, run `pentimento check`.
+Antigravity hooks run with their own `PATH`, so `pentimento` must be on it.
+Agent commands run under the terminal sandbox, which sees only the workspace and
+system directories, so `pentimento` fails with `operation not permitted` until
+Settings > General > Global Permissions grants `read_file` on its executable's
+directory and Python environment (`~/.local/bin` and `~/.local/share/uv` for
+`uv tool install`), on the source tree for an editable install, and on the plan
+directories, plus `write_file` on `~/.cache/pentimento`. The Claude Code and
+Cursor transcript directories need no grant, but without one, sandboxed `history`
+and fields derived from those transcripts come up empty. If `status` stops
+advancing, run `pentimento check`.
 
 A plan reads its own conversation's transcript, `.system_generated/logs/
 transcript.jsonl` in the same directory, so there is no matching rule:

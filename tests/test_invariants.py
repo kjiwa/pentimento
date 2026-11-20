@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from pentimento import cli, corpus, frontmatter
+from pentimento import cli, corpus, cursor_sessions, frontmatter, sessions, sources, touches
 
 ROOT = Path(__file__).parent.parent
 HISTORY_PLAN = "api-auth-cleanup"
@@ -246,6 +246,66 @@ class IdentityTests(FixtureCorpusTestCase):
         for line, record in zip(lines, records):
             with self.subTest(plan=record["id"], code=record["code"]):
                 self.assert_resolves(line.split()[1], record["id"])
+
+
+@unittest.skipIf(os.geteuid() == 0, "root reads past chmod 0")
+class UnreadableInputTests(unittest.TestCase):
+    """Optional inputs that cannot be listed read as empty; they never fail a command."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        self.plans = root / "plans"
+        self.plans.mkdir()
+        (self.plans / "alpha.md").write_text("# Alpha\n\n## Progress\n- [x] a\n")
+        self.sessions = self._unreadable(root / "sessions", "-proj", "log.jsonl")
+        self.cursor = self._unreadable(root / "cursor", "proj/agent-transcripts/x", "log.jsonl")
+        self.blocked_plans = self._unreadable(root / "blocked-plans", "", "beta.md")
+        env = mock.patch.dict(
+            os.environ,
+            {
+                "AGENT_PLANS_DIR": str(self.plans),
+                "AGENT_SESSIONS_DIR": str(self.sessions),
+                "CURSOR_SESSIONS_DIR": str(self.cursor),
+                "CURSOR_PLANS_DIR": str(root / "no-such-cursor-plans-dir"),
+                "ANTIGRAVITY_BRAIN_DIR": str(root / "no-such-brain-dir"),
+                "XDG_CACHE_HOME": str(root / "cache"),
+            },
+        )
+        env.start()
+        self.addCleanup(env.stop)
+
+    def _unreadable(self, directory: Path, subdirectory: str, name: str) -> Path:
+        holder = directory / subdirectory
+        holder.mkdir(parents=True)
+        (holder / name).write_text("{}\n")
+        directory.chmod(0)
+        self.addCleanup(directory.chmod, 0o755)
+        return directory
+
+    def test_unreadable_sessions_load_is_empty(self):
+        self.assertEqual(sessions.load(self.sessions), {})
+
+    def test_unreadable_cursor_sessions_load_is_empty(self):
+        self.assertEqual(cursor_sessions.load([], self.cursor), {})
+
+    def test_unreadable_touches_load_is_empty(self):
+        self.assertEqual(touches.load(self.sessions), {})
+
+    def test_unreadable_sources_files_is_empty(self):
+        source = sources.Source(name="claude", directories=[self.blocked_plans], suffix=".md")
+        self.assertEqual(sources.files(source), [])
+
+    def test_unreadable_inputs_do_not_fail_commands(self):
+        for argv in (["list"], ["show", "alpha"], ["history", "alpha"]):
+            with self.subTest(argv=argv):
+                self.assertEqual(self._exit_code(argv), 0)
+
+    @staticmethod
+    def _exit_code(argv) -> int:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return cli.main(argv)
 
 
 if __name__ == "__main__":

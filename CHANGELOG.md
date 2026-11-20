@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.27
+
+Fixed: an unreadable transcript or plan directory reads as empty instead of
+failing.
+
 ## 0.1.26
 
 Fixed: delegating a plan to a subagent counts as work in `history` and

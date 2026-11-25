@@ -99,6 +99,87 @@ class LoadTests(_Brain):
         result = antigravity_sessions.load([home_plan, repo_plan])
         self.assertEqual(result[home_plan.id].project, "tools")
 
+    def test_home_launch_is_resolved_from_v2_path_args(self):
+        home_plan = self.conversation(
+            "aaaa",
+            [
+                _request("x"),
+                _call("2026-10-15T22:12:00Z", Cwd=str(HOME)),
+                _call("2026-10-15T22:13:00Z", Path=REPO + "/a.py"),
+            ],
+        )
+        repo_plan = self.conversation(
+            "bbbb", [_request("y"), _call("2026-10-15T22:12:00Z", Cwd=REPO)]
+        )
+        result = antigravity_sessions.load([home_plan, repo_plan])
+        self.assertEqual(result[home_plan.id].project, "tools")
+
+    def test_cwdless_v2_transcript_resolves_against_known_roots(self):
+        v2_plan = self.conversation(
+            "aaaa",
+            [
+                _request("x"),
+                _call("2026-10-15T22:12:00Z", Path=GEMINI + "/antigravity/brain/aaaa/plan.md"),
+                _call("2026-10-15T22:13:00Z", Path=REPO + "/a.py"),
+            ],
+        )
+        repo_plan = self.conversation(
+            "bbbb", [_request("y"), _call("2026-10-15T22:12:00Z", Cwd=REPO)]
+        )
+        result = antigravity_sessions.load([v2_plan, repo_plan])
+        self.assertEqual(result[v2_plan.id].project, "tools")
+
+    def test_cwdless_v2_transcript_falls_back_to_enclosing_git_root(self):
+        fake_home = Path(self._tmp.name) / "home"
+        repo = fake_home / "src" / "tools"
+        (repo / ".git").mkdir(parents=True)
+        target = repo / "pkg" / "mod.py"
+        target.parent.mkdir(parents=True)
+        target.write_text("")
+        agent_skill = fake_home / ".agents" / "skills" / "demo" / "SKILL.md"
+        agent_skill.parent.mkdir(parents=True)
+        agent_skill.write_text("")
+        with mock.patch.object(Path, "home", return_value=fake_home):
+            plan = self.conversation(
+                "aaaa",
+                [
+                    _request("x"),
+                    _call("2026-10-15T22:12:00Z", Path=str(agent_skill)),
+                    _call("2026-10-15T22:12:30Z", Path=str(agent_skill)),
+                    _call("2026-10-15T22:13:00Z", Path=str(target)),
+                ],
+            )
+            result = antigravity_sessions.load([plan])
+        self.assertEqual(result[plan.id].project, "tools")
+
+    def test_cwdless_v2_transcript_returns_empty_on_tie_or_no_git_root(self):
+        fake_home = Path(self._tmp.name) / "home"
+        repo_a = fake_home / "src" / "alpha"
+        repo_b = fake_home / "src" / "beta"
+        (repo_a / ".git").mkdir(parents=True)
+        (repo_b / ".git").mkdir(parents=True)
+        loose = fake_home / "notes" / "scratch.txt"
+        loose.parent.mkdir(parents=True)
+        loose.write_text("")
+        with mock.patch.object(Path, "home", return_value=fake_home):
+            tied = self.conversation(
+                "aaaa",
+                [
+                    _request("x"),
+                    _call("2026-10-15T22:12:00Z", Path=str(repo_a / "a.py")),
+                    _call("2026-10-15T22:13:00Z", Path=str(repo_b / "b.py")),
+                ],
+                plan_name="tied.md",
+            )
+            nongit = self.conversation(
+                "bbbb",
+                [_request("y"), _call("2026-10-15T22:12:00Z", Path=str(loose))],
+                plan_name="nongit.md",
+            )
+            result = antigravity_sessions.load([tied, nongit])
+        self.assertEqual(result[tied.id].project, "")
+        self.assertEqual(result[nongit.id].project, "")
+
     def test_plan_without_a_transcript_gets_no_session(self):
         plan = self.conversation("aaaa", [_request("x")])
         (self.brain / "aaaa" / antigravity_sessions.TRANSCRIPT).unlink()

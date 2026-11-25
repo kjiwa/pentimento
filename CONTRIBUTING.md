@@ -11,7 +11,7 @@ uv run --only-group dev ruff format --check
 The shell tests skip when `shellcheck`, `zsh`, or `fish` is not installed;
 install them to run those checks.
 
-CI runs the suite on Python 3.9, the supported minimum, and 3.13. To check 3.9 locally:
+CI runs the suite on Python 3.9, the supported minimum, and 3.14. To check 3.9 locally:
 
 ```sh
 uv run --python 3.9 --no-project python -m unittest discover

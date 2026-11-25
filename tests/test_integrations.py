@@ -28,7 +28,7 @@ class AntigravityHooksTests(unittest.TestCase):
         self.assertEqual(self.group["hooks"], [{"command": "pentimento hook"}])
 
     def test_matcher_covers_the_plan_write_tools_seen_in_payloads(self):
-        names = set()
+        names = {"edit_file"}
         for path in ANTIGRAVITY_FIXTURES.glob("post-tool-use-write*.json"):
             names.add(json.loads(path.read_text())["toolCall"]["name"])
         self.assertTrue(names)

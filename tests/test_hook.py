@@ -127,6 +127,33 @@ class TouchedPlanPathTests(unittest.TestCase):
         target = payload["toolCall"]["args"]["TargetFile"]
         self.assertEqual(hook.touched_plan_path(json.dumps(payload)), Path(target))
 
+    def test_antigravity_v2_write_and_edit_payloads_return_path(self):
+        brain = Path("/home/user/.gemini/antigravity/brain")
+        os.environ["ANTIGRAVITY_BRAIN_DIR"] = str(brain)
+        expected = brain / "0b1c2d3e-4f50-4a61-8b72-93a4b5c6d7e8" / "demo-plan.md"
+        self.assertEqual(
+            hook.touched_plan_path(_fixture("antigravity", "post-tool-use-write-v2.json")),
+            expected,
+        )
+        edit_payload = json.loads(_fixture("antigravity", "post-tool-use-write-v2.json"))
+        edit_payload["toolCall"]["name"] = "edit_file"
+        self.assertEqual(hook.touched_plan_path(json.dumps(edit_payload)), expected)
+
+    def test_antigravity_workspace_extracts_cwd_or_workspace_paths(self):
+        self.assertEqual(
+            hook.antigravity_workspace(_fixture("antigravity", "post-tool-use-write-v2.json")),
+            "/home/user/src/tools",
+        )
+        payload = json.loads(_fixture("antigravity", "post-tool-use-write-v2.json"))
+        del payload["cwd"]
+        self.assertEqual(hook.antigravity_workspace(json.dumps(payload)), "/home/user/src/tools")
+        payload["cwd"] = str(Path.home() / ".gemini" / "antigravity" / "scratch")
+        payload["workspacePaths"] = [str(Path.home())]
+        self.assertIsNone(hook.antigravity_workspace(json.dumps(payload)))
+        self.assertIsNone(
+            hook.antigravity_workspace(_fixture("claude", "post-tool-use-write.json"))
+        )
+
     def test_antigravity_payloads_that_write_no_plan_are_none(self):
         os.environ["ANTIGRAVITY_BRAIN_DIR"] = "/home/user/.gemini/antigravity/brain"
         for name in ("post-tool-use-command.json", "stop.json"):

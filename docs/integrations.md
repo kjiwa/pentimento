@@ -147,8 +147,8 @@ One `PostToolUse` hook backfills a plan as it is edited. Copy
 [integrations/antigravity/hooks.json](../integrations/antigravity/hooks.json) to
 `~/.gemini/config/hooks.json`, or merge its `pentimento` entry into an existing
 file, and restart Antigravity. The matcher is a regex on the tool name; it limits
-the hook to the tools that write files (`write_to_file`, `replace_file_content`, and
-variants of it),
+the hook to the tools that write files (`write_file`, `edit_file`,
+`write_to_file`, `replace_file_content`, and variants of it),
 and `pentimento hook` ignores any other path itself. Antigravity requires a JSON
 object on stdout, so the hook prints `{}` and never plan ids, and, like the
 other hooks, fails open. Like the Claude Code hook, it caps `status` at
@@ -169,8 +169,10 @@ A plan reads its own conversation's transcript, `.system_generated/logs/
 transcript.jsonl` in the same directory, so there is no matching rule:
 
 - `project` is the name of the first working directory a command ran in that is
-  outside `~/.gemini`. A conversation that ran nothing outside it leaves
-  `project` unset.
+  outside `~/.gemini`. When a transcript has no command `Cwd`, `pentimento hook`
+  falls back to the payload's `cwd` or `workspacePaths`, and transcript reads
+  vote non-dotfile paths under `$HOME` against known roots and enclosing `.git`
+  directories. A tie or no match leaves `project` unset.
 - `created` and `modified` come from the earliest and latest step timestamps.
 - The first user request (inside `<USER_REQUEST>`) feeds prompt lineage, so
   `Follow-up to schema_plan.md` yields `parent: schema_plan`.

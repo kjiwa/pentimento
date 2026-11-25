@@ -4,13 +4,16 @@ Antigravity keeps each conversation in `<brain>/<uuid>/`, with the plan next
 to a `.system_generated/logs/transcript.jsonl` that records one step per line.
 A plan therefore names its own transcript -- no matching is needed. Steps
 carry `created_at`; the first `USER_INPUT` holds the prompt inside
-`<USER_REQUEST>`; tool calls carry JSON-encoded string args (`Cwd`,
-`TargetFile`, `AbsolutePath`), and the first working directory outside
-Antigravity's own `~/.gemini` tree is the project.
+`<USER_REQUEST>`; tool calls carry JSON-encoded string args (`Cwd`, `Path`,
+`TargetFile`, `AbsolutePath`). `project` comes from the first working directory
+outside Antigravity's own `~/.gemini` tree, or, when a transcript has no `Cwd`,
+from voting touched non-agent paths against known launch roots and enclosing
+`.git` directories.
 """
 
 from __future__ import annotations
 
+import collections
 import json
 import os
 from pathlib import Path
@@ -20,7 +23,7 @@ from pentimento import sessions
 
 TRANSCRIPT = Path(".system_generated") / "logs" / "transcript.jsonl"
 
-_PATH_KEYS = ("TargetFile", "AbsolutePath")
+_PATH_KEYS = ("Path", "TargetFile", "AbsolutePath")
 
 
 def load(plans) -> dict[str, sessions.Session]:
@@ -48,7 +51,7 @@ def load(plans) -> dict[str, sessions.Session]:
     return {
         plan_id: sessions.Session(
             slug=plan_id,
-            project=sessions._project_name(parsed["launch"], parsed["paths"], roots),
+            project=_project_for(parsed, roots),
             started=parsed["started"],
             prompt=parsed["prompt"],
             ended=parsed["ended"],
@@ -111,3 +114,61 @@ def _is_agent_tree(path: str) -> bool:
 
 def _is_home_path(path: str) -> bool:
     return os.path.isabs(path) and sessions._contains(str(Path.home()), path)
+
+
+def _is_home_dot_tree(path: str) -> bool:
+    try:
+        rel = Path(path).relative_to(Path.home())
+    except ValueError:
+        return False
+    return bool(rel.parts) and rel.parts[0].startswith(".")
+
+
+def _project_for(parsed: dict, roots: set[str]) -> str:
+    if parsed["launch"]:
+        return sessions._project_name(parsed["launch"], parsed["paths"], roots)
+    paths = [p for p in parsed["paths"] if not _is_home_dot_tree(p)]
+    if not paths:
+        return ""
+    return _root_vote(paths, roots) or _git_root_vote(paths)
+
+
+def _root_vote(paths: list[str], roots: set[str]) -> str:
+    if not roots:
+        return ""
+    votes: collections.Counter[str] = collections.Counter()
+    for path in paths:
+        containing = [r for r in roots if sessions._contains(r, path)]
+        if containing:
+            votes[min(containing, key=len)] += 1
+    return _winning_basename(votes)
+
+
+def _git_root(path: str) -> str | None:
+    home = Path.home()
+    current = Path(path)
+    for candidate in (current, *current.parents):
+        if candidate == home or not sessions._contains(str(home), str(candidate)):
+            return None
+        try:
+            if (candidate / ".git").exists():
+                return str(candidate)
+        except OSError:
+            return None
+    return None
+
+
+def _git_root_vote(paths: list[str]) -> str:
+    votes: collections.Counter[str] = collections.Counter()
+    for path in paths:
+        root = _git_root(path)
+        if root:
+            votes[root] += 1
+    return _winning_basename(votes)
+
+
+def _winning_basename(votes: collections.Counter[str]) -> str:
+    top = votes.most_common(2)
+    if top and (len(top) == 1 or top[0][1] > top[1][1]):
+        return os.path.basename(top[0][0])
+    return ""

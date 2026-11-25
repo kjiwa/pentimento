@@ -1239,6 +1239,25 @@ def _backfill(
     )
 
 
+def _with_antigravity_workspace(sessions: dict, plan_id: str, text: str) -> dict:
+    existing = sessions.get(plan_id)
+    if existing and existing.project:
+        return sessions
+    workspace = hook_module.antigravity_workspace(text)
+    project = os.path.basename(workspace) if workspace else ""
+    if not project:
+        return sessions
+    updated = dict(sessions)
+    updated[plan_id] = sessions_module.Session(
+        slug=plan_id,
+        project=project,
+        started=existing.started if existing else "",
+        prompt=existing.prompt if existing else "",
+        ended=existing.ended if existing else "",
+    )
+    return updated
+
+
 def cmd_hook(_args) -> int:
     # PostToolUse treats exit 2 as blocking and surfaces other non-zero exits, so a
     # crash here would visibly interrupt every session -- fail open and silent instead.
@@ -1255,6 +1274,8 @@ def cmd_hook(_args) -> int:
         target = next((p for p in plans if p.path.resolve() == path.resolve()), None)
         if target is None or target.id in {p.id for p in check_module.duplicate_ids(plans)}:
             return 0  # _backfill filters by id, so a shared id would rewrite the other plan too
+        if antigravity:
+            sessions = _with_antigravity_workspace(sessions, target.id, text)
         changed = _backfill(
             only={target.id}, max_status=vocabulary.PARTIAL, sessions=sessions, plans=plans
         )

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+Fixed: `pentimento hook`, `integrations/antigravity/hooks.json`, and Antigravity
+session reads support Antigravity 2.0's `write_file`/`edit_file` tools, `Path`
+arguments, and `Cwd`-less transcripts (using hook `cwd`/`workspacePaths` and
+enclosing `.git` roots for `project`).
+
 ## 0.1.27
 
 Fixed: an unreadable transcript or plan directory reads as empty instead of

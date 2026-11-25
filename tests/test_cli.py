@@ -1964,6 +1964,20 @@ class CmdHookAntigravityTests(unittest.TestCase):
         reloaded = corpus.by_id(corpus.load_all(sessions={}), "release")
         self.assertEqual(reloaded.fields["status"], "partial")
 
+    def test_antigravity_v2_write_file_backfills_status_and_project_from_cwd(self):
+        payload = json.dumps(
+            {
+                "artifactDirectoryPath": str(self.plan.parent),
+                "cwd": "/home/user/src/tools",
+                "toolCall": {"name": "write_file", "args": {"Path": str(self.plan)}},
+            }
+        )
+        code, stdout = self._run_hook(payload)
+        self.assertEqual((code, stdout), (0, "{}\n"))
+        reloaded = corpus.by_id(corpus.load_all(sessions={}), "release")
+        self.assertEqual(reloaded.fields["status"], "partial")
+        self.assertEqual(reloaded.fields["project"], "tools")
+
     def test_only_the_written_plan_is_backfilled(self):
         other = self.brain / "other" / "unrelated.md"
         other.parent.mkdir()

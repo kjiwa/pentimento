@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.28
 
 Fixed: `pentimento hook`, `integrations/antigravity/hooks.json`, and Antigravity
 session reads support Antigravity 2.0's `write_file`/`edit_file` tools, `Path`

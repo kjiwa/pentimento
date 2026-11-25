@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.29
+
+Fixed: short ids and codename lineage ignore a trailing `-of-<uuid>` suffix on
+Claude Code plan ids, displaying the `adjective-noun` codename instead of the
+UUID tail while still accepting trailing UUID segments on input.
+
 ## 0.1.28
 
 Fixed: `pentimento hook`, `integrations/antigravity/hooks.json`, and Antigravity

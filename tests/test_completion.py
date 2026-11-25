@@ -316,10 +316,6 @@ class ColumnsSkipSelectedTests(_CorpusTestCase):
         self.assertNotIn("-tags,tags", self._values("-tags,ta"))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 @unittest.skipUnless(shutil.which("bash"), "bash is not installed")
 class BashEqualsFormTests(unittest.TestCase):
     """bash 4+ splits `--flag=value` at `=` in COMP_WORDS; bash 3 keeps it whole."""
@@ -357,3 +353,7 @@ class BashEqualsFormTests(unittest.TestCase):
         reply, seen = self._reply(["pentimento", "list", "--status", "co"], 3)
         self.assertEqual(reply, ["--columns=+created"])
         self.assertEqual(seen, "__complete list --status co")
+
+
+if __name__ == "__main__":
+    unittest.main()

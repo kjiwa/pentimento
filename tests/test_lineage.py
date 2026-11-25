@@ -286,6 +286,53 @@ class DeriveParentTests(unittest.TestCase):
         parent_id = lineage.derive_parent(child, [parent, child], {})
         self.assertEqual(parent_id, parent.id)
 
+    def test_codename_in_prompt_and_preamble_resolves_uuid_parent(self):
+        parent = FakePlan(
+            id="some-prompt-snazzy-orbit-of-11111111-1111-4111-8111-111111111111",
+            body="# Parent\n",
+            started="2026-11-20T00:00:00Z",
+        )
+        from_prompt = FakePlan(
+            id="follow-up-eager-fox-of-22222222-2222-4222-8222-222222222222",
+            body="# Child\n",
+            started="2026-11-21T00:00:00Z",
+        )
+        from_preamble = FakePlan(
+            id="another-calm-owl-of-33333333-3333-4333-8333-333333333333",
+            body="Follow-up to snazzy-orbit\n\n## Progress\n- [ ] todo\n",
+            started="2026-11-21T00:00:00Z",
+        )
+        sessions = {from_prompt.id: FakeSession(prompt="Continue snazzy-orbit")}
+        candidates = [parent, from_prompt, from_preamble]
+        self.assertEqual(lineage.derive_parent(from_prompt, candidates, sessions), parent.id)
+        self.assertEqual(lineage.derive_parent(from_preamble, candidates, {}), parent.id)
+
+    def test_underscore_glued_codename_resolves_uuid_parent(self):
+        parent = FakePlan(
+            id="some-prompt-snazzy-orbit-of-11111111-1111-4111-8111-111111111111",
+            body="# Parent\n",
+            started="2026-11-20T00:00:00Z",
+        )
+        child = FakePlan(
+            id="follow-up-eager-fox-of-22222222-2222-4222-8222-222222222222",
+            body="# Child\n\nContinues plan_snazzy-orbit\n",
+            started="2026-11-21T00:00:00Z",
+        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent.id)
+
+    def test_embedded_codename_does_not_match_uuid_parent(self):
+        parent = FakePlan(
+            id="some-prompt-snazzy-orbit-of-11111111-1111-4111-8111-111111111111",
+            body="# Parent\n",
+            started="2026-11-20T00:00:00Z",
+        )
+        child = FakePlan(
+            id="follow-up-eager-fox-of-22222222-2222-4222-8222-222222222222",
+            body="Follow-up to snazzy-orbit-extra\n",
+            started="2026-11-21T00:00:00Z",
+        )
+        self.assertIsNone(lineage.derive_parent(child, [parent, child], {}))
+
 
 class ScanCodenamesTests(unittest.TestCase):
     IDS = ["implement-the-plan-eager-bird"]

@@ -3,10 +3,10 @@
 Two signals, tried in order:
 1. Session prompt -- plan ids referenced in the originating session's first
    user prompt, either as `<id>.md` / `<id>.plan.md` or by a trailing
-   codename (a hyphen-aligned suffix, e.g. `wobbly-willow` for
-   `...-wobbly-willow`). Underscore ids (Cursor, Antigravity) match only
-   exactly; an underscore token that matches no id is retried as the hyphenated
-   codenames inside it.
+   codename (a hyphen-aligned suffix of the full id or pre-`-of-<uuid>` stem,
+   e.g. `wobbly-willow` for `...-wobbly-willow` or `...-wobbly-willow-of-<uuid>`).
+   Underscore ids (Cursor, Antigravity) match only exactly; an underscore token
+   that matches no id is retried as the hyphenated codenames inside it.
 2. Plan preamble -- the same reference scan over the body above the first
    `##` heading, so a parent's `## Progress` notes about executed children
    are not read as references.

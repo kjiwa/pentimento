@@ -1220,6 +1220,37 @@ class AmbiguousShortIdTests(unittest.TestCase):
         self.assertIn("bar-abundant-rabbit", out.getvalue())
 
 
+class UuidSuffixCliTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.directory = Path(self._tmp.name)
+        _isolate_env(self, self.directory)
+
+    def test_by_id_prefers_exact_stem_over_uuid_suffixed_plan(self):
+        _write(self.directory, "foo-bar", "# Exact\n")
+        uuid_id = "foo-bar-of-11111111-1111-4111-8111-111111111111"
+        _write(self.directory, uuid_id, "# UUID\n")
+        plans = corpus.load_all(self.directory)
+        self.assertEqual(corpus.by_id(plans, "foo-bar").id, "foo-bar")
+        self.assertEqual(corpus.by_id(plans, "8111-111111111111").id, uuid_id)
+
+    def test_list_displays_codename_and_show_accepts_codename_and_uuid_tail(self):
+        uuid_id = "some-prompt-logical-island-of-11111111-1111-4111-8111-111111111111"
+        _write(self.directory, uuid_id, "# Logical island\n")
+
+        code, out, _ = _main(["list", "--color", "never"])
+        self.assertEqual(code, 0)
+        self.assertIn("logical-island", out)
+        self.assertNotIn("8111-111111111111", out)
+
+        for wanted in ("logical-island", "8111-111111111111"):
+            with self.subTest(wanted=wanted):
+                code, out, _ = _main(["show", wanted, "--color", "never"])
+                self.assertEqual(code, 0)
+                self.assertIn(f"id: {uuid_id}", " ".join(_header_block(out.splitlines())))
+
+
 class CmdBackfillRederiveTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

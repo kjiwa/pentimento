@@ -49,10 +49,13 @@ Run `pentimento <command> --help` for that command's own examples.
 
 `list`, `tree`, and `check` tables display the short id: the shortest
 trailing run of at least two hyphen-separated segments that is unique across
-the corpus. `show`, `set` (including `--parent`), `tree`, `history`, and
-`backfill --only` accept the short id, the full id, the filename (`<id>.md`
-or `<id>.plan.md`), or the path. `--format json|tsv` output always emits the
-full id.
+the corpus. When an id ends in `-of-<uuid>`, its pre-UUID stem is tried first so
+the short id keeps the `adjective-noun` codename, falling back to trailing
+segments of the full id if the pre-UUID stem collides. `show`, `set`
+(including `--parent`), `tree`, `history`, and `backfill --only` accept a
+trailing segment run of either the pre-UUID stem or the full id, the filename
+(`<id>.md` or `<id>.plan.md`), or the path. `--format json|tsv` output always
+emits the full id.
 
 ## Columns
 

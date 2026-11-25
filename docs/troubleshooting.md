@@ -35,9 +35,9 @@ Views try two signals in order, stopping at the first that finds a
 candidate: a reference in the originating session's first prompt, then the same
 reference scan over the plan's body above its first `##` heading. A reference
 is either an `<id>.md` / `<id>.plan.md` literal or a
-[short id](reference.md#plan-ids), a trailing run of segments such as
-`auth-redesign` for `api-auth-redesign`. A short id that matches more than one
-candidate resolves to nothing. Either way, the reference must
+[short id](reference.md#plan-ids) such as `auth-redesign` for `api-auth-redesign`
+or `wobbly-willow` for `...-wobbly-willow-of-<uuid>`. A short id that matches
+more than one candidate resolves to nothing. Either way, the reference must
 also pass every one of these guards: not the plan itself, in the same project,
 from the same source, and strictly earlier by `started`. Among references that
 pass, an exact `<id>.md` reference outranks a short-id reference, and the

@@ -39,10 +39,10 @@ is either an `<id>.md` / `<id>.plan.md` literal or a
 or `wobbly-willow` for `...-wobbly-willow-of-<uuid>`. A short id that matches
 more than one candidate resolves to nothing. Either way, the reference must
 also pass every one of these guards: not the plan itself, in the same project,
-from the same source, and strictly earlier by `started`. Among references that
+and strictly earlier by `started`. Among references that
 pass, an exact `<id>.md` reference outranks a short-id reference, and the
 earliest-mentioned reference wins a tie within that ranking. If no reference
-passes all four guards, `parent` stays unset rather than guessed. Only these
+passes all three guards, `parent` stays unset rather than guessed. Only these
 references derive a parent; `set --parent` is the way to state any other.
 
 ## `status: unknown`

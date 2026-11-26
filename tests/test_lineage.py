@@ -188,18 +188,68 @@ class DeriveParentTests(unittest.TestCase):
         parent_id = lineage.derive_parent(child, [parent, child], {})
         self.assertIsNone(parent_id)
 
-    def test_codename_reference_from_a_different_source_is_ignored(self):
+    def test_codename_reference_resolves_parent_from_a_different_source(self):
         parent = FakePlan(
-            id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z", source="cursor"
+            id="implement-the-plan-eager-bird",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
+            source="claude",
         )
         child = FakePlan(
             id="slow-otter",
             body="See eager-bird\n\n## Progress\n- [ ] todo\n",
             started="2026-09-02T00:00:00Z",
+            source="antigravity",
+        )
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent.id)
+
+    def test_prompt_exact_reference_resolves_parent_from_a_different_source(self):
+        parent = FakePlan(
+            id="eager-bird",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
             source="claude",
         )
-        parent_id = lineage.derive_parent(child, [parent, child], {})
-        self.assertIsNone(parent_id)
+        child = FakePlan(
+            id="slow-otter",
+            body="# Child\n\n## Progress\n- [ ] todo\n",
+            started="2026-09-02T00:00:00Z",
+            source="antigravity",
+        )
+        sessions = {child.id: FakeSession(prompt="Resume ~/.claude/plans/eager-bird.md")}
+        self.assertEqual(lineage.derive_parent(child, [parent, child], sessions), parent.id)
+
+    def test_cross_source_candidate_in_a_different_project_is_ignored(self):
+        parent = FakePlan(
+            id="eager-bird",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
+            project="other",
+            source="claude",
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="See ~/.claude/plans/eager-bird.md\n",
+            started="2026-09-02T00:00:00Z",
+            project="example",
+            source="antigravity",
+        )
+        self.assertIsNone(lineage.derive_parent(child, [parent, child], {}))
+
+    def test_cross_source_candidate_started_not_earlier_is_ignored(self):
+        parent = FakePlan(
+            id="eager-bird",
+            body="# Parent\n",
+            started="2026-09-02T00:00:00Z",
+            source="claude",
+        )
+        child = FakePlan(
+            id="slow-otter",
+            body="See ~/.claude/plans/eager-bird.md\n",
+            started="2026-09-02T00:00:00Z",
+            source="antigravity",
+        )
+        self.assertIsNone(lineage.derive_parent(child, [parent, child], {}))
 
     def test_codename_reference_started_after_plan_is_ignored(self):
         parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-10T00:00:00Z")
@@ -238,18 +288,20 @@ class DeriveParentTests(unittest.TestCase):
         parent_id = lineage.derive_parent(child, [parent, child], {})
         self.assertIsNone(parent_id)
 
-    def test_candidate_from_a_different_source_is_ignored(self):
+    def test_preamble_exact_reference_resolves_parent_from_a_different_source(self):
         parent = FakePlan(
-            id="eager-bird", body="# Parent\n", started="2026-09-01T00:00:00Z", source="cursor"
+            id="eager-bird",
+            body="# Parent\n",
+            started="2026-09-01T00:00:00Z",
+            source="claude",
         )
         child = FakePlan(
             id="slow-otter",
-            body="See ~/.claude/plans/eager-bird.md\n",
+            body="See ~/.claude/plans/eager-bird.md\n\n## Progress\n- [ ] todo\n",
             started="2026-09-02T00:00:00Z",
-            source="claude",
+            source="antigravity",
         )
-        parent_id = lineage.derive_parent(child, [parent, child], {})
-        self.assertIsNone(parent_id)
+        self.assertEqual(lineage.derive_parent(child, [parent, child], {}), parent.id)
 
     def test_candidate_started_after_plan_is_ignored(self):
         parent = FakePlan(id="eager-bird", body="# Parent\n", started="2026-09-10T00:00:00Z")

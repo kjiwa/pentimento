@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.30
+
+Fixed: parent lineage resolves referenced plans across sources (Claude Code,
+Cursor, and Antigravity) when `project` matches and `started` is earlier.
+
 ## 0.1.29
 
 Fixed: short ids and codename lineage ignore a trailing `-of-<uuid>` suffix on

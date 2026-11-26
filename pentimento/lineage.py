@@ -12,7 +12,7 @@ Two signals, tried in order:
    are not read as references.
 
 Both are filtered by the same guards -- not the plan itself, same project,
-same source, strictly earlier `started`. Within a tier, an exact `<id>.md`
+strictly earlier `started`. Within a tier, an exact `<id>.md`
 reference outranks a codename reference, and within a group the earliest
 mention wins; `max(started)` is only a fallback for a genuine positional
 tie.
@@ -91,8 +91,6 @@ def _eligible(plan, candidate_ids, by_id, project):
         if candidate is None or candidate.id == plan.id:
             continue
         if candidate.project != project:
-            continue
-        if candidate.source != plan.source:
             continue
         if not (
             candidate.created_at and plan.created_at and candidate.created_at < plan.created_at

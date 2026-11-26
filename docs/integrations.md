@@ -175,7 +175,9 @@ transcript.jsonl` in the same directory, so there is no matching rule:
   directories. A tie or no match leaves `project` unset.
 - `created` and `modified` come from the earliest and latest step timestamps.
 - The first user request (inside `<USER_REQUEST>`) feeds prompt lineage, so
-  `Follow-up to schema_plan.md` yields `parent: schema_plan`.
+  `Follow-up to schema_plan.md` yields `parent: schema_plan`. Prompt and
+  preamble lineage resolves parents across sources (for example, an Antigravity
+  plan referencing a Claude Code parent in the same project).
 
 Like Cursor's, these transcripts feed only those fields, never `history`.
 
